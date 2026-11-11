@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: dafuweng
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    autoDeploy: true
