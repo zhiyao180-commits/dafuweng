@@ -156,10 +156,10 @@ class Game {
   // ---------- 掷骰与移动 ----------
   roll(p) {
     must(this.phase === 'play', '游戏未进行');
-    must(p === this.cur, '还没轮到你');
+    must(p === this.cur, '还没轮到您');
     must(!this.pending, '请先处理当前事项');
     must(!this.rolled || this.canRollAgain, '本回合已经掷过了');
-    must(p.money >= 0, '你欠着钱，请先卖房/抵押筹钱');
+    must(p.money >= 0, '您欠着钱，请先卖房/抵押筹钱');
     const d = [die(), die()];
     this.dice = d;
     const sum = d[0] + d[1], dbl = d[0] === d[1];
@@ -329,7 +329,7 @@ class Game {
   // ---------- 刷卡付款 ----------
   swipe(p) {
     const pd = this.pending;
-    must(pd && pd.kind === 'pay' && pd.payer === p.id, '现在不需要你付款');
+    must(pd && pd.kind === 'pay' && pd.payer === p.id, '现在不需要您付款');
     must(p.money >= pd.amount, `余额不足（需要 ${fmt(pd.amount)}），请先卖房或抵押`);
     this.pending = null;
     if (pd.to === 'each') {
@@ -378,7 +378,7 @@ class Game {
   bid(p, inc) {
     const a = this.auction;
     must(a, '没有拍卖');
-    must(!p.bankrupt, '你已破产');
+    must(!p.bankrupt, '您已破产');
     inc = Number(inc);
     must(RULES.bids.includes(inc), '加价无效');
     const amt = a.bid + inc;
@@ -413,7 +413,7 @@ class Game {
 
   useCard(p) {
     must(p === this.cur && p.inJail && !this.rolled && !this.pending, '现在不能用出狱卡');
-    must(p.goojf.length, '你没有出狱卡');
+    must(p.goojf.length, '您没有出狱卡');
     const deck = p.goojf.shift();
     const list = deck === 'chance' ? CHANCE : CHEST;
     this.decks[deck].push(list.findIndex((c) => c.fx.t === 'goojf'));
@@ -424,7 +424,7 @@ class Game {
   // ---------- 房产管理 ----------
   ownProp(p, pos) {
     const st = this.props[pos];
-    must(st && st.owner === p.id, '这不是你的地产');
+    must(st && st.owner === p.id, '这不是您的地产');
     must(!this.auction, '拍卖进行中');
     return [BOARD[pos], st];
   }
@@ -507,7 +507,7 @@ class Game {
     const giveMoney = Math.max(0, Math.floor(Number(o.giveMoney) || 0)), getMoney = Math.max(0, Math.floor(Number(o.getMoney) || 0));
     must(give.length || get.length || giveMoney || getMoney, '交易内容为空');
     this.tradable(p.id, give); this.tradable(to.id, get);
-    must(p.money >= giveMoney, '你的余额不够');
+    must(p.money >= giveMoney, '您的余额不够');
     this.trades = this.trades.filter((t) => t.from !== p.id);
     const t = { id: this.tradeSeq++, from: p.id, to: to.id, give, get, giveMoney, getMoney };
     this.trades.push(t);
@@ -523,7 +523,7 @@ class Game {
     if (!accept) { this.say(t.from === p.id ? `${from.name} 撤回了交易` : `${to.name} 拒绝了 ${from.name} 的交易`); return; }
     this.tradable(from.id, t.give); this.tradable(to.id, t.get);
     must(from.money >= t.giveMoney, `${from.name} 余额已不足`);
-    must(to.money >= t.getMoney, '你的余额不足');
+    must(to.money >= t.getMoney, '您的余额不足');
     t.give.forEach((i) => (this.props[i].owner = to.id));
     t.get.forEach((i) => (this.props[i].owner = from.id));
     if (t.giveMoney) this.transfer(from, to, t.giveMoney, '交易');
@@ -537,7 +537,7 @@ class Game {
   bankrupt(p, forced) {
     const pd = this.pending;
     const owing = pd && pd.kind === 'pay' && pd.payer === p.id;
-    must(forced || owing || p.money < 0, '你没有欠款，不能宣布破产');
+    must(forced || owing || p.money < 0, '您没有欠款，不能宣布破产');
     let creditor = null;
     if (owing && pd.to && pd.to !== 'each') creditor = this.byId(pd.to);
     else if (!owing && p.creditor) creditor = this.byId(p.creditor);
@@ -742,10 +742,10 @@ class Game {
 
   // ---------- 回合 ----------
   endTurn(p) {
-    must(p === this.cur, '还没轮到你');
-    must(this.rolled && !this.canRollAgain, '你还需要掷骰子');
+    must(p === this.cur, '还没轮到您');
+    must(this.rolled && !this.canRollAgain, '您还需要掷骰子');
     must(!this.pending, '请先处理当前事项');
-    must(p.money >= 0, '你还欠着钱');
+    must(p.money >= 0, '您还欠着钱');
     this.nextTurn();
   }
 
@@ -772,13 +772,13 @@ class Game {
   // ---------- 入口 ----------
   act(token, type, a = {}) {
     const p = this.P(token);
-    must(p, '找不到你的玩家身份');
+    must(p, '找不到您的玩家身份');
     if (type === 'pay') { if (['card', 'phone', 'cash'].includes(a.m)) p[a.k === 'recv' ? 'recv' : 'pay'] = a.m; return; }
     if (type === 'look') return this.setLook(p, a.color, a.icon);
     if (type === 'start') return this.start(p);
     if (type === 'size') return this.setSize(p, a.n);
     must(this.phase === 'play', '游戏不在进行中');
-    if (p.bankrupt) throw new GameError('你已破产，只能观战');
+    if (p.bankrupt) throw new GameError('您已破产，只能观战');
     const map = {
       roll: () => this.roll(p), buy: () => this.buy(p), cancelBuy: () => this.cancelBuy(p),
       auction: () => this.startAuction(p), bid: () => this.bid(p, a.inc), swipe: () => this.swipe(p),

@@ -81,6 +81,19 @@ function toggleMute() { Snd.muted = !Snd.muted; localStorage.setItem('dfw_mute',
 $('#btnMute').textContent = Snd.muted ? '🔇' : '🔊';
 $('#btnTheme').onclick = toggleTheme; $('#btnMute').onclick = toggleMute; $('#btnHelp').onclick = () => openLocal({ type: 'help' });
 
+// ================= 片头动画 =================
+(function intro() {
+  const box = $('#intro'), scenes = [...box.querySelectorAll('.scene')];
+  $('#inCity').innerHTML = ['巴黎', '吉隆坡', '纽约', '北京', '悉尼', '伦敦', '上海', '开罗'].map((n, i) => `<span style="--i:${i}">${landmark(n)}</span>`).join('');
+  $('#inPpl').innerHTML = TOKENS.slice(0, 8).map((t, i) => `<span style="--i:${i};background:${COLORS[i]}">${t}</span>`).join('');
+  $('#lobbyBg').innerHTML = ['巴黎', '东京', '纽约', '北京', '罗马', '迪拜', '伦敦', '悉尼', '上海', '吉隆坡'].map((n, i) => `<i style="--i:${i};left:${(i * 37 + 5) % 96}%;color:${Object.values(GROUPS)[i].color}">${landmark(n)}</i>`).join('');
+  let k = -1, timer;
+  const end = () => { clearTimeout(timer); box.classList.add('gone'); setTimeout(() => box.remove(), 700); };
+  const next = () => { if (++k >= scenes.length) return end(); scenes.forEach((s, i) => s.classList.toggle('on', i === k)); timer = setTimeout(next, +scenes[k].dataset.ms); };
+  $('#introSkip').onclick = end;
+  if (localStorage.getItem('dfw_room')) end(); else next();   // 断线重连时不再播放
+})();
+
 // ================= 大厅 =================
 $('#nameInput').value = localStorage.getItem('dfw_name') || '';
 $('#passInput').value = localStorage.getItem('dfw_pass') || '';
@@ -130,7 +143,7 @@ function renderLobby() {
   if (host) $('#sizeEdit').innerHTML = [2, 3, 4, 5, 6, 7, 8].map((k) => `<button data-n="${k}" class="${k === max ? 'on' : ''}" ${k < n ? 'disabled' : ''}>${k}人</button>`).join('');
   $('#startBtn').hidden = !host; $('#waitHost').hidden = host;
   $('#startBtn').disabled = n < 2;
-  $('#startBtn').textContent = n < 2 ? '至少需要 2 人' : n < max ? `人没到齐，先开始（${n} 人）` : `开始游戏（${n} 人）`;
+  $('#startBtn').textContent = n < 2 ? '至少需要 2 人' : n < max ? `人数未满，直接开始（${n} 人）` : `开始游戏（${n} 人）`;
 }
 $('#colorPick').onclick = (e) => { const b = e.target.closest('button'); if (b && !b.classList.contains('taken')) act('look', { color: b.dataset.color }); };
 $('#iconPick').onclick = (e) => { const b = e.target.closest('button'); if (b && !b.classList.contains('taken')) act('look', { icon: b.dataset.icon }); };
@@ -313,18 +326,22 @@ async function payVisual(p, dir, T, done) {
     await wait(430 * T); pos.classList.add('nfc'); Snd.tone(1800, 0.09, 'sine', 0.08); Snd.tone(2400, 0.16, 'sine', 0.08, 0.1); ph.classList.add('ok'); ph.firstElementChild.textContent = '✓'; done();
     await wait(800 * T); ph.className = 'pphone'; pos.classList.remove('nfc'); await wait(260 * T);
   } else if (m === 'cash') {
-    const box = $('#posCash'); box.innerHTML = '';
+    // 现金：ATM 从台面升起，存入（付款）或吐出（收款）钞票
+    const atm = $('#atm'), box = atm.querySelector('.atm-notes'); box.innerHTML = '';
+    atm.querySelector('.atm-s').innerHTML = `${p.icon} ${esc(p.name)}<br>${dir === 'out' ? '现金存入中…' : '现金支取中…'}`;
+    atm.classList.add('show'); Snd.swoosh(); await wait(520 * T);
     for (let i = 0; i < 6; i++) {
       const n = document.createElement('div'); n.className = 'note'; n.textContent = '$'; box.appendChild(n);
-      const r = (i - 2.5) * 9, far = `translate(${r * 1.6}px, calc(var(--u) * -11)) rotate(${r}deg)`, slot = 'translate(0, calc(var(--u) * 1.2)) scaleY(.15)';
-      n.animate(dir === 'out' ? [{ transform: far, opacity: 1 }, { transform: slot, opacity: 0.2 }] : [{ transform: slot, opacity: 0.2 }, { transform: far, opacity: 1 }, { transform: far, opacity: 0, offset: 1 }], { duration: (dir === 'out' ? 420 : 900) * T, delay: i * 90 * T, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'both' });
-      setTimeout(() => Snd.noise(0.05, 0, 0.2, 2600), i * 90 * T);
+      const r = (i - 2.5) * 7, far = `translate(${r * 2.2}px, calc(var(--u) * 8.5)) rotate(${r}deg)`, slot = 'translate(0, 0) scaleY(.12)';
+      n.animate(dir === 'out' ? [{ transform: far, opacity: 1 }, { transform: slot, opacity: 0.3 }] : [{ transform: slot, opacity: 0.3 }, { transform: far, opacity: 1 }], { duration: 480 * T, delay: i * 95 * T, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'both' });
+      setTimeout(() => Snd.noise(0.05, 0, 0.2, 2600), i * 95 * T);
     }
-    await wait(560 * T); posShake(); done(); await wait(900 * T); box.innerHTML = '';
+    await wait(700 * T); atm.querySelector('.atm-s').innerHTML = '交易成功 ✓'; done(); await wait(950 * T);
+    atm.classList.remove('show'); await wait(320 * T); box.innerHTML = '';
   } else { await cardIn(p, T); done(); await wait(620 * T); await cardOut(T); }
 }
 function showMini(ids) { $('#posMini').innerHTML = ids.map((id, i) => { const p = pById(id); return p ? `<div class="avatar" style="background:${p.color};animation-delay:${i * 60}ms">${p.icon}</div>` : ''; }).join(''); }
-function posDone() { const led = $('#posLed'); led.className = 'pos-led ok'; clearTimeout(posDone.t); posDone.t = setTimeout(() => { posScreen('WORLD BANK', 'READY'); led.className = 'pos-led'; $('#posMini').innerHTML = ''; }, 2200); }
+function posDone() { const led = $('#posLed'); led.className = 'pos-led ok'; const rc = $('#receipt'); rc.innerHTML = `WORLD BANK<br><b>${esc($('#posAmount').textContent)}</b><br>交易成功 ✓<br>· · · · · ·`; rc.classList.add('print'); Snd.noise(0.35, 0, 0.12, 4200); setTimeout(() => rc.classList.remove('print'), 1900); clearTimeout(posDone.t); posDone.t = setTimeout(() => { posScreen('WORLD BANK', 'READY'); led.className = 'pos-led'; $('#posMini').innerHTML = ''; }, 2200); }
 async function posAnim(f) {
   const T = fxQueue.length > 2 ? 0.4 : 0.75;
   $('#posLed').className = 'pos-led busy';
@@ -366,7 +383,7 @@ function celebrate(a) {
     setTimeout(() => Snd.tone(1800 + Math.random() * 900, 0.06, 'sine', 0.05), i * 35 + 500);
   }
   if (tier >= 2) {
-    const b = $('#bigwin'); b.innerHTML = `<small>${tier === 3 ? '💰 发大财了！' : '🎉 进账'}</small>+${fmt(a)}`; b.className = 'bigwin t' + tier; void b.offsetWidth; b.classList.add('show'); Snd.win();
+    const b = $('#bigwin'); b.innerHTML = `<small>${tier === 3 ? '💰 巨额进账' : '进账'}</small>+${fmt(a)}`; b.className = 'bigwin t' + tier; void b.offsetWidth; b.classList.add('show'); Snd.win();
     clearTimeout(celebrate.t); celebrate.t = setTimeout(() => (b.className = 'bigwin'), tier === 3 ? 2600 : 1700);
   } else Snd.buy();
   if (tier === 3) confetti();
@@ -461,11 +478,11 @@ async function playFx(f) {
     await banner(`${f.level === 5 ? '🏨' : '🏠'} ${BOARD[f.pos].name} ${f.level === 5 ? '升级为酒店' : '建起第 ' + f.level + ' 栋房屋'}`, { color: sqColor(f.pos), ms: 650 });
   } else if (f.type === 'turn') {
     $('#diceSum').className = 'dice-sum';
-    if (f.pid === myId) { Snd.turn(); await banner(`${avatar(p)} 轮到你了！`, { color: p.color, big: true, ms: 1300 }); }
+    if (f.pid === myId) { Snd.turn(); await banner(`${avatar(p)} 现在是您的回合`, { color: p.color, big: true, ms: 1300 }); }
     else if (p) { $('#status').innerHTML = `${dotOf(p.id)}轮到 ${esc(p.name)}`; await wait(150); }
   } else if (f.type === 'set') {
     const g = GROUPS[f.group];
-    if (f.pid === myId) { Snd.win(); await banner(`🎉 你集齐了${g.name}地产！可以开始建房了`, { color: g.color, big: true, ms: 2200 }); }
+    if (f.pid === myId) { Snd.win(); await banner(`🎉 您已集齐${g.name}地产，现可开始建房`, { color: g.color, big: true, ms: 2200 }); }
     else await banner(`${avatar(p)}${esc(p.name)} 集齐了${g.name}地产`, { color: g.color, ms: 900 });
   } else if (f.type === 'rich') {
     Snd.win(); confetti();
@@ -481,7 +498,7 @@ async function playFx(f) {
   } else if (f.type === 'stage') {
     Snd.alarm(); await banner(`📈 通货膨胀 · 第 ${f.stage + 1} 阶段　租金 / 工资 / 收益 ×${Math.round(f.infl * 100) / 100}`, { color: '#E2A100', big: true, ms: 2000 });
   } else if (f.type === 'boost') {
-    Snd.win(); await banner('🚀 进程加速器启动！看右上角你的任务', { color: '#0A6FE0', big: true, ms: 2000 });
+    Snd.win(); await banner('🚀 进程加速器已启动，请查看右上角的个人任务', { color: '#0A6FE0', big: true, ms: 2000 });
   } else if (f.type === 'task') {
     Snd.win(); if (f.pid === myId) confetti(); await banner(`✅ ${esc(p.name)} 完成任务，奖励 ${fmt(f.reward)}`, { color: '#2DA44E', big: f.pid === myId, ms: 1400 });
   } else if (f.type === 'xchg') {
@@ -511,53 +528,53 @@ function renderPlayers() {
 
 function renderActions() {
   const el = $('#actions'), m = me(), cur = curP(), pd = S.pending;
-  if (!m) { el.innerHTML = '<div class="act-sub">观战中</div>'; return; }
+  if (!m) { el.innerHTML = '<div class="act-sub">观战模式</div>'; return; }
   const myTurn = cur.id === myId, K = (k) => `<kbd>${k}</kbd>`;
   let h = '';
   if (S.phase === 'end') h = `<div class="act-title">游戏结束</div>`;
-  else if (m.bankrupt) h = `<div class="act-title">你已破产</div><div class="act-sub">可以继续观战</div>`;
-  else if (fxBusy) h = `<div class="act-title">${myTurn ? '你的回合' : esc(cur.name) + ' 的回合'}</div><div class="act-sub">…</div>`;
+  else if (m.bankrupt) h = `<div class="act-title">您已破产</div><div class="act-sub">可以继续观战</div>`;
+  else if (fxBusy) h = `<div class="act-title">${myTurn ? '您的回合' : esc(cur.name) + ' 的回合'}</div><div class="act-sub">…</div>`;
   else if (pd && pd.kind === 'pay' && pd.payer === myId) {
     const to = pd.to === 'each' ? '每位玩家' : pd.to ? pById(pd.to).name : '银行';
     h = `<div class="act-title">需支付 ${fmt(pd.amount)}</div><div class="act-sub">${esc(pd.reason)} → ${esc(to)}</div>`;
     if (m.money >= pd.amount) h += `<div class="act-sub">👉 把棋盘中间的银行卡拖进刷卡机</div><button class="btn primary wide" data-act="swipe">刷卡支付${K('空格')}</button>`;
-    else h += `<div class="act-sub" style="color:var(--red)">余额不足，还差 ${fmt(pd.amount - m.money)}。点「我的地产」卖房、抵押，或到交易所卖地</div>`;
+    else h += `<div class="act-sub" style="color:var(--red)">余额不足，尚缺 ${fmt(pd.amount - m.money)}。点「我的地产」卖房、抵押，或到交易所卖地</div>`;
     const row = [];
-    if (pd.cancelTo) row.push(`<button class="btn" data-act="cancelBuy">不买了</button>`);
+    if (pd.cancelTo) row.push(`<button class="btn" data-act="cancelBuy">取消购买</button>`);
     if (m.money < pd.amount) row.push(`<button class="btn danger" data-act="bankrupt" data-confirm="确定宣布破产吗？">宣布破产</button>`);
     if (row.length) h += `<div class="act-row">${row.join('')}</div>`;
   } else if (pd && pd.pid === myId && pd.kind === 'stock') {
     h = `<div class="act-title">📈 股票交易所</div><div class="act-sub">押一部分现金，掷一颗骰子：4–6 点翻倍（赚到押注同样多的钱），1–3 点亏掉押注的一半</div>
-      <div class="act-row">${[10, 25, 50].map((x) => `<button class="btn primary" data-stock="${x}">押 ${x}%<br><small>${fmt(Math.floor(m.money * x / 100))}</small></button>`).join('')}</div><button class="btn wide" data-stock="0">不玩，路过</button>`;
+      <div class="act-row">${[10, 25, 50].map((x) => `<button class="btn primary" data-stock="${x}">押 ${x}%<br><small>${fmt(Math.floor(m.money * x / 100))}</small></button>`).join('')}</div><button class="btn wide" data-stock="0">放弃</button>`;
   } else if (pd && pd.pid === myId && pd.kind === 'portal') {
     h = `<div class="act-title">🌀 传送门</div><div class="act-sub">👉 直接点击地图上任意一格，飞过去（会触发那一格的效果）</div>`;
   } else if (pd && pd.pid === myId && pd.kind === 'force') {
     h = `<div class="act-title">🔨 强制拍卖</div><div class="act-sub">选别人的一块没盖房的地，全场重新拍卖，成交价归原主人</div><div class="act-row"><button class="btn primary" data-local="force">选一块地</button><button class="btn" data-force="skip">放弃</button></div>`;
   } else if (myTurn && pd && pd.kind === 'buy') {
     const sq = BOARD[pd.pos];
-    h = `<div class="act-title">要买下 ${sq.name} 吗？</div><div class="act-sub">${S.props[pd.pos].fore ? '法拍房半价 ' : '价格 '}${fmt(priceOf(pd.pos))} · 你有 ${fmt(m.money)}</div>
+    h = `<div class="act-title">要买下 ${sq.name} 吗？</div><div class="act-sub">${S.props[pd.pos].fore ? '法拍房半价 ' : '价格 '}${fmt(priceOf(pd.pos))} · 您有 ${fmt(m.money)}</div>
          <div class="act-row"><button class="btn primary" data-act="buy">购买${K('B')}</button><button class="btn" data-act="auction">拍卖${K('A')}</button></div>`;
   } else if (myTurn && !pd) {
-    if (m.money < 0) h = `<div class="act-title" style="color:var(--red)">你欠款 ${fmt(-m.money)}</div><div class="act-sub">先卖房、抵押或卖地，否则只能破产</div><button class="btn danger wide" data-act="bankrupt" data-confirm="确定宣布破产吗？">宣布破产</button>`;
+    if (m.money < 0) h = `<div class="act-title" style="color:var(--red)">您欠款 ${fmt(-m.money)}</div><div class="act-sub">先卖房、抵押或卖地，否则只能破产</div><button class="btn danger wide" data-act="bankrupt" data-confirm="确定宣布破产吗？">宣布破产</button>`;
     else if (m.inJail && !S.rolled) {
-      h = `<div class="act-title">你在监狱里（第 ${m.jailTurns + 1} 次尝试）</div><div class="act-sub">掷出双数即可出狱，或缴纳保释金</div>
+      h = `<div class="act-title">您在监狱里（第 ${m.jailTurns + 1} 次尝试）</div><div class="act-sub">掷出双数即可出狱，或缴纳保释金</div>
         <button class="btn primary big wide" data-act="roll">🎲 掷骰子${K('空格')}</button>
         <div class="act-row"><button class="btn" data-act="payJail">保释金 ${fmt(RULES.jailFine)}${K('J')}</button>${m.goojf.length ? `<button class="btn green" data-act="useCard">出狱卡${K('U')}</button>` : ''}</div>`;
-    } else if (!S.rolled || S.canRollAgain) h = `<div class="act-title">${S.canRollAgain ? '双数！再掷一次' : '轮到你了'}</div><button class="btn primary big wide" data-act="roll">🎲 掷骰子${K('空格')}</button>`;
-    else h = `<div class="act-title">本回合行动完成</div><div class="act-sub">可以建房、交易，然后结束回合</div><button class="btn primary big wide" data-act="endTurn">结束回合${K('空格')}</button>`;
+    } else if (!S.rolled || S.canRollAgain) h = `<div class="act-title">${S.canRollAgain ? '掷出双数，请再次掷骰' : '请掷骰'}</div><button class="btn primary big wide" data-act="roll">🎲 掷骰子${K('空格')}</button>`;
+    else h = `<div class="act-title">本回合操作已完成</div><div class="act-sub">可继续建房或交易，完成后请结束回合</div><button class="btn primary big wide" data-act="endTurn">结束回合${K('空格')}</button>`;
   } else {
-    let what = '思考中…';
+    let what = '操作中…';
     if (pd && pd.kind === 'pay') what = `正在支付 ${fmt(pd.amount)}（${esc(pd.reason)}）`;
     else if (pd && pd.kind === 'buy') what = `考虑是否购买 ${BOARD[pd.pos].name}`;
     else if (pd && pd.kind === 'card') what = '正在看卡片';
     else if (pd && pd.kind === 'auction') what = '拍卖进行中';
     h = `<div class="act-title">${esc(cur.name)} 的回合</div><div class="act-sub">${what}</div>`;
-    if (m.money < 0) h += `<div class="act-sub" style="color:var(--red)">你欠款 ${fmt(-m.money)}，请卖房/抵押</div><button class="btn danger wide" data-act="bankrupt" data-confirm="确定宣布破产吗？">宣布破产</button>`;
-    if (!cur.connected && m.host) h += `<div class="act-row"><button class="btn" data-act="skip">跳过这一回合</button><button class="btn danger" data-kick="${cur.id}">踢出房间</button></div>`;
+    if (m.money < 0) h += `<div class="act-sub" style="color:var(--red)">您欠款 ${fmt(-m.money)}，请卖房/抵押</div><button class="btn danger wide" data-act="bankrupt" data-confirm="确定宣布破产吗？">宣布破产</button>`;
+    if (!cur.connected && m.host) h += `<div class="act-row"><button class="btn" data-act="skip">跳过这一回合</button><button class="btn danger" data-kick="${cur.id}">移出房间</button></div>`;
   }
   const mine = S.trades.find((t) => t.from === myId);
   if (mine && S.phase === 'play') h += `<div class="act-sub">⏳ 等待 ${esc(pById(mine.to).name)} 回复报价 <button class="btn sm" data-act="respond" data-id="${mine.id}" data-accept="">撤回</button></div>`;
-  if (S.phase === 'play' && !m.bankrupt) h += `<button class="btn market" data-local="market">🏛 地产交易所 · 买地 / 卖地${K('T')}</button><div class="act-row"><button class="btn sm" data-local="send">💸 给别人转账</button>${m.host ? `<button class="btn sm" data-act="endGame" data-confirm="确定现在结束游戏，按总资产排名吗？">结束并结算</button>` : ''}</div>`;
+  if (S.phase === 'play' && !m.bankrupt) h += `<button class="btn market" data-local="market">🏛 地产交易所${K('T')}</button><div class="act-row"><button class="btn sm" data-local="send">💸 转账 / 互动</button>${m.host ? `<button class="btn sm" data-act="endGame" data-confirm="确定现在结束游戏，按总资产排名吗？">结束并结算</button>` : ''}</div>`;
   if (m.host && S.phase === 'play') h += `<button class="btn boost" data-act="boost" data-confirm="启动进程加速器？\n· 立刻通货膨胀一级（租金、工资、收益 ×1.5）\n· 每个人领到一个新任务，完成有奖励">🚀 进程加速器</button>`;
   if (el.dataset.h !== h) { el.dataset.h = h; el.innerHTML = h; }
 }
@@ -566,8 +583,8 @@ function renderAssets() {
   const m = me(); if (!m) return;
   const list = Object.keys(S.props).map(Number).filter((i) => S.props[i].owner === myId);
   const st = (i) => S.props[i];
-  $('#assets').innerHTML = `<div class="panel-title"><span>我的地产（${list.length}）· 点击可建房/抵押</span><span>总资产 ${fmt(m.worth)}</span></div>` +
-    (list.length ? `<div class="chips">${list.map((i) => `<div class="chip-p ${st(i).mortgaged ? 'mort' : ''}" data-deed="${i}"><i style="background:${sqColor(i)}"></i>${BOARD[i].name}${st(i).houses ? `<small>${st(i).houses === 5 ? '🏨' : '🏠' + st(i).houses}</small>` : ''}</div>`).join('')}</div>` : '<div class="act-sub" style="margin:0">还没有地产，踩到空地就能买</div>') +
+  $('#assets').innerHTML = `<div class="panel-title"><span>持有地产（${list.length}）· 点击可建房或抵押</span><span>总资产 ${fmt(m.worth)}</span></div>` +
+    (list.length ? `<div class="chips">${list.map((i) => `<div class="chip-p ${st(i).mortgaged ? 'mort' : ''}" data-deed="${i}"><i style="background:${sqColor(i)}"></i>${BOARD[i].name}${st(i).houses ? `<small>${st(i).houses === 5 ? '🏨' : '🏠' + st(i).houses}</small>` : ''}</div>`).join('')}</div>` : '<div class="act-sub" style="margin:0">暂无地产。抵达无主地产时可购入</div>') +
     (m.goojf.length ? `<div class="act-sub" style="margin-top:8px">🎟️ 出狱许可证 × ${m.goojf.length}</div>` : '') +
     (m.w ? `<div class="wallets"><span>💳 ${fmt(m.w.card)}</span><span>📱 ${fmt(m.w.phone)}</span><span>💵 ${fmt(m.w.cash)}</span><button class="btn sm" data-local="bank">🏦 去银行兑换</button></div>` : '');
 }
@@ -604,7 +621,7 @@ function renderCard() {
       <div class="bigface bigback"><div class="sym">${chance ? '?' : dk === 'chest' ? '✦' : '🎡'}</div><div class="nm">${chance ? '机会牌' : dk === 'chest' ? '命运牌' : '幸运转盘'}</div></div>
       <div class="bigface bigfront"><div class="kind">${chance ? '机 会' : dk === 'chest' ? '命 运' : '转 盘'}</div><div class="txt">${esc(card.text)}</div></div>
     </div></div>
-    <div class="stage-foot">${esc(who.name)} 抽到的${chance ? '机会牌' : dk === 'chest' ? '命运牌' : '幸运转盘'}${pd.pid === myId ? `<br><button class="btn primary big" data-act="card">好的<kbd>空格</kbd></button>` : ''}</div>`;
+    <div class="stage-foot">${esc(who.name)} 抽到的${chance ? '机会牌' : dk === 'chest' ? '命运牌' : '幸运转盘'}${pd.pid === myId ? `<br><button class="btn primary big" data-act="card">确认<kbd>空格</kbd></button>` : ''}</div>`;
   stage.hidden = false;
   const big = stage.querySelector('.bigcard'), inner = stage.querySelector('.bigcard-in'), foot = stage.querySelector('.stage-foot');
   const cr = $('#cell' + who.pos).getBoundingClientRect(), br = big.getBoundingClientRect();
@@ -665,15 +682,15 @@ function renderLocal() {
     if (!v.to || !others.some((p) => p.id === v.to)) v.to = others[0] && others[0].id;
     box.innerHTML = `<h3>💬 互动</h3><div class="muted">选一个人</div>
       <div class="who-pick">${others.map((p) => `<button data-sendto="${p.id}" class="${p.id === v.to ? 'on' : ''}">${avatar(p)}${esc(p.name)}</button>`).join('')}</div>
-      ${m.host && pById(v.to) && !pById(v.to).connected ? `<div class="act-row" style="margin-top:10px"><button class="btn danger wide" data-kick="${v.to}">这个人掉线了：踢出房间（他的地产变法拍房）</button></div>` : ''}
-      <div class="muted" style="margin-top:12px">发个表情（所有人都能看到）</div>
+      ${m.host && pById(v.to) && !pById(v.to).connected ? `<div class="act-row" style="margin-top:10px"><button class="btn danger wide" data-kick="${v.to}">该玩家已掉线：移出房间（其地产转为法拍房）</button></div>` : ''}
+      <div class="muted" style="margin-top:12px">发送表情（全体玩家可见）</div>
       <div class="emo-grid">${EMOTES.map((e) => `<button data-emote="${e}">${e}</button>`).join('')}</div>
       <div class="muted" style="margin-top:14px">💸 给他转账（记录会显示在动态里）</div>
       <div class="mk-price"><input id="sendAmt" type="number" min="0" step="1" placeholder="金额" value="${v.amount ? v.amount / 1000 : ''}"><span>M</span></div>
-      <div class="mk-eq" id="sendEq">${v.amount ? '= ' + fmt(v.amount) + ' · ' : ''}你的余额 ${fmt(m.money)}</div>
+      <div class="mk-eq" id="sendEq">${v.amount ? '= ' + fmt(v.amount) + ' · ' : ''}您的余额 ${fmt(m.money)}</div>
       <div class="mk-quick">${[10000, 50000, 100000].map((x) => `<button data-sendq="${x}">${fmt(x)}</button>`).join('')}</div>
       <div class="act-row"><button class="btn" data-close>关闭</button><button class="btn primary" id="sendGo">确认转账</button></div>`;
-    const inp = $('#sendAmt'); inp.oninput = () => { v.amount = Math.max(0, Math.round((+inp.value || 0) * 1000)); $('#sendEq').textContent = `${v.amount ? '= ' + fmt(v.amount) + ' · ' : ''}你的余额 ${fmt(m.money)}`; };
+    const inp = $('#sendAmt'); inp.oninput = () => { v.amount = Math.max(0, Math.round((+inp.value || 0) * 1000)); $('#sendEq').textContent = `${v.amount ? '= ' + fmt(v.amount) + ' · ' : ''}您的余额 ${fmt(m.money)}`; };
     inp.onkeydown = (e) => { if (e.key === 'Enter') $('#sendGo').click(); };
     $('#sendGo').onclick = () => { if (!v.amount) return toast('请先输入金额'); act('send', { to: v.to, amount: v.amount }, (r) => { if (r.ok) { toast('转账成功'); closeLocal(); } }); };
   } else if (localView.type === 'bank') {
@@ -693,7 +710,7 @@ function renderLocal() {
       <div class="act-row"><button class="btn wide" data-close>返回</button></div>`;
   } else if (localView.type === 'help') {
     const rows = [['空格 / 回车', '掷骰子 · 结束回合 · 刷卡支付 · 确认卡片'], ['B', '购买踩到的地产'], ['A', '拍卖踩到的地产'], ['1 2 3 4 5', '拍卖时加价（从小到大五档）'], ['T', '打开地产交易所'], ['Y / X', '接受 / 拒绝别人的报价'], ['J', '在监狱里缴保释金'], ['U', '使用出狱许可证'], ['N', '夜间模式（护眼）'], ['M', '静音 / 打开声音'], ['H', '打开这张快捷键表'], ['Esc', '关闭弹窗']];
-    box.innerHTML = `<h3>⌨️ 键盘快捷键</h3><div class="keys">${rows.map(([k, d]) => `<div>${k.split(' ').map((x) => (x === '/' ? '/' : `<kbd>${x}</kbd>`)).join(' ')}</div><div>${d}</div>`).join('')}</div><div class="act-row"><button class="btn wide" data-close>知道了</button></div>`;
+    box.innerHTML = `<h3>⌨️ 键盘快捷键</h3><div class="keys">${rows.map(([k, d]) => `<div>${k.split(' ').map((x) => (x === '/' ? '/' : `<kbd>${x}</kbd>`)).join(' ')}</div><div>${d}</div>`).join('')}</div><div class="act-row"><button class="btn wide" data-close>确定</button></div>`;
   } else if (localView.type === 'market') {
     if (box.dataset.v !== 'market') {
       box.dataset.v = 'market';
@@ -731,13 +748,13 @@ function marketDetail() {
     const mine = o.id === myId, others = S.players.filter((p) => p.id !== myId && !p.bankrupt);
     if (mine) {
       if (!v.to || !others.some((p) => p.id === v.to)) v.to = others[0] && others[0].id;
-      h += `<div class="mk-line" style="margin-top:10px">把它<b>卖给</b>谁？</div><div class="who-pick">${others.map((p) => `<button data-mkto="${p.id}" class="${p.id === v.to ? 'on' : ''}">${avatar(p)}${esc(p.name)}</button>`).join('')}</div><div class="mk-line">你想<b>收</b>多少钱？</div>`;
-    } else h += `<div class="mk-line" style="margin-top:10px">主人：<b>${esc(o.name)}</b></div><div class="mk-line">你愿意<b>付</b>多少钱买它？</div>`;
+      h += `<div class="mk-line" style="margin-top:10px">把它<b>卖给</b>谁？</div><div class="who-pick">${others.map((p) => `<button data-mkto="${p.id}" class="${p.id === v.to ? 'on' : ''}">${avatar(p)}${esc(p.name)}</button>`).join('')}</div><div class="mk-line">您想<b>收</b>多少钱？</div>`;
+    } else h += `<div class="mk-line" style="margin-top:10px">主人：<b>${esc(o.name)}</b></div><div class="mk-line">您愿意<b>付</b>多少钱买它？</div>`;
     h += `<div class="mk-price"><input id="mkPrice" type="number" min="0" step="1" placeholder="${sq.price / 1000}" value="${v.price ? v.price / 1000 : ''}"><span>M</span></div>
       <div class="mk-eq" id="mkEq"></div>
       <div class="mk-quick">${[[1, '标价'], [1.5, '1.5 倍'], [2, '2 倍'], [3, '3 倍']].map(([x, n]) => `<button data-mkq="${sq.price * x}">${n} ${fmt(sq.price * x)}</button>`).join('')}</div>
       <button class="btn primary big wide" id="mkSend">${mine ? '发送卖出报价' : `向 ${esc(o.name)} 发送购买报价`}</button>
-      <div class="muted" style="margin-top:8px;text-align:center">你的余额 ${fmt(m.money)}</div>`;
+      <div class="muted" style="margin-top:8px;text-align:center">您的余额 ${fmt(m.money)}</div>`;
   }
   d.innerHTML = h;
   const inp = $('#mkPrice'); if (!inp) return;
@@ -756,10 +773,10 @@ function openMarket(sel) { const m = me(); if (!S || S.phase !== 'play' || !m ||
 function offerHTML(t) {
   const f = pById(t.from), m = me();
   const tile = (i) => `<div class="tile" style="--tint:${sqColor(i)}">${sqIcon(i)}<div class="tn">${BOARD[i].name}</div><div class="tp">标价 ${fmt(BOARD[i].price)}</div></div>`;
-  if (t.get.length === 1 && !t.give.length && !t.getMoney) return `<h3>💰 有人想买你的地</h3><div class="offer">${tile(t.get[0])}<div class="offer-text">${esc(f.name)} 想花 <b>${fmt(t.giveMoney)}</b><br>买你的 <b>${BOARD[t.get[0]].name}</b><div class="muted">成交后你的余额：${fmt(m.money + t.giveMoney)}</div></div></div>`;
-  if (t.give.length === 1 && !t.get.length && !t.giveMoney) return `<h3>🏷 有人想卖地给你</h3><div class="offer">${tile(t.give[0])}<div class="offer-text">${esc(f.name)} 想把 <b>${BOARD[t.give[0]].name}</b><br>以 <b>${fmt(t.getMoney)}</b> 卖给你<div class="muted">你的余额：${fmt(m.money)}${m.money < t.getMoney ? '（不够）' : ''}</div></div></div>`;
+  if (t.get.length === 1 && !t.give.length && !t.getMoney) return `<h3>💰 有人想买您的地</h3><div class="offer">${tile(t.get[0])}<div class="offer-text">${esc(f.name)} 想花 <b>${fmt(t.giveMoney)}</b><br>买您的 <b>${BOARD[t.get[0]].name}</b><div class="muted">成交后您的余额：${fmt(m.money + t.giveMoney)}</div></div></div>`;
+  if (t.give.length === 1 && !t.get.length && !t.giveMoney) return `<h3>🏷 有人想卖地给您</h3><div class="offer">${tile(t.give[0])}<div class="offer-text">${esc(f.name)} 想把 <b>${BOARD[t.give[0]].name}</b><br>以 <b>${fmt(t.getMoney)}</b> 卖给您<div class="muted">您的余额：${fmt(m.money)}${m.money < t.getMoney ? '（不够）' : ''}</div></div></div>`;
   const part = (props, money) => [props.map((i) => BOARD[i].name).join('、'), money ? `现金 ${fmt(money)}` : ''].filter(Boolean).join(' + ') || '（无）';
-  return `<h3>🤝 ${esc(f.name)} 想和你交易</h3><div class="offer-text"><b>你得到：</b>${part(t.give, t.giveMoney)}<br><b>你付出：</b>${part(t.get, t.getMoney)}</div>`;
+  return `<h3>🤝 ${esc(f.name)} 想和您交易</h3><div class="offer-text"><b>您得到：</b>${part(t.give, t.giveMoney)}<br><b>您付出：</b>${part(t.get, t.getMoney)}</div>`;
 }
 
 function auctionTips(pos) {
@@ -770,17 +787,17 @@ function auctionTips(pos) {
     const mine = grp.filter((k) => S.props[k].owner === myId).length, cnt = {};
     grp.forEach((k) => { const o = S.props[k].owner; if (o && o !== myId) cnt[o] = (cnt[o] || 0) + 1; });
     const rival = Object.keys(cnt).find((o) => cnt[o] === grp.length - 1);
-    if (mine === grp.length - 1) { mult = 2; tips.push(`🔥 <b>你只差这一块</b>就集齐${g.name}组：租金翻倍，还能建房收每秒收益。值得出到标价的 1.5–2 倍。`); }
+    if (mine === grp.length - 1) { mult = 2; tips.push(`🔥 <b>您只差这一块</b>就集齐${g.name}组：租金翻倍，还能建房收每秒收益。值得出到标价的 1.5–2 倍。`); }
     else if (rival) { mult = 1.5; tips.push(`🛡 <b>${esc(pById(rival).name)} 只差这一块</b>就集齐${g.name}组。抢下它，或者把价格抬高让他多花钱。`); }
-    else if (mine > 0) { mult = 1.3; tips.push(`👍 你已经有 ${mine}/${grp.length} 块${g.name}地，拿下这块离集齐更近，可以比标价多出一点。`); }
+    else if (mine > 0) { mult = 1.3; tips.push(`👍 您已经有 ${mine}/${grp.length} 块${g.name}地，拿下这块离集齐更近，可以比标价多出一点。`); }
     else tips.push(`🧊 ${g.name}组（共 ${grp.length} 块）还没有人占优，不用高价追，低于标价拿下才划算。`);
-    tips.push(`📈 空地租金 ${fmt(sq.rent[0])}，要被踩约 ${Math.round(sq.price / sq.rent[0])} 次才回本；建成酒店后租金 ${fmt(sq.rent[5])}，每秒再收 ${fmt(incomePerSec(pos, 5))}。`);
+    tips.push(`📈 空地租金 ${fmt(sq.rent[0])}，要被被抵达约 ${Math.round(sq.price / sq.rent[0])} 次才回本；建成酒店后租金 ${fmt(sq.rent[5])}，每秒再收 ${fmt(incomePerSec(pos, 5))}。`);
   } else if (sq.type === 'rail') {
     const n = Object.keys(S.props).filter((k) => BOARD[k].type === 'rail' && S.props[k].owner === myId).length;
-    mult = n ? 1.3 : 1; tips.push(`✈️ 机场和港口越多越值钱：你现在有 ${n} 个，拿下后每次收租 ${fmt(RULES.railRent[n])}。不能建房，但稳定。`);
+    mult = n ? 1.3 : 1; tips.push(`✈️ 机场和港口越多越值钱：您现在有 ${n} 个，拿下后每次收租 ${fmt(RULES.railRent[n])}。不能建房，但稳定。`);
   } else { const n = Object.keys(S.props).filter((k) => BOARD[k].type === 'util' && S.props[k].owner === myId).length; tips.push(`⚙️ 公用事业按骰子点数收费：拿下后是"点数 × ${fmt(RULES.utilMult[n])}"。收益看运气，别出太高。`); }
   const cap = Math.min(Math.round(sq.price * mult), Math.round(money * 0.7));
-  tips.push(`💡 你有 ${fmt(money)}，建议最高出到 <b>${fmt(cap)}</b>（至少留三成现金付租金）。`);
+  tips.push(`💡 您有 ${fmt(money)}，建议最高出到 <b>${fmt(cap)}</b>（至少留三成现金付租金）。`);
   return tips.map((t) => `<div>${t}</div>`).join('');
 }
 function updateAuction() {
@@ -803,11 +820,11 @@ function renderStateModal() {
     h = `<h3>🔨 拍卖 · ${sq.name}</h3><p class="muted">所有玩家都可以出价，8 秒内没人加价即成交（标价 ${fmt(sq.price)}）</p>
       <div class="auction-price" id="auPrice"></div><div class="auction-who" id="auWho"></div>
       <div class="countdown"><div id="cdBar"></div></div>
-      ${m && !m.bankrupt ? `<div class="act-row" id="auBtns">${RULES.bids.map((n, i) => `<button class="btn ${i === 2 ? 'primary' : ''}" data-act="bid" data-inc="${n}">+${fmt(n)}<kbd>${i + 1}</kbd></button>`).join('')}</div><p class="muted" style="text-align:center">你的余额 ${fmt(m.money)}</p>` : ''}`;
+      ${m && !m.bankrupt ? `<div class="act-row" id="auBtns">${RULES.bids.map((n, i) => `<button class="btn ${i === 2 ? 'primary' : ''}" data-act="bid" data-inc="${n}">+${fmt(n)}<kbd>${i + 1}</kbd></button>`).join('')}</div><p class="muted" style="text-align:center">您的余额 ${fmt(m.money)}</p>` : ''}`;
     h = `<div class="au-wrap"><div class="au-info">${deedHTML(a.pos)}<div class="au-tips">${auctionTips(a.pos)}</div></div><div class="au-main">${h}</div></div>`;
   } else if (!fxBusy && pd && pd.kind === 'buy' && curP().id === myId) {
     key = 'buy' + pd.pos;
-    h = `${deedHTML(pd.pos)}<p class="muted" style="text-align:center;margin-top:12px">你有 ${fmt(m.money)}</p>
+    h = `${deedHTML(pd.pos)}<p class="muted" style="text-align:center;margin-top:12px">您有 ${fmt(m.money)}</p>
       <div class="act-row"><button class="btn" data-act="auction">拍卖<kbd>A</kbd></button><button class="btn primary" data-act="buy">${S.props[pd.pos].fore ? '法拍半价 ' : '购买 '}${fmt(priceOf(pd.pos))}<kbd>B</kbd></button></div>`;
   } else if (t && !(pd && pd.kind === 'card')) {
     key = 'trade' + t.id;
@@ -846,7 +863,7 @@ document.addEventListener('click', (e) => {
     act(a.dataset.act, args);
     return;
   }
-  const kk = e.target.closest('[data-kick]'); if (kk) { if (confirm('确定把这个掉线的玩家踢出房间吗？他的地产会变成法拍房。')) { act('kick', { id: kk.dataset.kick }); closeLocal(); } return; }
+  const kk = e.target.closest('[data-kick]'); if (kk) { if (confirm('确认将该掉线玩家移出房间？其名下地产将转为法拍房。')) { act('kick', { id: kk.dataset.kick }); closeLocal(); } return; }
   const sk = e.target.closest('[data-stock]'); if (sk) return act('stock', { pct: +sk.dataset.stock });
   if (e.target.closest('[data-force="skip"]')) return act('force', { pos: null });
   const fp = e.target.closest('[data-forcepos]'); if (fp) { act('force', { pos: +fp.dataset.forcepos }); return closeLocal(); }
@@ -922,7 +939,7 @@ setInterval(() => {
   $('#elapsed').textContent = (el >= 3600 ? Math.floor(el / 3600) + ':' + pad(Math.floor(el / 60) % 60) : Math.floor(el / 60)) + ':' + pad(el % 60);
   $('#stageTag').textContent = `第 ${S.stage + 1} 阶段 ×${Math.round(S.infl * 100) / 100}`;
   const secs = Math.max(0, Math.ceil(Math.min(left, total) / 1000));
-  $('#clockText').innerHTML = `${dotOf(cur.id)}现在是 <b>${cur.id === myId ? '你' : esc(cur.name)}</b> 的回合 <span class="secs ${!paused && secs <= 5 ? 'low' : ''}">${S.auction ? '拍卖中' : paused ? '…' : '⏱ ' + secs + ' 秒'}</span>`;
+  $('#clockText').innerHTML = `${dotOf(cur.id)}现在是 <b>${cur.id === myId ? '您' : esc(cur.name)}</b> 的回合 <span class="secs ${!paused && secs <= 5 ? 'low' : ''}">${S.auction ? '拍卖中' : paused ? '…' : '⏱ ' + secs + ' 秒'}</span>`;
   $('#clockBar').style.width = (paused ? 100 : Math.max(0, Math.min(100, (left / total) * 100))) + '%';
   const hurry = !paused && left < 5000;
   document.querySelectorAll('#players .pl').forEach((el) => el.classList.toggle('hurry', hurry && el.dataset.pid === cur.id));
