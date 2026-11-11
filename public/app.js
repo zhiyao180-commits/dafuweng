@@ -187,7 +187,7 @@ function updateBoard() {
     cell.classList.toggle('mortgaged', st.mortgaged);
     cell.classList.toggle('owned', !!st.owner);
     let o = cell.querySelector('.owner');
-    if (st.owner) { cell.style.setProperty('--own', pById(st.owner).color); if (!o) { o = document.createElement('div'); o.className = 'owner'; cell.appendChild(o); } }
+    if (st.owner) { cell.style.setProperty('--own', pById(st.owner).color); if (!o) { o = document.createElement('div'); o.className = 'owner'; cell.appendChild(o); } const ic = pById(st.owner).icon; if (o.textContent !== ic) o.textContent = ic; }
     else if (o) o.remove();
     const h = cell.querySelector('.houses');
     if (+h.dataset.n !== st.houses) { h.dataset.n = st.houses; h.innerHTML = st.houses === 5 ? '<div class="hotel"></div>' : '<div class="house"></div>'.repeat(st.houses); }

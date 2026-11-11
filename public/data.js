@@ -234,7 +234,7 @@
     return Math.max(1, Math.round(p * rate * houses));
   }
 
-  const COLORS = ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#00C7BE', '#007AFF', '#AF52DE', '#FF2D55'];
+  const COLORS = ['#E6194B', '#F58231', '#FFD400', '#2FB344', '#00C2D1', '#2F5BEA', '#9B27D8', '#1F2328']; // 8 种差别最大的颜色：红橙黄绿青蓝紫黑
   const TOKENS = ['🚗', '🎩', '🐶', '🚢', '✈️', '🦖', '🐱', '🚀'];
 
   const api = { GROUPS, BOARD, LAYOUT, CHANCE, CHEST, RULES, COLORS, TOKENS, fmt, incomePerSec };

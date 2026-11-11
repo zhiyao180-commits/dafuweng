@@ -434,3 +434,9 @@ input:focus { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(10,111,224,.
 .inner .cname { font-size: max(9.5px, calc(var(--u) * 1.22)); }
 .inner .cen { font-size: max(7px, calc(var(--u) * .82)); }
 .inner.side-b .ci { padding-top: 12%; } .inner.side-t .ci { padding-bottom: 12%; }
+
+/* 地产归属：粗边框 + 主人颜色底纹 + 带棋子图标的徽章，8 个人也容易分清 */
+.cell.owned { box-shadow: inset 0 0 0 calc(var(--u) * .55) var(--own), inset 0 0 0 calc(var(--u) * .68) rgba(255,255,255,.75); background: color-mix(in srgb, var(--own) 20%, var(--cell)); }
+.owner { width: calc(var(--u) * 2.1); height: calc(var(--u) * 2.1); font-size: calc(var(--u) * 1.2); line-height: 1; display: grid; place-items: center; bottom: 3%; right: 3%; box-shadow: 0 0 0 1.5px #fff, 0 1px 3px rgba(0,0,0,.35); z-index: 2; }
+.side-t .owner { top: 3%; }
+.avatar, .token { box-shadow: 0 0 0 1.5px rgba(255,255,255,.9), 0 2px 6px rgba(0,0,0,.3); }
