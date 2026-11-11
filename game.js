@@ -40,6 +40,9 @@ class Game {
     this.hostToken = null;
     this.tradeSeq = 1;
     this.updatedAt = Date.now();
+    this.rich = [];
+    this.sets = {};
+    this.deadline = 0;
   }
 
   // ---------- 工具 ----------
@@ -56,6 +59,7 @@ class Game {
     if (from) from.money -= amt;
     if (to) to.money += amt;
     this.fx.push({ type: 'pos', from: from ? from.id : null, to: to ? to.id : null, amount: amt, label });
+    this.say(`💳 ${this.name(from)} → ${this.name(to)} ${fmt(amt)}（${label}）${from ? `｜${from.name} 余额 ${fmt(from.money)}` : ''}${to ? `｜${to.name} 余额 ${fmt(to.money)}` : ''}`);
   }
 
   ownsGroup(pid, group) { return GROUP_POS[group].every((i) => this.props[i].owner === pid); }
@@ -65,11 +69,11 @@ class Game {
     const sq = BOARD[pos], st = this.props[pos];
     if (sq.type === 'rail') {
       const n = this.countOwned(st.owner, 'rail');
-      return 250 * Math.pow(2, n - 1) * (opts.doubleRail ? 2 : 1);
+      return RULES.railRent[Math.min(n, RULES.railRent.length) - 1] * (opts.doubleRail ? 2 : 1);
     }
     if (sq.type === 'util') {
       const n = this.countOwned(st.owner, 'util');
-      const mult = opts.utilTen ? 100 : [40, 100, 200][n - 1] || 200;
+      const mult = opts.utilTen ? RULES.utilMult[1] : RULES.utilMult[Math.min(n, RULES.utilMult.length) - 1];
       return mult * (opts.diceTotal || this.dice[0] + this.dice[1]);
     }
     if (st.houses > 0) return sq.rent[st.houses];
@@ -129,9 +133,10 @@ class Game {
     this.players = shuffle(this.players);
     this.phase = 'play';
     this.turn = 0;
-    this.say(`游戏开始！每人获得 ${fmt(RULES.startMoney)}，先拿到 ${fmt(RULES.winCash)} 现金的人立即获胜。顺序：${this.players.map((x) => x.name).join(' → ')}`);
+    this.say(`游戏开始！每人获得 ${fmt(RULES.startMoney)}，现金先达到 ${fmt(RULES.winCash)} 的人成为首富。顺序：${this.players.map((x) => x.name).join(' → ')}`);
     this.say(`轮到 ${this.cur.name}`);
     this.fx.push({ type: 'turn', pid: this.cur.id });
+    this.touch();
   }
 
   // ---------- 掷骰与移动 ----------
@@ -181,10 +186,7 @@ class Game {
     const to = (((from + n) % N) + N) % N;
     this.fx.push({ type: 'move', pid: p.id, from, steps: n });
     p.pos = to;
-    if (n > 0 && from + n >= N) {
-      this.transfer(null, p, RULES.goSalary, '经过起点');
-      this.say(`${p.name} 经过起点，领取 ${fmt(RULES.goSalary)}`);
-    }
+    if (n > 0) for (let k = 1; k <= n; k++) { const q = BOARD[(from + k) % N]; if (q.type === 'go' || q.type === 'hub') this.transfer(null, p, RULES.goSalary, '经过' + q.name); }
     this.land(p, opts);
   }
 
@@ -232,8 +234,7 @@ class Game {
       return;
     }
     if (sq.type === 'bonus') {
-      this.transfer(null, p, sq.amount, '世界银行分红');
-      this.say(`${p.name} 获得世界银行分红 ${fmt(sq.amount)}`);
+      this.transfer(null, p, sq.amount, sq.name + '分红');
       return;
     }
     if (sq.type === 'gotojail') {
@@ -314,7 +315,6 @@ class Game {
     } else {
       this.transfer(p, pd.to ? this.byId(pd.to) : null, pd.amount, pd.reason);
     }
-    this.say(`${p.name} 刷卡支付 ${fmt(pd.amount)}（${pd.reason}${pd.to && pd.to !== 'each' ? ' → ' + this.byId(pd.to).name : ''}）`);
     const n = pd.next;
     if (!n) return;
     if (n.t === 'own') {
@@ -357,7 +357,7 @@ class Game {
     must(a, '没有拍卖');
     must(!p.bankrupt, '你已破产');
     inc = Number(inc);
-    must([10, 50, 100, 500, 1000].includes(inc), '加价无效');
+    must(RULES.bids.includes(inc), '加价无效');
     const amt = a.bid + inc;
     must(p.money >= amt, '余额不足');
     a.bid = amt; a.bidder = p.id;
@@ -378,6 +378,7 @@ class Game {
     } else this.say(`${sq.name} 无人出价，流拍`);
     this.auction = null;
     if (this.pending && this.pending.kind === 'auction') this.pending = null;
+    this.checkSets(); this.checkGoals(); this.touch();
     return true;
   }
 
@@ -539,23 +540,101 @@ class Game {
     this.say(`💥 ${p.name} 宣布破产${creditor ? '，资产归 ' + creditor.name : '，地产归还银行'}`);
     this.fx.push({ type: 'bankrupt', pid: p.id });
 
-    const alive = this.active();
-    if (alive.length <= 1) { this.finish(alive[0]); return; }
-    if (p === this.cur) this.nextTurn();
+    this.finish(); // 有人破产，游戏结束
   }
 
-  finish(winner) {
+  finish() {
     this.phase = 'end';
     this.pending = null; this.auction = null;
-    this.ranking = this.players.map((p) => ({ id: p.id, worth: p.bankrupt ? 0 : this.netWorth(p) })).sort((a, b) => b.worth - a.worth);
-    this.winner = winner ? winner.id : this.ranking[0].id;
-    this.say(`🏆 ${this.byId(this.winner).name} 获胜！`);
+    const ri = (id) => { const i = this.rich.indexOf(id); return i < 0 ? 999 : i; };
+    this.ranking = this.players.map((p) => ({ id: p.id, worth: p.bankrupt ? 0 : this.netWorth(p), rich: ri(p.id) })).sort((a, b) => a.rich - b.rich || b.worth - a.worth);
+    this.winner = this.ranking[0].id;
+    this.say(`🏆 游戏结束！第一名：${this.byId(this.winner).name}`);
+  }
+
+  // 首富：现金达到目标的人按先后顺序排名；所有人都达到则结束
+  checkGoals() {
+    if (this.phase !== 'play') return false;
+    let ch = false;
+    for (const o of this.active()) if (o.money >= RULES.winCash && !this.rich.includes(o.id)) {
+      this.rich.push(o.id); ch = true;
+      this.fx.push({ type: 'rich', pid: o.id, rank: this.rich.length });
+      this.say(`👑 ${o.name} 的现金达到 ${fmt(RULES.winCash)}，${this.rich.length === 1 ? '成为首富！' : '第 ' + this.rich.length + ' 个达成！'}`);
+    }
+    if (ch && this.active().every((o) => this.rich.includes(o.id))) this.finish();
+    return ch;
+  }
+  // 集齐一个颜色组时提醒可以建房
+  checkSets() {
+    for (const o of this.active()) for (const g of Object.keys(GROUP_POS)) {
+      const k = o.id + g, has = this.ownsGroup(o.id, g);
+      if (has && !this.sets[k]) { this.fx.push({ type: 'set', pid: o.id, group: g }); this.say(`🎉 ${o.name} 集齐了${GROUPS[g].name}地产，可以开始建房了`); }
+      this.sets[k] = has;
+    }
+  }
+  // 回合倒计时（动画时间不算在内）
+  touch() {
+    let ms = 0;
+    for (const f of this.fx) ms += f.type === 'dice' ? 1600 : f.type === 'move' ? Math.abs(f.steps) * 170 + 400 : f.type === 'pos' ? 2600 : f.type === 'jump' ? 1500 : 1000;
+    this.deadline = Date.now() + RULES.turnSecs * 1000 + Math.min(ms, 16000);
+  }
+  autoRaise(p, need) {
+    for (let guard = 0; guard < 400 && p.money < need; guard++) {
+      let ok = false;
+      for (const k of Object.keys(this.props)) {
+        if (this.props[k].owner !== p.id) continue;
+        for (const fn of ['sell', 'mortgage']) { try { this[fn](p, +k); ok = true; break; } catch (e) { if (!(e instanceof GameError)) throw e; } }
+        if (ok) break;
+      }
+      if (!ok) break;
+    }
+  }
+  // 超时：系统替玩家做最稳妥的操作
+  autoPlay() {
+    if (this.phase !== 'play' || this.auction) return;
+    for (const o of this.active()) if (o !== this.cur && o.money < 0) { this.autoRaise(o, 0); if (o.money < 0) { this.bankrupt(o); return; } }
+    const p = this.cur, pd = this.pending;
+    if (pd && pd.kind === 'card') this.ackCard(this.byId(pd.pid));
+    else if (pd && pd.kind === 'buy') { this.pending = null; this.say(`⏱ ${p.name} 超时，放弃购买 ${BOARD[pd.pos].name}`); }
+    else if (pd && pd.kind === 'pay') {
+      const payer = this.byId(pd.payer);
+      if (pd.cancelTo && payer.money < pd.amount) this.pending = null;
+      else { this.autoRaise(payer, pd.amount); if (payer.money >= pd.amount) this.swipe(payer); else this.bankrupt(payer); }
+    } else if (!pd) {
+      if (p.money < 0) { this.autoRaise(p, 0); if (p.money < 0) this.bankrupt(p); }
+      else if (!this.rolled || this.canRollAgain) { this.say(`⏱ ${p.name} 超时，系统自动掷骰`); this.roll(p); }
+      else { this.say(`⏱ ${p.name} 超时，自动结束回合`); this.nextTurn(); }
+    }
+    this.checkSets(); this.checkGoals();
+    if (this.phase === 'play') this.touch();
+  }
+  // 每秒收益：有房屋的地产给主人产生收益
+  tickIncome() {
+    if (this.phase !== 'play') return null;
+    const inc = {};
+    for (const [i, st] of Object.entries(this.props)) {
+      if (!st.owner || !st.houses || st.mortgaged) continue;
+      const o = this.byId(st.owner), amt = D.incomePerSec(+i, st.houses);
+      o.money += amt; (inc[o.id] = inc[o.id] || []).push([+i, amt]);
+      if (o.money >= 0 && o.creditor) o.creditor = null;
+    }
+    return Object.keys(inc).length ? inc : null;
+  }
+  // 私人转账
+  send(p, toId, amount) {
+    const to = this.byId(toId);
+    must(to && to !== p && !to.bankrupt, '收款人无效');
+    amount = Math.floor(Number(amount));
+    must(amount > 0, '请输入金额');
+    must(p.money >= amount, '余额不足');
+    this.transfer(p, to, amount, '私人转账');
+    this.afterRaise(to);
   }
 
   endGame(p) {
     must(p.token === this.hostToken, '只有房主可以结束游戏');
     must(this.phase === 'play', '游戏未进行');
-    this.finish(null);
+    this.finish();
   }
 
   // ---------- 回合 ----------
@@ -604,20 +683,18 @@ class Game {
       mortgage: () => this.mortgage(p, a.pos), unmortgage: () => this.unmortgage(p, a.pos),
       propose: () => this.propose(p, a), respond: () => this.respond(p, a.id, !!a.accept),
       bankrupt: () => this.bankrupt(p), endTurn: () => this.endTurn(p),
-      endGame: () => this.endGame(p), skip: () => this.skip(p),
+      endGame: () => this.endGame(p), skip: () => this.skip(p), send: () => this.send(p, a.to, a.amount),
     };
     must(map[type], '未知操作');
     map[type]();
-    if (this.phase === 'play') {
-      const w = this.active().find((o) => o.money >= RULES.winCash);
-      if (w) { this.say(`💰 ${w.name} 的现金达到 ${fmt(RULES.winCash)}！`); this.finish(w); }
-    }
+    this.checkSets(); this.checkGoals();
+    if (this.phase === 'play' && (p === this.cur || type === 'swipe' || type === 'card')) this.touch();
     this.updatedAt = Date.now();
   }
 
   publicState() {
     return {
-      code: this.code, phase: this.phase, maxPlayers: this.maxPlayers, turn: this.turn, rolled: this.rolled, canRollAgain: this.canRollAgain,
+      code: this.code, phase: this.phase, maxPlayers: this.maxPlayers, deadline: this.deadline, rich: this.rich, turn: this.turn, rolled: this.rolled, canRollAgain: this.canRollAgain,
       dice: this.dice, pending: this.pending, auction: this.auction, trades: this.trades,
       housesLeft: this.housesLeft, hotelsLeft: this.hotelsLeft, props: this.props,
       log: this.log.slice(-60), winner: this.winner, ranking: this.ranking,

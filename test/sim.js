@@ -12,8 +12,8 @@ for (let gi = 0; gi < 300; gi++) {
     steps++;
     if (g.auction) {
       // 随机出价或等它结束
-      const bidders = g.active().filter((p) => p.money > g.auction.bid + 100);
-      if (bidders.length && Math.random() < 0.5 && g.auction.bid < 3000) { try { g.act(pick(bidders).token, 'bid', { inc: pick([10, 50, 100, 500]) }); } catch (e) { if (!(e instanceof GameError)) throw e; } }
+      const bidders = g.active().filter((p) => p.money > g.auction.bid + 2000);
+      if (bidders.length && Math.random() < 0.5 && g.auction.bid < 60000) { try { g.act(pick(bidders).token, 'bid', { inc: pick(D.RULES.bids.slice(0, 4)) }); } catch (e) { if (!(e instanceof GameError)) throw e; } }
       else { g.auction.endsAt = 0; g.tickAuction(); }
       continue;
     }
@@ -31,7 +31,7 @@ for (let gi = 0; gi < 300; gi++) {
     const p = g.cur, pd = g.pending;
     const tryA = (t, a) => { try { g.act(p.token, t, a); return true; } catch (e) { if (!(e instanceof GameError)) throw e; return false; } };
     if (Math.random() < 0.05 && g.trades.length) { const t = g.trades[0]; try { g.act(g.byId(t.to).token, 'respond', { id: t.id, accept: Math.random() < 0.5 }); } catch (e) { if (!(e instanceof GameError)) throw e; } }
-    if (Math.random() < 0.02) { const o = pick(g.active().filter((x) => x !== p)); const mine = Object.keys(g.props).filter((k) => g.props[k].owner === p.id); tryA('propose', { to: o.id, give: mine.slice(0, 1), getMoney: 100 }); }
+    if (Math.random() < 0.02) { const o = pick(g.active().filter((x) => x !== p)); const mine = Object.keys(g.props).filter((k) => g.props[k].owner === p.id); tryA('propose', { to: o.id, give: mine.slice(0, 1), getMoney: 2000 }); }
     if (pd) {
       if (pd.kind === 'buy') { if (Math.random() < 0.7) tryA('buy'); else tryA('auction'); continue; }
       if (pd.kind === 'card') { tryA('card'); continue; }
@@ -53,8 +53,9 @@ for (let gi = 0; gi < 300; gi++) {
     }
     if (p.inJail && !g.rolled && Math.random() < 0.3) { if (!tryA('useCard')) tryA('payJail'); continue; }
     // 建房
-    if (Math.random() < 0.3) for (const k of Object.keys(g.props)) if (g.props[k].owner === p.id && p.money > 4000) tryA('build', { pos: +k });
+    if (Math.random() < 0.3) for (const k of Object.keys(g.props)) if (g.props[k].owner === p.id && p.money > 80000) tryA('build', { pos: +k });
     if (Math.random() < 0.1) for (const k of Object.keys(g.props)) if (g.props[k].mortgaged && g.props[k].owner === p.id) tryA('unmortgage', { pos: +k });
+    if (p.money < 0) continue; // 先由上面的欠款处理筹钱
     if (!g.rolled || g.canRollAgain) { if (!tryA('roll')) { stuck++; console.log('cannot roll', p.money, g.pending); break; } continue; }
     if (!tryA('endTurn')) { stuck++; console.log('cannot end', p.money, g.pending, g.canRollAgain); break; }
     turnsTotal++;

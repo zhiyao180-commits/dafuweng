@@ -1,5 +1,5 @@
 // 棋盘与卡片数据（服务器和浏览器共用）
-// 金额单位：K（千）。1000K = 1M
+// 金额单位：元
 (function (root) {
   const GROUPS = {
     brown:    { name: '棕色', color: '#A0714F', house: 500 },
@@ -12,15 +12,29 @@
     purple:   { name: '紫色', color: '#8E5BD6', house: 1500 },
     green:    { name: '绿色', color: '#30A46C', house: 2000 },
     darkblue: { name: '深蓝', color: '#3E63DD', house: 2000 },
+    slate:    { name: '石灰', color: '#64748B', house: 1000 },
+    nordic:   { name: '冰蓝', color: '#0E90B8', house: 1000 },
+    lime:     { name: '草绿', color: '#7CB518', house: 1500 },
+    magenta:  { name: '洋红', color: '#C026D3', house: 2000 },
+    rose:     { name: '玫红', color: '#F4567A', house: 2000 },
+    gold:     { name: '金色', color: '#B8860B', house: 2500 },
   };
 
-  const P = (name, group, price, rent, mark) => ({ type: 'prop', name, group, price, rent, mark });
-  const R = (name, short) => ({ type: 'rail', name, short, price: 2000 });
+  const EN = { 开罗: 'Cairo', 孟买: 'Mumbai', 曼谷: 'Bangkok', 雅加达: 'Jakarta', 仰光: 'Yangon', 吉隆坡: 'Kuala Lumpur', 新加坡: 'Singapore', 首尔: 'Seoul',
+    伊斯坦堡: 'Istanbul', 莫斯科: 'Moscow', 迪拜: 'Dubai', 里约: 'Rio', 墨西哥城: 'Mexico City', 开普敦: 'Cape Town', 悉尼: 'Sydney', 多伦多: 'Toronto', 柏林: 'Berlin',
+    雅典: 'Athens', 罗马: 'Rome', 巴黎: 'Paris', 北京: 'Beijing', 上海: 'Shanghai', 香港: 'Hong Kong', 阿姆斯特丹: 'Amsterdam', 旧金山: 'San Francisco', 东京: 'Tokyo',
+    伦敦: 'London', 纽约: 'New York', 大阪: 'Osaka', 台北: 'Taipei', 深圳: 'Shenzhen', 哥本哈根: 'Copenhagen', 斯德哥尔摩: 'Stockholm', 奥斯陆: 'Oslo',
+    洛杉矶: 'Los Angeles', 芝加哥: 'Chicago', 温哥华: 'Vancouver', 米兰: 'Milan', 维也纳: 'Vienna', 苏黎世: 'Zurich', 多哈: 'Doha', 利雅得: 'Riyadh', 阿布扎比: 'Abu Dhabi',
+    法兰克福: 'Frankfurt', 日内瓦: 'Geneva', 摩纳哥: 'Monaco',
+    樟宜: 'Changi SIN', 希思罗: 'Heathrow LHR', 肯尼迪: 'JFK', 成田: 'Narita NRT', 戴高乐: 'Paris CDG', 巴生港: 'Port Klang', 鹿特丹港: 'Rotterdam', 釜山港: 'Busan', 洋山港: 'Yangshan' };
+  EN['迪拜 '] = 'Dubai DXB';
+  const P = (name, group, price, rent, mark) => ({ type: 'prop', name, group, price, rent, mark, en: EN[name] });
+  const R = (name, short, kind) => ({ type: 'rail', name, short, kind: kind || 'air', price: 2000, en: EN[short] });
   const U = (name, icon) => ({ type: 'util', name, price: 1500, icon });
   const CH = { type: 'chance', name: '机会' }, CC = { type: 'chest', name: '命运' };
 
   // 52 格：下边 14 格、左边 10 格、上边 14 格、右边 10 格 + 4 个角
-  const LAYOUT = { w: 14, h: 10 };
+  const LAYOUT = { w: 14, h: 10, w2: 10, h2: 6 }; // 外圈 52 格 + 内圈 36 格
   const BOARD = [
     { type: 'go', name: '起点' },
     // —— 下边 ——
@@ -44,7 +58,7 @@
     { ...CH },
     P('莫斯科', 'orange', 1800, [140, 700, 2000, 5500, 7500, 9500], '圣瓦西里教堂'),
     P('迪拜', 'orange', 2000, [160, 800, 2200, 6000, 8000, 10000], '哈利法塔'),
-    R('迪拜机场', '迪拜'),
+    R('迪拜机场', '迪拜 '),
     P('里约', 'teal', 2000, [170, 850, 2350, 6500, 8400, 10250], '基督像'),
     { ...CC },
     P('墨西哥城', 'teal', 2000, [170, 850, 2350, 6500, 8400, 10250], '太阳金字塔'),
@@ -78,6 +92,43 @@
     P('伦敦', 'darkblue', 3600, [350, 1750, 5000, 11000, 13000, 15000], '大本钟'),
     { type: 'tax', name: '奢侈税', amount: 1000 },
     P('纽约', 'darkblue', 4000, [500, 2000, 6000, 14000, 17000, 20000], '自由女神'),
+    // ================= 内圈（36 格）：走完外圈后进入内圈，走完内圈回到起点 =================
+    { type: 'hub', name: '环球中心' },
+    P('大阪', 'slate', 1600, [120, 600, 1800, 5000, 7000, 9000], '天守阁'),
+    { ...CC },
+    P('台北', 'slate', 1600, [120, 600, 1800, 5000, 7000, 9000], '101 大楼'),
+    P('深圳', 'slate', 1800, [140, 700, 2000, 5500, 7500, 9500], '平安金融中心'),
+    R('巴生港', '巴生港', 'port'),
+    P('哥本哈根', 'nordic', 2000, [170, 850, 2350, 6500, 8400, 10250], '新港'),
+    { ...CH },
+    P('斯德哥尔摩', 'nordic', 2000, [170, 850, 2350, 6500, 8400, 10250], '市政厅'),
+    P('奥斯陆', 'nordic', 2200, [180, 900, 2500, 7000, 8750, 10500], '歌剧院'),
+    R('成田机场', '成田'),
+    { type: 'parking', name: '度假村' },
+    P('洛杉矶', 'lime', 2400, [200, 1000, 3000, 7500, 9250, 11000], '好莱坞'),
+    P('芝加哥', 'lime', 2400, [200, 1000, 3000, 7500, 9250, 11000], '云门'),
+    { ...CC },
+    P('温哥华', 'lime', 2600, [220, 1100, 3300, 8000, 9750, 11500], '加拿大广场'),
+    R('鹿特丹港', '鹿特丹港', 'port'),
+    U('燃气公司', '🔥'),
+    { type: 'bonus', name: '证交所', amount: 1000 },
+    P('米兰', 'magenta', 3000, [260, 1300, 3900, 9000, 11000, 12750], '大教堂'),
+    { ...CH },
+    P('维也纳', 'magenta', 3000, [260, 1300, 3900, 9000, 11000, 12750], '金色大厅'),
+    P('苏黎世', 'magenta', 3200, [280, 1500, 4500, 10000, 12000, 14000], '班霍夫大街'),
+    R('戴高乐机场', '戴高乐'),
+    P('多哈', 'rose', 3400, [300, 1600, 4800, 10500, 12500, 14500], '伊斯兰艺术馆'),
+    { ...CC },
+    P('利雅得', 'rose', 3400, [300, 1600, 4800, 10500, 12500, 14500], '王国中心'),
+    P('阿布扎比', 'rose', 3600, [350, 1750, 5000, 11000, 13000, 15000], '大清真寺'),
+    R('釜山港', '釜山港', 'port'),
+    { type: 'gotojail', name: '海关' },
+    P('法兰克福', 'gold', 3800, [400, 1900, 5500, 12500, 15000, 17500], '欧洲央行'),
+    { ...CH },
+    P('日内瓦', 'gold', 3800, [400, 1900, 5500, 12500, 15000, 17500], '大喷泉'),
+    R('洋山港', '洋山港', 'port'),
+    { type: 'tax', name: '碳排放税', amount: 1500 },
+    P('摩纳哥', 'gold', 4200, [550, 2200, 6500, 15000, 18000, 21000], '蒙特卡洛'),
   ];
 
   // 卡片效果：goto 前往 / nearest 最近的 / money 收付钱 / back 后退 / fwd 前进 / jail 入狱
@@ -150,30 +201,43 @@
   ];
   for (const c of [...CHANCE, ...CHEST]) if (c.fx.t === 'goto') c.fx.pos = BOARD.findIndex((s) => s.name === c.fx.to);
 
+  // 把上面的旧数值统一换算成"元"（×20）：起始 30 万，纽约 8 万，目标 100 万
+  const S = 20;
+  function fmt(n) {
+    const neg = n < 0; n = Math.abs(Math.round(n));
+    const s = n >= 10000 ? (Math.round(n / 100) / 100).toString() + '万' : n + '元';
+    return (neg ? '-' : '') + s;
+  }
+  for (const g of Object.values(GROUPS)) g.house *= S;
+  for (const sq of BOARD) { if (sq.price) sq.price *= S; if (sq.rent) sq.rent = sq.rent.map((r) => r * S); if (sq.amount) sq.amount *= S; }
+  for (const c of [...CHANCE, ...CHEST]) {
+    for (const k of ['amt', 'house', 'hotel']) if (c.fx[k]) c.fx[k] *= S;
+    c.text = c.text.replace(/(\d+(?:\.\d+)?)(M|K)/g, (m, a, u) => fmt(parseFloat(a) * (u === 'M' ? 1000 : 1) * S));
+  }
+
   const RULES = {
-    startMoney: 15000,
-    goSalary: 2000,
-    jailFine: 500,
-    winCash: 50000, // 手上现金达到 50M 立即获胜
+    startMoney: 300000,
+    goSalary: 40000,
+    jailFine: 10000,
+    winCash: 1000000,   // 现金达到 100 万成为首富
+    turnSecs: 20,       // 每步操作限时
     maxPlayers: 8,
-    houses: 40,
-    hotels: 15,
+    houses: 64,
+    hotels: 24,
+    bids: [500, 1000, 5000, 10000, 50000],
+    railRent: [5000, 10000, 20000, 40000, 60000, 80000, 100000, 120000, 140000, 160000], // 按拥有的机场+港口数量
+    utilMult: [800, 2000, 4000, 6000],
   };
+  // 有房屋的地产每秒产生的收益：地价越低收益率越高（类似现实中的租金回报率）
+  function incomePerSec(pos, houses) {
+    const p = BOARD[pos].price, rate = p < 30000 ? 0.0003 : p < 50000 ? 0.00025 : p < 70000 ? 0.0002 : 0.00015;
+    return Math.max(1, Math.round(p * rate * houses));
+  }
 
   const COLORS = ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#00C7BE', '#007AFF', '#AF52DE', '#FF2D55'];
   const TOKENS = ['🚗', '🎩', '🐶', '🚢', '✈️', '🦖', '🐱', '🚀'];
 
-  function fmt(k) {
-    const neg = k < 0; k = Math.abs(k);
-    let s;
-    if (k >= 1000) {
-      const m = k / 1000;
-      s = (Math.round(m * 100) / 100).toString() + 'M';
-    } else s = k + 'K';
-    return (neg ? '-' : '') + s;
-  }
-
-  const api = { GROUPS, BOARD, LAYOUT, CHANCE, CHEST, RULES, COLORS, TOKENS, fmt };
+  const api = { GROUPS, BOARD, LAYOUT, CHANCE, CHEST, RULES, COLORS, TOKENS, fmt, incomePerSec };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.GameData = api;
 })(typeof window !== 'undefined' ? window : globalThis);

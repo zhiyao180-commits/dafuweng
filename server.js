@@ -8,7 +8,7 @@ const { Server } = require('socket.io');
 const { Game, GameError } = require('./game');
 
 const PORT = process.env.PORT || 3000;
-const SAVE = path.join(__dirname, 'data', 'rooms-v2.json');
+const SAVE = path.join(__dirname, 'data', 'rooms-v3.json');
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
@@ -50,13 +50,27 @@ function broadcast(g) {
 
 // 拍卖倒计时
 setInterval(() => {
-  for (const g of rooms.values()) if (g.auction && g.tickAuction()) broadcast(g);
+  for (const g of rooms.values()) {
+    try {
+      if (g.auction) { if (g.tickAuction()) broadcast(g); }
+      else if (g.phase === 'play' && g.deadline && Date.now() > g.deadline) { g.autoPlay(); broadcast(g); }
+    } catch (e) { console.error(e); g.fx = []; g.touch(); }
+  }
 }, 250);
+// 每秒收益：余额发给所有人，具体哪块地 +多少 只发给主人自己
+setInterval(() => {
+  for (const g of rooms.values()) {
+    const inc = g.tickIncome(); if (!inc) continue;
+    for (const pid of Object.keys(inc)) io.to(g.code + ':' + pid).emit('income', inc[pid]);
+    if (g.checkGoals()) broadcast(g);
+    else io.to(g.code).emit('tick', Object.fromEntries(g.players.map((p) => [p.id, p.money])));
+  }
+}, 1000);
 
 io.on('connection', (socket) => {
   const reply = (cb, data) => typeof cb === 'function' && cb(data);
   const bind = (g, p) => {
-    socket.join(g.code);
+    socket.join(g.code); socket.join(g.code + ':' + p.id);
     socket.data.code = g.code; socket.data.token = p.token;
     p.connected = true;
   };
