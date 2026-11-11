@@ -13,7 +13,7 @@ const sha = (x) => crypto.createHash('sha256').update(String(x)).digest('hex');
 const PASS_HASH = process.env.CREATE_PASSWORD ? sha(process.env.CREATE_PASSWORD) : 'f21ce2390cc90e663ac24786ff3591e1b015daf8fc12ff9cdaefca5f8fd6b384';
 
 const PORT = process.env.PORT || 3000;
-const SAVE = path.join(__dirname, 'data', 'rooms-v4.json');
+const SAVE = path.join(__dirname, 'data', 'rooms-v5.json');
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
@@ -65,6 +65,7 @@ setInterval(() => {
 // 每秒收益：余额发给所有人，具体哪块地 +多少 只发给主人自己
 setInterval(() => {
   for (const g of rooms.values()) {
+    if (g.tickStage()) broadcast(g);
     const inc = g.tickIncome(); if (!inc) continue;
     for (const pid of Object.keys(inc)) io.to(g.code + ':' + pid).emit('income', inc[pid]);
     if (g.checkGoals()) broadcast(g);

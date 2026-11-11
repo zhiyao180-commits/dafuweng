@@ -32,7 +32,7 @@
     <div id="room" hidden>
       <div class="room-code">房间号 <b id="roomCode"></b></div>
       <p class="hint">把房间号发给朋友，大家打开同一个网址输入房间号即可加入</p>
-      <p class="goal">🎯 <b>游戏目标</b>：每人起始 300M，现金最先达到 <b>1B</b> 的人获胜，游戏立即结束。有人破产也会结束，按排名结算。</p>
+      <p class="goal">🎯 <b>游戏目标</b>：每人起始 300M，<b>总资产</b>（现金 + 地产 + 房屋）最先达到 <b>1B</b> 的人获胜，游戏立即结束。破产的人出局，地产变成半价的"法拍房"。</p>
       <div class="size-line"><span id="sizeText"></span><div class="seg small" id="sizeEdit"></div></div>
       <div id="lobbyPlayers" class="lobby-players"></div>
       <div class="pickers">
@@ -88,7 +88,7 @@
 
   <aside id="side">
     <div class="topbar">
-      <span>房间 <b id="roomTag"></b></span>
+      <span>房间 <b id="roomTag"></b> · ⏱ <b id="elapsed">0:00</b> · <span id="stageTag"></span></span>
       <div class="tools">
         <button id="btnHelp" title="快捷键 (H)">⌨️</button>
         <button id="btnMute" title="静音 (M)">🔊</button>
@@ -97,7 +97,7 @@
     </div>
     <div id="players" class="panel players"></div>
     <div id="clock" class="clock"><span id="clockText"></span><div class="clock-bar"><div id="clockBar"></div></div></div>
-    <div class="payrow"><span>我的支付方式</span><div class="seg pay" id="payPick"><button data-pay="card">💳 刷卡</button><button data-pay="phone">📱 手机闪付</button><button data-pay="cash">💵 现金</button></div></div>
+    <div class="payrow"><span>付款用</span><div class="seg pay" id="payPick"><button data-pay="card">💳 卡</button><button data-pay="phone">📱 手机</button><button data-pay="cash">💵 现金</button></div><span>收款进</span><div class="seg pay" id="recvPick"><button data-recv="card">💳</button><button data-recv="phone">📱</button><button data-recv="cash">💵</button></div></div>
     <div id="actions" class="panel actions"></div>
     <div id="assets" class="panel assets"></div>
     <div class="panel log-panel"><div class="panel-title">动态</div><div id="log" class="log"></div></div>

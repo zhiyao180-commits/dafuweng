@@ -505,3 +505,29 @@ input:focus { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(10,111,224,.
 .au-main { min-width: 340px; }
 .au-tips { margin-top: 10px; font-size: 12.5px; line-height: 1.6; background: var(--paper); border-radius: 12px; padding: 10px 12px; box-shadow: inset 0 0 0 1px var(--line); display: flex; flex-direction: column; gap: 6px; }
 @media (max-width: 760px) { .au-wrap { flex-direction: column; } }
+
+/* ====== v5：72 格地图，中央区域改成横向布局 ====== */
+#center { display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto 1fr; align-content: center; justify-content: center; column-gap: calc(var(--u) * 3); padding: calc(var(--u) * 1.2); }
+.center-title { grid-column: 1; grid-row: 1; align-self: end; justify-content: center; font-size: calc(var(--u) * 3.4); }
+.center-sub { grid-column: 1; grid-row: 2; text-align: center; }
+.status { grid-column: 1; grid-row: 3; align-self: start; justify-content: center; max-width: calc(var(--u) * 20); text-align: center; margin-top: calc(var(--u) * 1); }
+.table { grid-column: 2; grid-row: 1 / 4; margin: 0; gap: calc(var(--u) * 3); }
+.card-dock { top: auto; bottom: calc(var(--u) * 1.5); right: auto; left: calc(var(--u) * 1.5); width: calc(var(--u) * 20); }
+.dice-sum { height: calc(var(--u) * 3.4); font-size: calc(var(--u) * 2.8); }
+.cell.fore { box-shadow: inset 0 0 0 calc(var(--u) * .3) #D98200; }
+.cell.fore .cprice { color: #B86E00; font-weight: 800; }
+body.portal-mode .cell { cursor: crosshair; animation: flash 1.2s ease infinite; }
+.pl { align-items: flex-start; }
+.pl .mn::before { content: '现金 '; font-weight: 500; opacity: .7; }
+.pl .wt { font-size: 11.5px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.pl .tk { font-size: 11px; line-height: 1.35; margin-top: 2px; color: #0A6FE0; font-weight: 600; white-space: normal; }
+.pl .tk.done { color: var(--green); }
+.btn.boost { width: 100%; background: linear-gradient(135deg, #0A6FE0, #8E5BD6); color: #fff; }
+.wallets { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 8px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.wallets .btn { margin-left: auto; }
+.payrow { flex-wrap: wrap; }
+#recvPick { flex: .6; }
+.act-row .btn small { font-weight: 500; opacity: .85; }
+.topbar { gap: 6px; } .topbar > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bank-card .bk::after { content: ' ◈'; opacity: .9; }
+.assets { max-height: 150px; }

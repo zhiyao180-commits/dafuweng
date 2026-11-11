@@ -35,6 +35,9 @@ for (let gi = 0; gi < 300; gi++) {
     if (pd) {
       if (pd.kind === 'buy') { if (Math.random() < 0.7) tryA('buy'); else tryA('auction'); continue; }
       if (pd.kind === 'card') { tryA('card'); continue; }
+      if (pd.kind === 'stock') { tryA('stock', { pct: pick([0, 10, 25, 50]) }); continue; }
+      if (pd.kind === 'portal') { tryA('portal', { pos: (p.pos + 1 + Math.floor(Math.random() * 60)) % D.BOARD.length }); if (g.pending && g.pending.kind === 'portal') g.pending = null; continue; }
+      if (pd.kind === 'force') { const t = g.forceTargets(p); tryA('force', { pos: Math.random() < 0.5 ? t[0] : null }); continue; }
       if (pd.kind === 'pay') {
         if (tryA('swipe')) continue;
         if (pd.cancelTo) { tryA('cancelBuy'); tryA('auction'); continue; }
