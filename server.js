@@ -8,7 +8,7 @@ const { Server } = require('socket.io');
 const { Game, GameError } = require('./game');
 
 const PORT = process.env.PORT || 3000;
-const SAVE = path.join(__dirname, 'data', 'rooms.json');
+const SAVE = path.join(__dirname, 'data', 'rooms-v2.json');
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));

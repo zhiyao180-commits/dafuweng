@@ -10,11 +10,11 @@
 
 <!-- 大厅 -->
 <section id="lobby" class="screen">
-  <div class="lobby-card glass">
+  <div class="lobby-card">
     <div class="logo">
       <div class="logo-mark">🏦</div>
       <h1>大富翁</h1>
-      <p class="sub">世界银行 · 刷卡版 · 最多 8 人</p>
+      <p class="sub">世界银行 · 刷卡版 · 2–8 人</p>
     </div>
 
     <div id="entry">
@@ -50,12 +50,17 @@
   <div id="boardWrap">
     <div id="board">
       <div id="center">
-        <div class="center-title">大富翁<small>WORLD BANK</small></div>
+        <div class="aurora"><i></i><i></i><i></i></div>
+        <div class="center-title" id="title"></div>
+        <div class="center-sub">WORLD BANK</div>
         <div id="status" class="status"></div>
         <div class="table">
-          <div id="diceTray" class="dice-tray">
-            <div class="die" id="die0"></div>
-            <div class="die" id="die1"></div>
+          <div class="dice-box">
+            <div id="diceTray" class="dice-tray">
+              <div class="die" id="die0"></div>
+              <div class="die" id="die1"></div>
+            </div>
+            <div id="diceSum" class="dice-sum"></div>
           </div>
           <div id="pos" class="pos">
             <div class="pos-slot"><div class="pos-slot-line"></div></div>
@@ -68,12 +73,21 @@
           </div>
         </div>
         <div id="cardDock" class="card-dock"></div>
+        <div id="banner" class="banner"></div>
       </div>
     </div>
     <div id="tokens"></div>
   </div>
 
   <aside id="side">
+    <div class="topbar">
+      <span>房间 <b id="roomTag"></b></span>
+      <div class="tools">
+        <button id="btnHelp" title="快捷键 (H)">⌨️</button>
+        <button id="btnMute" title="静音 (M)">🔊</button>
+        <button id="btnTheme" title="夜间模式 (N)">🌙</button>
+      </div>
+    </div>
     <div id="players" class="panel players"></div>
     <div id="actions" class="panel actions"></div>
     <div id="assets" class="panel assets"></div>
@@ -81,12 +95,17 @@
   </aside>
 </section>
 
-<div id="modal" class="modal" hidden><div class="modal-box glass" id="modalBox"></div></div>
-<div id="local" class="modal" hidden><div class="modal-box glass" id="localBox"></div></div>
+<div id="danger" class="danger-screen" hidden><div class="danger-label">⚠️ 濒临破产 · 请立即卖房、抵押或出售地产</div></div>
+<div id="modal" class="modal" hidden><div class="modal-box" id="modalBox"></div></div>
+<div id="local" class="modal" hidden><div class="modal-box" id="localBox"></div></div>
+<div id="cardStage" class="card-stage" hidden></div>
+<div id="floats"></div>
+<div id="confetti"></div>
 <div id="toast" class="toast"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="data.js"></script>
+<script src="landmarks.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

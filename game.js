@@ -1,6 +1,8 @@
 // 大富翁规则引擎（服务器权威：所有点数、余额都由这里决定）
 const D = require('./public/data.js');
 const { BOARD, GROUPS, CHANCE, CHEST, RULES, fmt } = D;
+const N = BOARD.length;
+const JAIL = BOARD.findIndex((s) => s.type === 'jail');
 
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const range = (n) => [...Array(n).keys()];
@@ -67,7 +69,7 @@ class Game {
     }
     if (sq.type === 'util') {
       const n = this.countOwned(st.owner, 'util');
-      const mult = opts.utilTen || n === 2 ? 100 : 40;
+      const mult = opts.utilTen ? 100 : [40, 100, 200][n - 1] || 200;
       return mult * (opts.diceTotal || this.dice[0] + this.dice[1]);
     }
     if (st.houses > 0) return sq.rent[st.houses];
@@ -129,6 +131,7 @@ class Game {
     this.turn = 0;
     this.say(`游戏开始！每人获得 ${fmt(RULES.startMoney)}。顺序：${this.players.map((x) => x.name).join(' → ')}`);
     this.say(`轮到 ${this.cur.name}`);
+    this.fx.push({ type: 'turn', pid: this.cur.id });
   }
 
   // ---------- 掷骰与移动 ----------
@@ -175,21 +178,21 @@ class Game {
 
   moveBy(p, n, opts = {}) {
     const from = p.pos;
-    const to = (from + n + 40) % 40;
+    const to = (((from + n) % N) + N) % N;
     this.fx.push({ type: 'move', pid: p.id, from, steps: n });
     p.pos = to;
-    if (n > 0 && from + n >= 40) {
+    if (n > 0 && from + n >= N) {
       this.transfer(null, p, RULES.goSalary, '经过起点');
       this.say(`${p.name} 经过起点，领取 ${fmt(RULES.goSalary)}`);
     }
     this.land(p, opts);
   }
 
-  moveTo(p, target, opts) { this.moveBy(p, (target - p.pos + 40) % 40, opts); }
+  moveTo(p, target, opts) { this.moveBy(p, (target - p.pos + N) % N, opts); }
 
   sendJail(p) {
-    this.fx.push({ type: 'jump', pid: p.id, to: 10 });
-    p.pos = 10; p.inJail = true; p.jailTurns = 0;
+    this.fx.push({ type: 'jump', pid: p.id, to: JAIL });
+    p.pos = JAIL; p.inJail = true; p.jailTurns = 0;
     this.canRollAgain = false; this.doubles = 0;
   }
 
@@ -224,8 +227,13 @@ class Game {
       const id = deck.shift();
       const card = (sq.type === 'chance' ? CHANCE : CHEST)[id];
       if (card.fx.t !== 'goojf') deck.push(id);
-      this.pending = { kind: 'card', deck: sq.type, id, pid: p.id };
+      this.pending = { kind: 'card', deck: sq.type, id, pid: p.id, seq: (this.cardSeq = (this.cardSeq || 0) + 1) };
       this.say(`${p.name} 抽到${sq.name}卡：${card.text}`);
+      return;
+    }
+    if (sq.type === 'bonus') {
+      this.transfer(null, p, sq.amount, '世界银行分红');
+      this.say(`${p.name} 获得世界银行分红 ${fmt(sq.amount)}`);
       return;
     }
     if (sq.type === 'gotojail') {
@@ -245,7 +253,7 @@ class Game {
       case 'goto': this.moveTo(p, f.pos); break;
       case 'nearest': {
         let i = p.pos;
-        do { i = (i + 1) % 40; } while (BOARD[i].type !== f.kind);
+        do { i = (i + 1) % N; } while (BOARD[i].type !== f.kind);
         this.moveTo(p, i, f.kind === 'rail' ? { doubleRail: true } : { utilRoll: true });
         break;
       }
@@ -254,6 +262,7 @@ class Game {
         else this.pending = { kind: 'pay', payer: p.id, to: null, amount: -f.amt, reason: '卡片罚款' };
         break;
       case 'back': this.moveBy(p, -f.n); break;
+      case 'fwd': this.moveBy(p, f.n); break;
       case 'jail': this.sendJail(p); break;
       case 'goojf': p.goojf.push(pd.deck); break;
       case 'repairs': {
@@ -268,7 +277,7 @@ class Game {
         const others = this.active().filter((o) => o !== p);
         if (f.amt > 0) {
           for (const o of others) {
-            this.transfer(o, p, f.amt, '生日礼金');
+            this.transfer(o, p, f.amt, '卡片收款');
             if (o.money < 0) { o.creditor = p.id; this.say(`${o.name} 余额不足，欠款 ${fmt(-o.money)}，需要筹钱`); }
           }
         } else {
@@ -295,6 +304,7 @@ class Game {
     if (!n) return;
     if (n.t === 'own') {
       this.props[n.pos].owner = p.id;
+      this.fx.push({ type: 'buy', pid: p.id, pos: n.pos });
       this.say(`${p.name} 买下了 ${BOARD[n.pos].name}`);
     } else if (n.t === 'release') {
       p.inJail = false; p.jailTurns = 0;
@@ -348,6 +358,7 @@ class Game {
       const w = this.byId(a.bidder);
       this.transfer(w, null, a.bid, `拍得 ${sq.name}`);
       this.props[a.pos].owner = w.id;
+      this.fx.push({ type: 'buy', pid: w.id, pos: a.pos });
       this.say(`${w.name} 以 ${fmt(a.bid)} 拍得 ${sq.name}`);
     } else this.say(`${sq.name} 无人出价，流拍`);
     this.auction = null;
@@ -392,6 +403,7 @@ class Game {
     if (st.houses === 4) { must(this.hotelsLeft > 0, '银行酒店已售罄'); this.hotelsLeft--; this.housesLeft += 4; }
     else { must(this.housesLeft > 0, '银行房屋已售罄'); this.housesLeft--; }
     st.houses++;
+    this.fx.push({ type: 'build', pid: p.id, pos, level: st.houses });
     this.transfer(p, null, cost, st.houses === 5 ? `${sq.name} 建酒店` : `${sq.name} 建房`);
     this.say(`${p.name} 在 ${sq.name} ${st.houses === 5 ? '建了酒店' : '建了第 ' + st.houses + ' 栋房屋'}`);
   }
@@ -478,6 +490,7 @@ class Game {
     if (t.giveMoney) this.transfer(from, to, t.giveMoney, '交易');
     if (t.getMoney) this.transfer(to, from, t.getMoney, '交易');
     this.say(`${to.name} 接受了 ${from.name} 的交易 ✅`);
+    this.fx.push({ type: 'deal', from: from.id, to: to.id });
     this.afterRaise(from); this.afterRaise(to);
   }
 
@@ -547,6 +560,7 @@ class Game {
     this.rolled = false; this.canRollAgain = false; this.doubles = 0;
     this.pending = null;
     this.say(`轮到 ${this.cur.name}`);
+    this.fx.push({ type: 'turn', pid: this.cur.id });
   }
 
   // 房主可以替掉线的玩家跳过回合

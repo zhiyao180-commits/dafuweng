@@ -62,8 +62,8 @@ for (let gi = 0; gi < 300; gi++) {
     for (const pl of g.players) if (Number.isNaN(pl.money)) throw new Error('NaN money');
     const houses = Object.values(g.props).reduce((n, s) => n + (s.houses === 5 ? 0 : s.houses), 0);
     const hotels = Object.values(g.props).filter((s) => s.houses === 5).length;
-    if (houses + g.housesLeft !== 32 || hotels + g.hotelsLeft !== 12) throw new Error(`house count broke ${houses}+${g.housesLeft} ${hotels}+${g.hotelsLeft}`);
-    if (g.decks.chance.length + g.players.reduce((n, x) => n + x.goojf.filter((d) => d === 'chance').length, 0) !== 16) throw new Error('deck size');
+    if (houses + g.housesLeft !== D.RULES.houses || hotels + g.hotelsLeft !== D.RULES.hotels) throw new Error(`house count broke ${houses}+${g.housesLeft} ${hotels}+${g.hotelsLeft}`);
+    if (g.decks.chance.length + g.players.reduce((n, x) => n + x.goojf.filter((d) => d === 'chance').length, 0) !== D.CHANCE.length) throw new Error('deck size');
     g.fx = [];
   }
   games++;
