@@ -19,6 +19,7 @@ class Game {
     this.props = {};
     BOARD.forEach((sq, i) => { if (BUYABLE(sq)) this.props[i] = { owner: null, houses: 0, mortgaged: false }; });
     this.phase = 'lobby';
+    this.maxPlayers = RULES.maxPlayers;
     this.turn = 0;
     this.rolled = false;
     this.canRollAgain = false;
@@ -87,7 +88,7 @@ class Game {
   // ---------- 大厅 ----------
   addPlayer(name, token) {
     must(this.phase === 'lobby', '游戏已经开始，不能再加入');
-    must(this.players.length < RULES.maxPlayers, '房间已满（最多 8 人）');
+    must(this.players.length < this.maxPlayers, `房间已满（${this.maxPlayers} 人）`);
     name = String(name || '').trim().slice(0, 10) || '玩家';
     must(!this.players.some((p) => p.name === name), '这个名字已经有人用了');
     const used = new Set(this.players.map((p) => p.color));
@@ -108,6 +109,15 @@ class Game {
     must(this.phase === 'lobby', '游戏已开始');
     if (color && D.COLORS.includes(color)) { must(!this.players.some((o) => o !== p && o.color === color), '颜色已被选'); p.color = color; }
     if (icon && D.TOKENS.includes(icon)) { must(!this.players.some((o) => o !== p && o.icon === icon), '棋子已被选'); p.icon = icon; }
+  }
+
+  setSize(p, n) {
+    must(p.token === this.hostToken, '只有房主可以修改人数');
+    must(this.phase === 'lobby', '游戏已开始');
+    n = Math.floor(Number(n));
+    must(n >= 2 && n <= RULES.maxPlayers, '人数需要在 2 到 8 之间');
+    must(n >= this.players.length, `房间里已经有 ${this.players.length} 人了`);
+    this.maxPlayers = n;
   }
 
   start(p) {
@@ -554,6 +564,7 @@ class Game {
     must(p, '找不到你的玩家身份');
     if (type === 'look') return this.setLook(p, a.color, a.icon);
     if (type === 'start') return this.start(p);
+    if (type === 'size') return this.setSize(p, a.n);
     must(this.phase === 'play', '游戏不在进行中');
     if (p.bankrupt) throw new GameError('你已破产，只能观战');
     const map = {
@@ -573,7 +584,7 @@ class Game {
 
   publicState() {
     return {
-      code: this.code, phase: this.phase, turn: this.turn, rolled: this.rolled, canRollAgain: this.canRollAgain,
+      code: this.code, phase: this.phase, maxPlayers: this.maxPlayers, turn: this.turn, rolled: this.rolled, canRollAgain: this.canRollAgain,
       dice: this.dice, pending: this.pending, auction: this.auction, trades: this.trades,
       housesLeft: this.housesLeft, hotelsLeft: this.hotelsLeft, props: this.props,
       log: this.log.slice(-60), winner: this.winner, ranking: this.ranking,

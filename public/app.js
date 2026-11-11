@@ -60,6 +60,13 @@ const sqColor = (i) => { const sq = BOARD[i]; return sq.type === 'prop' ? GROUPS
 
 // ================= 大厅 =================
 $('#nameInput').value = localStorage.getItem('dfw_name') || '';
+let chosenSize = +(localStorage.getItem('dfw_size') || 4);
+function drawSizePick() {
+  $('#sizePick').innerHTML = [2, 3, 4, 5, 6, 7, 8].map((n) => `<button data-n="${n}" class="${n === chosenSize ? 'on' : ''}">${n}</button>`).join('');
+}
+drawSizePick();
+$('#sizePick').onclick = (e) => { const b = e.target.closest('button'); if (b) { chosenSize = +b.dataset.n; localStorage.setItem('dfw_size', chosenSize); drawSizePick(); } };
+$('#sizeEdit').onclick = (e) => { const b = e.target.closest('button'); if (b && !b.disabled) act('size', { n: +b.dataset.n }); };
 function enter(res) {
   if (!res.ok) { $('#lobbyErr').textContent = res.error; return; }
   myId = res.id; localStorage.setItem('dfw_room', res.code);
@@ -67,7 +74,7 @@ function enter(res) {
 $('#createBtn').onclick = () => {
   const name = $('#nameInput').value.trim(); if (!name) return ($('#lobbyErr').textContent = '请先填写名字');
   localStorage.setItem('dfw_name', name); Snd.init();
-  socket.emit('create', { name, token }, enter);
+  socket.emit('create', { name, token, size: chosenSize }, enter);
 };
 $('#joinBtn').onclick = () => {
   const name = $('#nameInput').value.trim(); if (!name) return ($('#lobbyErr').textContent = '请先填写名字');
@@ -89,14 +96,17 @@ socket.on('connect', () => {
 function renderLobby() {
   $('#entry').hidden = true; $('#room').hidden = false;
   $('#roomCode').textContent = S.code;
-  $('#lobbyPlayers').innerHTML = S.players.map((p) => `<div class="lp">${avatar(p)}${esc(p.name)}${p.host ? '<span class="host">房主</span>' : ''}</div>`).join('');
+  $('#lobbyPlayers').innerHTML = S.players.map((p) => `<div class="lp">${avatar(p)}${esc(p.name)}${p.host ? '<span class="host">房主</span>' : ''}</div>`).join('') + Array.from({ length: Math.max(0, S.maxPlayers - S.players.length) }, () => '<div class="lp" style="opacity:.4;font-weight:500">等待加入…</div>').join('');
   const m = me();
   $('#colorPick').innerHTML = COLORS.map((c) => { const taken = S.players.some((p) => p.color === c && p.id !== myId); return `<button data-color="${c}" class="${m && m.color === c ? 'on' : ''} ${taken ? 'taken' : ''}" style="background:${c}"></button>`; }).join('');
   $('#iconPick').innerHTML = TOKENS.map((c) => { const taken = S.players.some((p) => p.icon === c && p.id !== myId); return `<button data-icon="${c}" class="${m && m.icon === c ? 'on' : ''} ${taken ? 'taken' : ''}">${c}</button>`; }).join('');
-  const host = m && m.host;
+  const host = m && m.host, n = S.players.length, max = S.maxPlayers;
+  $('#sizeText').textContent = `已加入 ${n} / ${max} 人`;
+  $('#sizeEdit').hidden = !host;
+  if (host) $('#sizeEdit').innerHTML = [2, 3, 4, 5, 6, 7, 8].map((k) => `<button data-n="${k}" class="${k === max ? 'on' : ''}" ${k < n ? 'disabled' : ''}>${k}人</button>`).join('');
   $('#startBtn').hidden = !host; $('#waitHost').hidden = host;
-  $('#startBtn').disabled = S.players.length < 2;
-  $('#startBtn').textContent = S.players.length < 2 ? '至少需要 2 人' : `开始游戏（${S.players.length} 人）`;
+  $('#startBtn').disabled = n < 2;
+  $('#startBtn').textContent = n < 2 ? '至少需要 2 人' : n < max ? `人没到齐，先开始（${n} 人）` : `开始游戏（${n} 人）`;
 }
 $('#colorPick').onclick = (e) => { const b = e.target.closest('button'); if (b && !b.classList.contains('taken')) act('look', { color: b.dataset.color }); };
 $('#iconPick').onclick = (e) => { const b = e.target.closest('button'); if (b && !b.classList.contains('taken')) act('look', { icon: b.dataset.icon }); };

@@ -61,9 +61,11 @@ io.on('connection', (socket) => {
     p.connected = true;
   };
 
-  socket.on('create', ({ name, token }, cb) => {
+  socket.on('create', ({ name, token, size }, cb) => {
     try {
       const g = new Game(newCode());
+      const n = Math.floor(Number(size));
+      if (n >= 2 && n <= 8) g.maxPlayers = n;
       rooms.set(g.code, g);
       const p = g.addPlayer(name, token);
       bind(g, p);

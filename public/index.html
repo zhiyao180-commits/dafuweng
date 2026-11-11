@@ -19,6 +19,7 @@
 
     <div id="entry">
       <label class="field"><span>你的名字</span><input id="nameInput" maxlength="10" placeholder="例如 Jeremy"></label>
+      <div class="field"><span>游戏人数</span><div class="seg" id="sizePick"></div></div>
       <button class="btn primary big" id="createBtn">创建房间</button>
       <div class="or"><span>或者</span></div>
       <div class="row">
@@ -30,6 +31,7 @@
     <div id="room" hidden>
       <div class="room-code">房间号 <b id="roomCode"></b></div>
       <p class="hint">把房间号发给朋友，大家打开同一个网址输入房间号即可加入</p>
+      <div class="size-line"><span id="sizeText"></span><div class="seg small" id="sizeEdit"></div></div>
       <div id="lobbyPlayers" class="lobby-players"></div>
       <div class="pickers">
         <div><span class="lbl">颜色</span><div id="colorPick" class="pick"></div></div>
