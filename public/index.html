@@ -20,6 +20,7 @@
     <div id="entry">
       <label class="field"><span>你的名字</span><input id="nameInput" maxlength="10" placeholder="例如 Jeremy"></label>
       <div class="field"><span>游戏人数</span><div class="seg" id="sizePick"></div></div>
+      <label class="field"><span>创建密码（只有开房间的人需要，加入房间不用填）</span><input id="passInput" type="password" placeholder="创建房间的密码"></label>
       <button class="btn primary big" id="createBtn">创建房间</button>
       <div class="or"><span>或者</span></div>
       <div class="row">
@@ -31,6 +32,7 @@
     <div id="room" hidden>
       <div class="room-code">房间号 <b id="roomCode"></b></div>
       <p class="hint">把房间号发给朋友，大家打开同一个网址输入房间号即可加入</p>
+      <p class="goal">🎯 <b>游戏目标</b>：每人起始 300M，现金最先达到 <b>1B</b> 的人获胜，游戏立即结束。有人破产也会结束，按排名结算。</p>
       <div class="size-line"><span id="sizeText"></span><div class="seg small" id="sizeEdit"></div></div>
       <div id="lobbyPlayers" class="lobby-players"></div>
       <div class="pickers">
@@ -70,11 +72,16 @@
               <i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i><i>9</i><i class="k-red">−</i><i>0</i><i class="k-green">+</i>
             </div>
             <div class="pos-led" id="posLed"></div>
+            <div class="pos-ring"></div>
+            <div id="posPhone" class="pphone"><div class="pphone-s"></div></div>
+            <div id="posCash" class="pcash"></div>
+            <div id="posMini" class="pmini"></div>
           </div>
         </div>
         <div id="cardDock" class="card-dock"></div>
       </div>
     </div>
+    <svg id="track"><path id="trackPath"/></svg>
     <div id="tokens"></div>
     <div id="banner" class="banner"></div>
   </div>
@@ -90,6 +97,7 @@
     </div>
     <div id="players" class="panel players"></div>
     <div id="clock" class="clock"><span id="clockText"></span><div class="clock-bar"><div id="clockBar"></div></div></div>
+    <div class="payrow"><span>我的支付方式</span><div class="seg pay" id="payPick"><button data-pay="card">💳 刷卡</button><button data-pay="phone">📱 手机闪付</button><button data-pay="cash">💵 现金</button></div></div>
     <div id="actions" class="panel actions"></div>
     <div id="assets" class="panel assets"></div>
     <div class="panel log-panel"><div class="panel-title">动态</div><div id="log" class="log"></div></div>
@@ -101,6 +109,7 @@
 <div id="local" class="modal" hidden><div class="modal-box" id="localBox"></div></div>
 <div id="cardStage" class="card-stage" hidden></div>
 <div id="floats"></div>
+<div id="bigwin" class="bigwin"></div>
 <div id="confetti"></div>
 <div id="toast" class="toast"></div>
 

@@ -62,6 +62,15 @@ class Game {
     this.say(`💳 ${this.name(from)} → ${this.name(to)} ${fmt(amt)}（${label}）${from ? `｜${from.name} 余额 ${fmt(from.money)}` : ''}${to ? `｜${to.name} 余额 ${fmt(to.money)}` : ''}`);
   }
 
+  // 一对多 / 多对一：合并成一次刷卡动画
+  transferMulti(froms, tos, each, label) {
+    if (each <= 0 || !froms.length || !tos.length) return;
+    const one = froms.length === 1 ? froms[0] : tos[0], many = froms.length === 1 ? tos : froms, total = each * many.length;
+    if (froms.length === 1) { one.money -= total; many.forEach((o) => (o.money += each)); this.fx.push({ type: 'posmulti', from: one.id, tos: many.map((o) => o.id), each, label }); }
+    else { many.forEach((o) => (o.money -= each)); one.money += total; this.fx.push({ type: 'posmulti', froms: many.map((o) => o.id), to: one.id, each, label }); }
+    this.say(`💳 ${froms.length === 1 ? `${one.name} → ${many.map((o) => o.name).join('、')}` : `${many.map((o) => o.name).join('、')} → ${one.name}`} 每人 ${fmt(each)}，合计 ${fmt(total)}（${label}）｜${one.name} 余额 ${fmt(one.money)}`);
+  }
+
   ownsGroup(pid, group) { return GROUP_POS[group].every((i) => this.props[i].owner === pid); }
   countOwned(pid, type) { return BOARD.reduce((n, sq, i) => n + (sq.type === type && this.props[i].owner === pid ? 1 : 0), 0); }
 
@@ -133,7 +142,7 @@ class Game {
     this.players = shuffle(this.players);
     this.phase = 'play';
     this.turn = 0;
-    this.say(`游戏开始！每人获得 ${fmt(RULES.startMoney)}，现金先达到 ${fmt(RULES.winCash)} 的人成为首富。顺序：${this.players.map((x) => x.name).join(' → ')}`);
+    this.say(`游戏开始！每人获得 ${fmt(RULES.startMoney)}，现金最先达到 ${fmt(RULES.winCash)} 的人获胜，游戏立即结束。顺序：${this.players.map((x) => x.name).join(' → ')}`);
     this.say(`轮到 ${this.cur.name}`);
     this.fx.push({ type: 'turn', pid: this.cur.id });
     this.touch();
@@ -292,10 +301,8 @@ class Game {
       case 'each': {
         const others = this.active().filter((o) => o !== p);
         if (f.amt > 0) {
-          for (const o of others) {
-            this.transfer(o, p, f.amt, '卡片收款');
-            if (o.money < 0) { o.creditor = p.id; this.say(`${o.name} 余额不足，欠款 ${fmt(-o.money)}，需要筹钱`); }
-          }
+          this.transferMulti(others, [p], f.amt, '卡片收款');
+          for (const o of others) if (o.money < 0) { o.creditor = p.id; this.say(`${o.name} 余额不足，需要筹钱`); }
         } else {
           this.pending = { kind: 'pay', payer: p.id, to: 'each', amount: -f.amt * others.length, each: -f.amt, reason: '支付每位玩家' };
         }
@@ -311,7 +318,7 @@ class Game {
     must(p.money >= pd.amount, `余额不足（需要 ${fmt(pd.amount)}），请先卖房或抵押`);
     this.pending = null;
     if (pd.to === 'each') {
-      for (const o of this.active().filter((x) => x !== p)) this.transfer(p, o, pd.each, pd.reason);
+      this.transferMulti([p], this.active().filter((x) => x !== p), pd.each, pd.reason);
     } else {
       this.transfer(p, pd.to ? this.byId(pd.to) : null, pd.amount, pd.reason);
     }
@@ -561,7 +568,7 @@ class Game {
       this.fx.push({ type: 'rich', pid: o.id, rank: this.rich.length });
       this.say(`👑 ${o.name} 的现金达到 ${fmt(RULES.winCash)}，${this.rich.length === 1 ? '成为首富！' : '第 ' + this.rich.length + ' 个达成！'}`);
     }
-    if (ch && this.active().every((o) => this.rich.includes(o.id))) this.finish();
+    if (ch) this.finish(); // 有人达到目标，游戏结束
     return ch;
   }
   // 集齐一个颜色组时提醒可以建房
@@ -575,7 +582,7 @@ class Game {
   // 回合倒计时（动画时间不算在内）
   touch() {
     let ms = 0;
-    for (const f of this.fx) ms += f.type === 'dice' ? 1600 : f.type === 'move' ? Math.abs(f.steps) * 170 + 400 : f.type === 'pos' ? 2600 : f.type === 'jump' ? 1500 : 1000;
+    for (const f of this.fx) ms += f.type === 'dice' ? 1600 : f.type === 'move' ? Math.abs(f.steps) * 170 + 400 : f.type === 'pos' || f.type === 'posmulti' ? 2600 : f.type === 'jump' ? 1500 : 1000;
     this.deadline = Date.now() + RULES.turnSecs * 1000 + Math.min(ms, 16000);
   }
   autoRaise(p, need) {
@@ -670,6 +677,7 @@ class Game {
   act(token, type, a = {}) {
     const p = this.P(token);
     must(p, '找不到你的玩家身份');
+    if (type === 'pay') { if (['card', 'phone', 'cash'].includes(a.m)) p.pay = a.m; return; }
     if (type === 'look') return this.setLook(p, a.color, a.icon);
     if (type === 'start') return this.start(p);
     if (type === 'size') return this.setSize(p, a.n);

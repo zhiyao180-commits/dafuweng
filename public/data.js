@@ -1,5 +1,5 @@
 // 棋盘与卡片数据（服务器和浏览器共用）
-// 金额单位：元
+// 金额：内部 1 = 1K，显示为 K / M / B
 (function (root) {
   const GROUPS = {
     brown:    { name: '棕色', color: '#A0714F', house: 500 },
@@ -203,9 +203,11 @@
 
   // 把上面的旧数值统一换算成"元"（×20）：起始 30 万，纽约 8 万，目标 100 万
   const S = 20;
+  // 内部 1 个单位 = 1K；显示成 K / M / B
   function fmt(n) {
     const neg = n < 0; n = Math.abs(Math.round(n));
-    const s = n >= 10000 ? (Math.round(n / 100) / 100).toString() + '万' : n + '元';
+    const r = (x) => (Math.round(x * 100) / 100).toString();
+    const s = n >= 1e6 ? r(n / 1e6) + 'B' : n >= 1000 ? r(n / 1000) + 'M' : n + 'K';
     return (neg ? '-' : '') + s;
   }
   for (const g of Object.values(GROUPS)) g.house *= S;
@@ -219,7 +221,7 @@
     startMoney: 300000,
     goSalary: 40000,
     jailFine: 10000,
-    winCash: 1000000,   // 现金达到 100 万成为首富
+    winCash: 1000000,   // 现金达到 1B 获胜，游戏结束
     turnSecs: 20,       // 每步操作限时
     maxPlayers: 8,
     houses: 64,
@@ -230,14 +232,15 @@
   };
   // 有房屋的地产每秒产生的收益：地价越低收益率越高（类似现实中的租金回报率）
   function incomePerSec(pos, houses) {
-    const p = BOARD[pos].price, rate = p < 30000 ? 0.0003 : p < 50000 ? 0.00025 : p < 70000 ? 0.0002 : 0.00015;
-    return Math.max(1, Math.round(p * rate * houses));
+    const sq = BOARD[pos]; if (sq.type !== 'prop') return 0;
+    return Math.round((GROUPS[sq.group].house / 200) * houses); // 约 3 分多钟回本一栋房
   }
+  const EMOTES = ['👍', '😀', '😂', '😭', '😡', '❤️', '⚡️', '🔥', '💩', '🎉', '🙏', '👏', '🤝', '💰', '😱', '🤡', '🌹', '💣'];
 
-  const COLORS = ['#E6194B', '#F58231', '#FFD400', '#2FB344', '#00C2D1', '#2F5BEA', '#9B27D8', '#1F2328']; // 8 种差别最大的颜色：红橙黄绿青蓝紫黑
-  const TOKENS = ['🚗', '🎩', '🐶', '🚢', '✈️', '🦖', '🐱', '🚀'];
+  const COLORS = ['#E6194B', '#F58231', '#FFD400', '#2FB344', '#00C2D1', '#2F5BEA', '#9B27D8', '#1F2328', '#8B4513', '#FF69B4', '#8FE000', '#008080', '#0A1F7A', '#9AA0A6', '#FF00E6', '#B89B00'];
+  const TOKENS = ['🚗', '🎩', '🐶', '🚢', '✈️', '🦖', '🐱', '🚀', '🦊', '🐼', '🐯', '🦄', '🐸', '🐵', '🐧', '🦁', '👑', '💎', '🎸', '⚽️', '🍔', '🌈', '👻', '🤖'];
 
-  const api = { GROUPS, BOARD, LAYOUT, CHANCE, CHEST, RULES, COLORS, TOKENS, fmt, incomePerSec };
+  const api = { GROUPS, BOARD, LAYOUT, CHANCE, CHEST, RULES, COLORS, TOKENS, fmt, incomePerSec, EMOTES };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.GameData = api;
 })(typeof window !== 'undefined' ? window : globalThis);

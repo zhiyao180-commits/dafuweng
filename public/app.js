@@ -1,5 +1,5 @@
 // 大富翁 · 世界银行 —— 浏览器端
-const { BOARD, GROUPS, LAYOUT, CHANCE, CHEST, RULES, COLORS, TOKENS, fmt, incomePerSec } = GameData;
+const { BOARD, GROUPS, LAYOUT, CHANCE, CHEST, RULES, COLORS, TOKENS, fmt, incomePerSec, EMOTES } = GameData;
 const N = BOARD.length, BW = LAYOUT.w, BH = LAYOUT.h;
 const OUT = 2 * BW + 2 * BH + 4, W2 = LAYOUT.w2, H2 = LAYOUT.h2; // 外圈格数；内圈尺寸
 const flying = {};
@@ -81,6 +81,7 @@ $('#btnTheme').onclick = toggleTheme; $('#btnMute').onclick = toggleMute; $('#bt
 
 // ================= 大厅 =================
 $('#nameInput').value = localStorage.getItem('dfw_name') || '';
+$('#passInput').value = localStorage.getItem('dfw_pass') || '';
 let chosenSize = +(localStorage.getItem('dfw_size') || 4);
 function drawSizePick() { $('#sizePick').innerHTML = [2, 3, 4, 5, 6, 7, 8].map((n) => `<button data-n="${n}" class="${n === chosenSize ? 'on' : ''}">${n}</button>`).join(''); }
 drawSizePick();
@@ -93,7 +94,8 @@ function enter(res) {
 $('#createBtn').onclick = () => {
   const name = $('#nameInput').value.trim(); if (!name) return ($('#lobbyErr').textContent = '请先填写名字');
   localStorage.setItem('dfw_name', name); Snd.init();
-  socket.emit('create', { name, token, size: chosenSize }, enter);
+  localStorage.setItem('dfw_pass', $('#passInput').value);
+  socket.emit('create', { name, token, size: chosenSize, password: $('#passInput').value }, enter);
 };
 $('#joinBtn').onclick = () => {
   const name = $('#nameInput').value.trim(); if (!name) return ($('#lobbyErr').textContent = '请先填写名字');
@@ -222,16 +224,24 @@ function placeTokens() {
     el.classList.toggle('fly', !!flying[p.id]);
     if (p.bankrupt) continue;
     const pos = displayPos(p);
-    let x, y;
-    if (flying[p.id]) { const c = $('#cell' + pos); x = c.offsetLeft + c.offsetWidth / 2; y = c.offsetTop + c.offsetHeight / 2; } // 移动时在格子正上方跳
+    let x, y, sc;
+    if (flying[p.id]) { const c = $('#cell' + pos); x = c.offsetLeft + c.offsetWidth / 2; y = c.offsetTop + c.offsetHeight / 2; sc = 1.55; } // 移动时走在格子上，放大像靠近屏幕
     else {
       const pt = lanePoint(pos), list = groups[pos], k = list.indexOf(p), n = list.length;
+      sc = n === 1 ? 1.35 : n <= 3 ? 1 : 0.82;      // 独占一格时头像更大，多人同格时一起缩小
       x = pt.x; y = pt.y;
-      if (pt.corner) { const cols = Math.min(n, 3), g = 2.1 * uPx, row = Math.floor(k / cols), inRow = Math.min(cols, n - row * cols); x += ((k % cols) - (inRow - 1) / 2) * g; y += (row - (Math.ceil(n / cols) - 1) / 2) * g; }
-      else { const g = Math.min(2.15 * uPx, (pt.len - 1.2 * uPx) / n), a = (k - (n - 1) / 2) * g; x += pt.ax[0] * a; y += pt.ax[1] * a; }
+      if (pt.corner) { const cols = Math.min(n, 3), g = 2.1 * uPx * Math.max(sc, 0.9), row = Math.floor(k / cols), inRow = Math.min(cols, n - row * cols); x += ((k % cols) - (inRow - 1) / 2) * g; y += (row - (Math.ceil(n / cols) - 1) / 2) * g; }
+      else { const g = Math.min(2.5 * uPx * sc, (pt.len - 1.2 * uPx) / n), a = (k - (n - 1) / 2) * g; x += pt.ax[0] * a; y += pt.ax[1] * a; }
     }
+    el.style.setProperty('--s', sc);
     el.style.transform = `translate(${x}px, ${y}px)`;
   }
+}
+// 轨道：沿着行走路线流动的虚线，指示前进方向（外圈 → 内圈 → 回到起点）
+function drawTrack() {
+  if (!S || S.phase === 'lobby' || !$('#cell0').offsetWidth) return;
+  const pts = []; for (let i = 0; i < N; i++) { const p = lanePoint(i); pts.push(`${p.x.toFixed(1)} ${p.y.toFixed(1)}`); }
+  $('#trackPath').setAttribute('d', 'M' + pts.join('L') + 'Z');
 }
 
 // ---------- 骰子 ----------
@@ -288,34 +298,84 @@ async function cardIn(p, T) {
   await wait(260 * T); Snd.swoosh(); c.classList.add('inserted'); await wait(420 * T); posShake();
 }
 async function cardOut(T) { const c = $('#posCard'); c.classList.remove('inserted'); await wait(330 * T); c.classList.remove('show'); await wait(200 * T); }
+async function payVisual(p, dir, T, done) {
+  const m = p.pay || 'card', pos = $('#pos');
+  if (m === 'phone') {
+    const ph = $('#posPhone'); ph.className = 'pphone'; ph.style.setProperty('--pc', p.color); ph.firstElementChild.textContent = p.icon; void ph.offsetWidth; ph.classList.add('show'); Snd.swoosh();
+    await wait(430 * T); pos.classList.add('nfc'); Snd.tone(1800, 0.09, 'sine', 0.08); Snd.tone(2400, 0.16, 'sine', 0.08, 0.1); ph.classList.add('ok'); ph.firstElementChild.textContent = '✓'; done();
+    await wait(800 * T); ph.className = 'pphone'; pos.classList.remove('nfc'); await wait(260 * T);
+  } else if (m === 'cash') {
+    const box = $('#posCash'); box.innerHTML = '';
+    for (let i = 0; i < 6; i++) {
+      const n = document.createElement('div'); n.className = 'note'; n.textContent = '$'; box.appendChild(n);
+      const r = (i - 2.5) * 9, far = `translate(${r * 1.6}px, calc(var(--u) * -11)) rotate(${r}deg)`, slot = 'translate(0, calc(var(--u) * 1.2)) scaleY(.15)';
+      n.animate(dir === 'out' ? [{ transform: far, opacity: 1 }, { transform: slot, opacity: 0.2 }] : [{ transform: slot, opacity: 0.2 }, { transform: far, opacity: 1 }, { transform: far, opacity: 0, offset: 1 }], { duration: (dir === 'out' ? 420 : 900) * T, delay: i * 90 * T, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'both' });
+      setTimeout(() => Snd.noise(0.05, 0, 0.2, 2600), i * 90 * T);
+    }
+    await wait(560 * T); posShake(); done(); await wait(900 * T); box.innerHTML = '';
+  } else { await cardIn(p, T); done(); await wait(620 * T); await cardOut(T); }
+}
+function showMini(ids) { $('#posMini').innerHTML = ids.map((id, i) => { const p = pById(id); return p ? `<div class="avatar" style="background:${p.color};animation-delay:${i * 60}ms">${p.icon}</div>` : ''; }).join(''); }
+function posDone() { const led = $('#posLed'); led.className = 'pos-led ok'; clearTimeout(posDone.t); posDone.t = setTimeout(() => { posScreen('WORLD BANK', 'READY'); led.className = 'pos-led'; $('#posMini').innerHTML = ''; }, 2200); }
 async function posAnim(f) {
-  const T = fxQueue.length > 2 ? 0.45 : 1;
-  const led = $('#posLed'); led.className = 'pos-led busy';
+  const T = fxQueue.length > 2 ? 0.4 : 0.75;
+  $('#posLed').className = 'pos-led busy';
   const from = f.from && pById(f.from), to = f.to && pById(f.to);
-  if (from) {
-    posScreen(f.label, '…'); await cardIn(from, T);
-    for (const ch of String(f.amount).slice(0, 3)) { pressKey(ch); await wait(70 * T); }
-    pressKey('−'); posScreen(`${from.name} 支付 · ${f.label}`, '−' + fmt(f.amount), 'neg'); Snd.beep(); Snd.minus(); moneyMove(from.id, -f.amount);
-    await wait(650 * T); await cardOut(T);
-  } else posScreen(`银行支付 · ${f.label}`, fmt(f.amount));
-  if (to) {
-    await cardIn(to, T); pressKey('+'); posScreen(`${to.name} 收款 · ${f.label}`, '+' + fmt(f.amount), 'pos-plus'); Snd.beep(); Snd.plus(); moneyMove(to.id, f.amount);
-    await wait(650 * T); await cardOut(T);
-  } else if (from) { posScreen('已付给银行', '✓'); await wait(300 * T); }
-  led.className = 'pos-led ok';
-  clearTimeout(posAnim.t); posAnim.t = setTimeout(() => { posScreen('WORLD BANK', 'READY'); led.className = 'pos-led'; }, 2500);
+  if (from) { posScreen(f.label, '…'); await payVisual(from, 'out', T, () => { pressKey('−'); posScreen(`${from.name} 支付 · ${f.label}`, '−' + fmt(f.amount), 'neg'); Snd.beep(); Snd.minus(); moneyMove(from.id, -f.amount); }); }
+  else posScreen(`银行支付 · ${f.label}`, fmt(f.amount));
+  if (to) await payVisual(to, 'in', T, () => { pressKey('+'); posScreen(`${to.name} 收款 · ${f.label}`, '+' + fmt(f.amount), 'pos-plus'); Snd.beep(); Snd.plus(); moneyMove(to.id, f.amount); if (to.id === myId) celebrate(f.amount); });
+  else if (from) { posScreen('已付给银行', '✓'); await wait(250 * T); }
+  posDone();
+}
+// 一个人付给多个人（或多个人付给一个人）：合并成一次，多张卡同时到账
+async function posMulti(f) {
+  const T = fxQueue.length > 2 ? 0.45 : 0.8, ids = f.tos || f.froms, n = ids.length, total = f.each * n;
+  $('#posLed').className = 'pos-led busy';
+  if (f.tos) {
+    const from = pById(f.from);
+    await payVisual(from, 'out', T, () => { posScreen(`${from.name} 一次付给 ${n} 人`, '−' + fmt(total), 'neg'); Snd.beep(); Snd.minus(); moneyMove(from.id, -total); });
+    showMini(ids); posScreen(`${n} 人同时到账 · ${f.label}`, `+${fmt(f.each)} ×${n}`, 'pos-plus'); Snd.plus(); posShake();
+    for (const id of ids) { moneyMove(id, f.each); if (id === myId) celebrate(f.each); }
+    await wait(1100 * T);
+  } else {
+    const to = pById(f.to);
+    showMini(ids); posScreen(`${n} 人同时付款 · ${f.label}`, `−${fmt(f.each)} ×${n}`, 'neg'); Snd.minus(); posShake();
+    for (const id of ids) moneyMove(id, -f.each);
+    await wait(1000 * T);
+    await payVisual(to, 'in', T, () => { posScreen(`${to.name} 一次收款`, '+' + fmt(total), 'pos-plus'); Snd.beep(); Snd.plus(); moneyMove(to.id, total); if (to.id === myId) celebrate(total); });
+  }
+  posDone();
+}
+// 进账庆祝：金额越大越夸张（三档）
+function celebrate(a) {
+  const tier = a >= 300000 ? 3 : a >= 100000 ? 2 : a >= 20000 ? 1 : 0; if (!tier) return;
+  const src = $('#pos').getBoundingClientRect(), card = document.querySelector(`.pl[data-pid="${myId}"]`), dst = (card || $('#pos')).getBoundingClientRect();
+  const sx = src.left + src.width / 2, sy = src.top + src.height / 3, n = [0, 8, 18, 32][tier];
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement('div'); d.className = 'coin'; d.textContent = tier === 3 && i % 3 === 0 ? '💰' : '🪙'; d.style.left = sx + 'px'; d.style.top = sy + 'px'; $('#floats').appendChild(d);
+    const mx = (Math.random() - 0.5) * 320, my = -80 - Math.random() * 200, dx = dst.left + dst.width / 2 - sx, dy = dst.top + dst.height / 2 - sy;
+    d.animate([{ transform: 'translate(-50%,-50%) scale(.3)', opacity: 0 }, { transform: `translate(${mx}px, ${my}px) scale(1.25) rotate(${Math.random() * 360}deg)`, opacity: 1, offset: 0.35 }, { transform: `translate(${dx}px, ${dy}px) scale(.5) rotate(720deg)`, opacity: 0.9 }], { duration: 1100 + Math.random() * 500, delay: i * 35, easing: 'cubic-bezier(.3,.1,.4,1)', fill: 'backwards' }).onfinish = () => d.remove();
+    setTimeout(() => Snd.tone(1800 + Math.random() * 900, 0.06, 'sine', 0.05), i * 35 + 500);
+  }
+  if (tier >= 2) {
+    const b = $('#bigwin'); b.innerHTML = `<small>${tier === 3 ? '💰 发大财了！' : '🎉 进账'}</small>+${fmt(a)}`; b.className = 'bigwin t' + tier; void b.offsetWidth; b.classList.add('show'); Snd.win();
+    clearTimeout(celebrate.t); celebrate.t = setTimeout(() => (b.className = 'bigwin'), tier === 3 ? 2600 : 1700);
+  } else Snd.buy();
+  if (tier === 3) confetti();
 }
 
 // ---------- 拖卡付款 ----------
 function renderDock() {
   const dock = $('#cardDock'), m = me(), pd = S.pending;
   const show = !fxBusy && S.phase === 'play' && m && !m.bankrupt && pd && pd.kind === 'pay' && pd.payer === myId;
-  const key = show ? `${pd.amount}|${pd.reason}|${m.money}` : '';
+  const key = show ? `${pd.amount}|${pd.reason}|${m.money >= pd.amount}|${m.pay}` : '';
   if (dock.dataset.key === key) return;
   dock.dataset.key = key;
   if (!show) { dock.innerHTML = ''; return; }
   const enough = m.money >= pd.amount;
-  dock.innerHTML = `<div class="bank-card" id="myCard" style="background:${cardBg(m)}">${cardHTML(m)}</div><div class="dock-hint">${enough ? `把银行卡拖进刷卡机，支付 ${fmt(pd.amount)}` : `余额不足 ${fmt(pd.amount)}，先卖房或抵押`}</div>`;
+  const pm = m.pay || 'card', verb = pm === 'card' ? '把银行卡拖进刷卡机' : pm === 'phone' ? '把手机拖到刷卡机上（或直接点手机）' : '把现金拖进刷卡机（或直接点现金）';
+  const item = pm === 'card' ? `<div class="bank-card" id="myCard" style="background:${cardBg(m)}">${cardHTML(m)}</div>` : pm === 'phone' ? `<div class="dock-phone" id="myCard" style="--pc:${m.color}">${m.icon}<small>闪付</small></div>` : `<div class="dock-cash" id="myCard"><i>$</i><i>$</i><i>$</i></div>`;
+  dock.innerHTML = `${item}<div class="dock-hint">${enough ? `${verb}，支付 ${fmt(pd.amount)}` : `余额不足 ${fmt(pd.amount)}，先卖房或抵押`}</div>`;
   const card = $('#myCard'), posEl = $('#pos');
   let sx, sy, moved = false, dragging = false;
   const over = (e) => { const r = posEl.getBoundingClientRect(); return e.clientX > r.left - 20 && e.clientX < r.right + 20 && e.clientY > r.top - 40 && e.clientY < r.bottom; };
@@ -367,7 +427,7 @@ async function playFx(f) {
     await wait(380);
   } else if (f.type === 'move') {
     const dir = f.steps > 0 ? 1 : -1, el = tokenEls[f.pid];
-    const dt = fxQueue.length > 3 ? 90 : Math.abs(f.steps) > 14 ? 100 : 210;
+    const dt = fxQueue.length > 3 ? 90 : Math.abs(f.steps) > 14 ? 110 : 230;
     let pos = animPos[f.pid] !== undefined ? animPos[f.pid] : f.from;
     flying[f.pid] = true; placeTokens(); await wait(180);
     for (let s = 0; s < Math.abs(f.steps); s++) {
@@ -383,6 +443,8 @@ async function playFx(f) {
     animPos[f.pid] = f.to; placeTokens(); if (p) ripple(f.to, '#E5383B'); await wait(400);
   } else if (f.type === 'pos') {
     await posAnim(f);
+  } else if (f.type === 'posmulti') {
+    await posMulti(f);
   } else if (f.type === 'buy') {
     Snd.buy(); ripple(f.pos, p.color);
     await banner(`${avatar(p)}${esc(p.name)} 买下 ${sqIcon(f.pos)}<b>${BOARD[f.pos].name}</b>`, { color: sqColor(f.pos), ms: 1000 });
@@ -536,7 +598,7 @@ function deedHTML(i) {
     const lv = st.houses;
     rows = [['租金', sq.rent[0], lv === 0 && !full], ['集齐同色（无房）', sq.rent[0] * 2, lv === 0 && full], ['1 栋房屋', sq.rent[1], lv === 1], ['2 栋房屋', sq.rent[2], lv === 2], ['3 栋房屋', sq.rent[3], lv === 3], ['4 栋房屋', sq.rent[4], lv === 4], ['酒店', sq.rent[5], lv === 5]]
       .map(([a, b, on]) => `<tr class="${on && owner ? 'on' : ''}"><td>${a}</td><td>${fmt(b)}</td></tr>`).join('');
-    return `<div class="deed">${head(GROUPS[sq.group].color)}<table>${rows}</table><div class="foot">房屋每栋 ${fmt(GROUPS[sq.group].house)} · 酒店 ${fmt(GROUPS[sq.group].house)} + 4 栋房屋<br>💰 每栋房屋每秒收益 +${incomePerSec(i, 1)}元（酒店 +${incomePerSec(i, 5)}元/秒）<br>抵押值 ${fmt(sq.price / 2)} · 售价 ${fmt(sq.price)}</div></div>`;
+    return `<div class="deed">${head(GROUPS[sq.group].color)}<table>${rows}</table><div class="foot">房屋每栋 ${fmt(GROUPS[sq.group].house)} · 酒店 ${fmt(GROUPS[sq.group].house)} + 4 栋房屋<br>💰 每栋房屋每秒收益 +${fmt(incomePerSec(i, 1))}（酒店每秒 +${fmt(incomePerSec(i, 5))}）<br>抵押值 ${fmt(sq.price / 2)} · 售价 ${fmt(sq.price)}</div></div>`;
   }
   if (sq.type === 'rail') rows = RULES.railRent.map((v, n) => `<tr><td>拥有 ${n + 1} 个机场/港口</td><td>${fmt(v)}</td></tr>`).join('');
   else rows = RULES.utilMult.map((v, n) => `<tr><td>拥有 ${n + 1} 家</td><td>点数 × ${fmt(v)}</td></tr>`).join('');
@@ -568,16 +630,18 @@ function renderLocal() {
   } else if (localView.type === 'send') {
     const v = localView, others = S.players.filter((p) => p.id !== myId && !p.bankrupt);
     if (!v.to || !others.some((p) => p.id === v.to)) v.to = others[0] && others[0].id;
-    box.innerHTML = `<h3>💸 给别人转账</h3><div class="muted">转给谁？（转账记录会显示在右下角的动态里）</div>
+    box.innerHTML = `<h3>💬 互动</h3><div class="muted">选一个人</div>
       <div class="who-pick">${others.map((p) => `<button data-sendto="${p.id}" class="${p.id === v.to ? 'on' : ''}">${avatar(p)}${esc(p.name)}</button>`).join('')}</div>
-      <div class="mk-price"><input id="sendAmt" type="number" min="0" step="1000" placeholder="金额" value="${v.amount || ''}"><span>元</span></div>
-      <div class="mk-eq" id="sendEq">你的余额 ${fmt(m.money)}</div>
+      <div class="muted" style="margin-top:12px">发个表情（所有人都能看到）</div>
+      <div class="emo-grid">${EMOTES.map((e) => `<button data-emote="${e}">${e}</button>`).join('')}</div>
+      <div class="muted" style="margin-top:14px">💸 给他转账（记录会显示在动态里）</div>
+      <div class="mk-price"><input id="sendAmt" type="number" min="0" step="1" placeholder="金额" value="${v.amount ? v.amount / 1000 : ''}"><span>M</span></div>
+      <div class="mk-eq" id="sendEq">${v.amount ? '= ' + fmt(v.amount) + ' · ' : ''}你的余额 ${fmt(m.money)}</div>
       <div class="mk-quick">${[10000, 50000, 100000].map((x) => `<button data-sendq="${x}">${fmt(x)}</button>`).join('')}</div>
-      <div class="act-row"><button class="btn" data-close>取消</button><button class="btn primary" id="sendGo">确认转账</button></div>`;
-    const inp = $('#sendAmt'); inp.oninput = () => { v.amount = Math.max(0, Math.floor(+inp.value || 0)); $('#sendEq').textContent = v.amount ? `= ${fmt(v.amount)} · 你的余额 ${fmt(m.money)}` : `你的余额 ${fmt(m.money)}`; };
+      <div class="act-row"><button class="btn" data-close>关闭</button><button class="btn primary" id="sendGo">确认转账</button></div>`;
+    const inp = $('#sendAmt'); inp.oninput = () => { v.amount = Math.max(0, Math.round((+inp.value || 0) * 1000)); $('#sendEq').textContent = `${v.amount ? '= ' + fmt(v.amount) + ' · ' : ''}你的余额 ${fmt(m.money)}`; };
     inp.onkeydown = (e) => { if (e.key === 'Enter') $('#sendGo').click(); };
     $('#sendGo').onclick = () => { if (!v.amount) return toast('请先输入金额'); act('send', { to: v.to, amount: v.amount }, (r) => { if (r.ok) { toast('转账成功'); closeLocal(); } }); };
-    inp.focus();
   } else if (localView.type === 'help') {
     const rows = [['空格 / 回车', '掷骰子 · 结束回合 · 刷卡支付 · 确认卡片'], ['B', '购买踩到的地产'], ['A', '拍卖踩到的地产'], ['1 2 3 4 5', '拍卖时加价（从小到大五档）'], ['T', '打开地产交易所'], ['Y / X', '接受 / 拒绝别人的报价'], ['J', '在监狱里缴保释金'], ['U', '使用出狱许可证'], ['N', '夜间模式（护眼）'], ['M', '静音 / 打开声音'], ['H', '打开这张快捷键表'], ['Esc', '关闭弹窗']];
     box.innerHTML = `<h3>⌨️ 键盘快捷键</h3><div class="keys">${rows.map(([k, d]) => `<div>${k.split(' ').map((x) => (x === '/' ? '/' : `<kbd>${x}</kbd>`)).join(' ')}</div><div>${d}</div>`).join('')}</div><div class="act-row"><button class="btn wide" data-close>知道了</button></div>`;
@@ -620,7 +684,7 @@ function marketDetail() {
       if (!v.to || !others.some((p) => p.id === v.to)) v.to = others[0] && others[0].id;
       h += `<div class="mk-line" style="margin-top:10px">把它<b>卖给</b>谁？</div><div class="who-pick">${others.map((p) => `<button data-mkto="${p.id}" class="${p.id === v.to ? 'on' : ''}">${avatar(p)}${esc(p.name)}</button>`).join('')}</div><div class="mk-line">你想<b>收</b>多少钱？</div>`;
     } else h += `<div class="mk-line" style="margin-top:10px">主人：<b>${esc(o.name)}</b></div><div class="mk-line">你愿意<b>付</b>多少钱买它？</div>`;
-    h += `<div class="mk-price"><input id="mkPrice" type="number" min="0" step="1000" placeholder="${sq.price}" value="${v.price || ''}"><span>元</span></div>
+    h += `<div class="mk-price"><input id="mkPrice" type="number" min="0" step="1" placeholder="${sq.price / 1000}" value="${v.price ? v.price / 1000 : ''}"><span>M</span></div>
       <div class="mk-eq" id="mkEq"></div>
       <div class="mk-quick">${[[1, '标价'], [1.5, '1.5 倍'], [2, '2 倍'], [3, '3 倍']].map(([x, n]) => `<button data-mkq="${sq.price * x}">${n} ${fmt(sq.price * x)}</button>`).join('')}</div>
       <button class="btn primary big wide" id="mkSend">${mine ? '发送卖出报价' : `向 ${esc(o.name)} 发送购买报价`}</button>
@@ -628,11 +692,11 @@ function marketDetail() {
   }
   d.innerHTML = h;
   const inp = $('#mkPrice'); if (!inp) return;
-  const eq = () => { const k = Math.max(0, Math.floor(+inp.value || 0)); v.price = k || ''; $('#mkEq').textContent = k ? `= ${fmt(k)}${o.id !== myId && k > m.money ? '（余额不够）' : ''}` : '10000 元 = 1 万'; };
+  const eq = () => { const k = Math.max(0, Math.round((+inp.value || 0) * 1000)); v.price = k || ''; $('#mkEq').textContent = k ? `= ${fmt(k)}${o.id !== myId && k > m.money ? '（余额不够）' : ''}` : '单位是 M（1000M = 1B）'; };
   inp.oninput = eq; eq();
   inp.onkeydown = (e) => { if (e.key === 'Enter') $('#mkSend').click(); };
   $('#mkSend').onclick = () => {
-    const k = Math.max(0, Math.floor(+inp.value || 0)); if (!k) { toast('请先输入价格'); inp.focus(); return; }
+    const k = Math.max(0, Math.round((+inp.value || 0) * 1000)); if (!k) { toast('请先输入价格'); inp.focus(); return; }
     const mine = o.id === myId;
     if (mine && !v.to) return toast('没有可以交易的玩家');
     act('propose', mine ? { to: v.to, give: [i], getMoney: k } : { to: o.id, get: [i], giveMoney: k }, (r) => { if (r.ok) { toast('报价已发送，等待对方回复'); closeLocal(); } });
@@ -649,6 +713,27 @@ function offerHTML(t) {
   return `<h3>🤝 ${esc(f.name)} 想和你交易</h3><div class="offer-text"><b>你得到：</b>${part(t.give, t.giveMoney)}<br><b>你付出：</b>${part(t.get, t.getMoney)}</div>`;
 }
 
+function auctionTips(pos) {
+  const sq = BOARD[pos], m = me(), tips = [], money = m ? m.money : 0;
+  let mult = 1;
+  if (sq.type === 'prop') {
+    const grp = Object.keys(S.props).map(Number).filter((k) => BOARD[k].group === sq.group), g = GROUPS[sq.group];
+    const mine = grp.filter((k) => S.props[k].owner === myId).length, cnt = {};
+    grp.forEach((k) => { const o = S.props[k].owner; if (o && o !== myId) cnt[o] = (cnt[o] || 0) + 1; });
+    const rival = Object.keys(cnt).find((o) => cnt[o] === grp.length - 1);
+    if (mine === grp.length - 1) { mult = 2; tips.push(`🔥 <b>你只差这一块</b>就集齐${g.name}组：租金翻倍，还能建房收每秒收益。值得出到标价的 1.5–2 倍。`); }
+    else if (rival) { mult = 1.5; tips.push(`🛡 <b>${esc(pById(rival).name)} 只差这一块</b>就集齐${g.name}组。抢下它，或者把价格抬高让他多花钱。`); }
+    else if (mine > 0) { mult = 1.3; tips.push(`👍 你已经有 ${mine}/${grp.length} 块${g.name}地，拿下这块离集齐更近，可以比标价多出一点。`); }
+    else tips.push(`🧊 ${g.name}组（共 ${grp.length} 块）还没有人占优，不用高价追，低于标价拿下才划算。`);
+    tips.push(`📈 空地租金 ${fmt(sq.rent[0])}，要被踩约 ${Math.round(sq.price / sq.rent[0])} 次才回本；建成酒店后租金 ${fmt(sq.rent[5])}，每秒再收 ${fmt(incomePerSec(pos, 5))}。`);
+  } else if (sq.type === 'rail') {
+    const n = Object.keys(S.props).filter((k) => BOARD[k].type === 'rail' && S.props[k].owner === myId).length;
+    mult = n ? 1.3 : 1; tips.push(`✈️ 机场和港口越多越值钱：你现在有 ${n} 个，拿下后每次收租 ${fmt(RULES.railRent[n])}。不能建房，但稳定。`);
+  } else { const n = Object.keys(S.props).filter((k) => BOARD[k].type === 'util' && S.props[k].owner === myId).length; tips.push(`⚙️ 公用事业按骰子点数收费：拿下后是"点数 × ${fmt(RULES.utilMult[n])}"。收益看运气，别出太高。`); }
+  const cap = Math.min(Math.round(sq.price * mult), Math.round(money * 0.7));
+  tips.push(`💡 你有 ${fmt(money)}，建议最高出到 <b>${fmt(cap)}</b>（至少留三成现金付租金）。`);
+  return tips.map((t) => `<div>${t}</div>`).join('');
+}
 function updateAuction() {
   const a = S.auction, m = me(), top = a.bidder && pById(a.bidder);
   $('#auPrice').textContent = fmt(a.bid); $('#auWho').textContent = top ? `${top.name} 出价最高` : '还没有人出价';
@@ -661,7 +746,7 @@ function renderStateModal() {
   if (S.phase === 'end') {
     key = 'end';
     const w = pById(S.winner);
-    h = `<div class="trophy">🏆</div><h3 style="text-align:center">${esc(w.name)} 获得第一名！</h3><p class="muted" style="text-align:center">👑 = 现金达到 ${fmt(RULES.winCash)}（按达成先后排名），其余按总资产排名</p><div class="rank">${S.ranking.map((r, i) => { const p = pById(r.id); return `<div style="animation-delay:${i * 0.12}s"><span>${i + 1}</span>${avatar(p)}<span>${r.rich < 999 ? '👑 ' : ''}${esc(p.name)}</span><span>${p.bankrupt ? '破产' : fmt(r.worth)}</span></div>`; }).join('')}</div>
+    h = `<div class="trophy">🏆</div><h3 style="text-align:center">${esc(w.name)} 获得第一名！</h3><p class="muted" style="text-align:center">👑 = 现金达到 ${fmt(RULES.winCash)}，其余按总资产排名</p><div class="rank">${S.ranking.map((r, i) => { const p = pById(r.id); return `<div style="animation-delay:${i * 0.12}s"><span>${i + 1}</span>${avatar(p)}<span>${r.rich < 999 ? '👑 ' : ''}${esc(p.name)}</span><span>${p.bankrupt ? '破产' : fmt(r.worth)}</span></div>`; }).join('')}</div>
       <div class="act-row"><button class="btn primary wide" id="backLobby">回到大厅</button></div>`;
   } else if (pd && pd.kind === 'auction' && S.auction) {
     key = 'auction';
@@ -670,6 +755,7 @@ function renderStateModal() {
       <div class="auction-price" id="auPrice"></div><div class="auction-who" id="auWho"></div>
       <div class="countdown"><div id="cdBar"></div></div>
       ${m && !m.bankrupt ? `<div class="act-row" id="auBtns">${RULES.bids.map((n, i) => `<button class="btn ${i === 2 ? 'primary' : ''}" data-act="bid" data-inc="${n}">+${fmt(n)}<kbd>${i + 1}</kbd></button>`).join('')}</div><p class="muted" style="text-align:center">你的余额 ${fmt(m.money)}</p>` : ''}`;
+    h = `<div class="au-wrap"><div class="au-info">${deedHTML(a.pos)}<div class="au-tips">${auctionTips(a.pos)}</div></div><div class="au-main">${h}</div></div>`;
   } else if (!fxBusy && pd && pd.kind === 'buy' && curP().id === myId) {
     key = 'buy' + pd.pos;
     h = `${deedHTML(pd.pos)}<p class="muted" style="text-align:center;margin-top:12px">你有 ${fmt(m.money)}</p>
@@ -716,6 +802,8 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('[data-local="market"]')) return openMarket();
   if (e.target.closest('[data-local="send"]')) return openLocal({ type: 'send', to: null, amount: 0 });
   const plc = e.target.closest('#players .pl'); if (plc && S.phase === 'play' && plc.dataset.pid !== myId && me() && !me().bankrupt) return openLocal({ type: 'send', to: plc.dataset.pid, amount: 0 });
+  const em = e.target.closest('[data-emote]'); if (em && localView && localView.to) { socket.emit('emote', { to: localView.to, e: em.dataset.emote }); return closeLocal(); }
+  const pay = e.target.closest('[data-pay]'); if (pay) return act('pay', { m: pay.dataset.pay });
   const st = e.target.closest('[data-sendto]'); if (st && localView) { localView.to = st.dataset.sendto; return renderLocal(); }
   const sq_ = e.target.closest('[data-sendq]'); if (sq_ && localView) { localView.amount = +sq_.dataset.sendq; return renderLocal(); }
   const bf = e.target.closest('[data-buyfrom]') || e.target.closest('[data-sellto]'); if (bf) return openMarket(+(bf.dataset.buyfrom || bf.dataset.sellto));
@@ -764,7 +852,7 @@ socket.on('income', (list) => {           // 只有主人自己能收到：在�
   if (document.hidden) return;
   for (const [pos, amt] of list) {
     const c = $('#cell' + pos); if (!c) continue;
-    const d = document.createElement('div'); d.className = 'inc'; d.textContent = '+' + amt; c.appendChild(d);
+    const d = document.createElement('div'); d.className = 'inc'; d.textContent = '+' + fmt(amt); c.appendChild(d);
     d.animate([{ transform: 'translate(-50%, 40%)', opacity: 0 }, { transform: 'translate(-50%, -20%)', opacity: 1, offset: 0.25 }, { transform: 'translate(-50%, -130%)', opacity: 0 }], { duration: 950, easing: 'ease-out' }).onfinish = () => d.remove();
   }
 });
@@ -779,6 +867,26 @@ setInterval(() => {
   document.querySelectorAll('#players .pl').forEach((el) => el.classList.toggle('hurry', hurry && el.dataset.pid === cur.id));
 }, 250);
 
+// ================= 表情互动 =================
+socket.on('emote', ({ from, to, e }) => {
+  const a = tokenEls[from], b = tokenEls[to]; if (!a || !b || !S || S.phase === 'lobby') return;
+  const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+  const sx = ra.left + ra.width / 2, sy = ra.top + ra.height / 2, dx = rb.left + rb.width / 2 - sx, dy = rb.top + rb.height / 2 - sy;
+  const d = document.createElement('div'); d.className = 'emo-fly'; d.textContent = e; d.style.left = sx + 'px'; d.style.top = sy + 'px'; $('#floats').appendChild(d);
+  Snd.swoosh();
+  d.animate([{ transform: 'translate(-50%,-50%) scale(.4)' }, { transform: `translate(calc(-50% + ${dx / 2}px), calc(-50% + ${dy / 2 - 140}px)) scale(2.4) rotate(-15deg)`, offset: 0.5 }, { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1.3)` }], { duration: 850, easing: 'cubic-bezier(.4,0,.6,1)', fill: 'forwards' }).onfinish = () => {
+    d.remove(); e === '⚡️' || e === '💣' ? (Snd.noise(0.4, 0, 0.5, 300), document.body.animate([{ filter: 'brightness(1.8)' }, { filter: 'none' }], 260)) : Snd.plus();
+    for (let i = 0; i < 9; i++) {
+      const c = document.createElement('div'); c.className = 'emo-fly'; c.textContent = e; c.style.left = sx + dx + 'px'; c.style.top = sy + dy + 'px'; $('#floats').appendChild(c);
+      const ang = (i / 8) * Math.PI * 2, r = i === 8 ? 0 : 90 + Math.random() * 50;
+      c.animate([{ transform: 'translate(-50%,-50%) scale(1.2)', opacity: 1 }, { transform: `translate(calc(-50% + ${Math.cos(ang) * r}px), calc(-50% + ${Math.sin(ang) * r}px)) scale(${i === 8 ? 5 : 0.9})`, opacity: 0 }], { duration: i === 8 ? 900 : 700, easing: 'ease-out' }).onfinish = () => c.remove();
+    }
+    b.animate([{ scale: 'var(--s)' }, { scale: 'calc(var(--s) * 1.6)' }, { scale: 'var(--s)' }], 400);
+  };
+  const pf = pById(from), pt = pById(to); if (pf && pt) toast(`${pf.name} → ${pt.name} ${e}`);
+});
+function renderPay() { const m = me(), cur = (m && m.pay) || 'card'; document.querySelectorAll('#payPick [data-pay]').forEach((b) => b.classList.toggle('on', b.dataset.pay === cur)); }
+
 // ================= 主渲染 =================
 socket.on('state', (st) => {
   const first = !S;
@@ -792,7 +900,7 @@ function renderAll() {
   if (!S) return;
   if (S.phase === 'lobby') { $('#lobby').hidden = false; $('#game').hidden = true; renderLobby(); return; }
   if ($('#game').hidden) { $('#lobby').hidden = true; $('#game').hidden = false; $('#roomTag').textContent = S.code; resize(); }
-  updateBoard(); placeTokens(); renderPlayers(); renderActions(); renderAssets(); renderLog(); renderStatus(); renderDock(); renderDanger(); renderCard(); renderStateModal();
+  updateBoard(); placeTokens(); renderPlayers(); renderActions(); renderAssets(); renderLog(); renderStatus(); renderDock(); renderDanger(); renderCard(); renderStateModal(); renderPay();
   if (localView && (localView.type === 'deed' || localView.type === 'market')) renderLocal();
   if (localView && S.phase !== 'play' && localView.type !== 'help') closeLocal();
 }
@@ -804,7 +912,7 @@ function resize() {
   const r = document.documentElement.style;
   r.setProperty('--bw', Math.floor(cell * (BW + 3)) + 'px'); r.setProperty('--bh', Math.floor(cell * (BH + 3)) + 'px'); r.setProperty('--u', uPx + 'px');
   const tk = $('#tokens'); tk.style.display = 'none'; void tk.offsetWidth; tk.style.display = '';
-  placeTokens();
+  placeTokens(); drawTrack();
 }
 addEventListener('resize', resize);
 resize();

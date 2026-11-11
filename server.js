@@ -6,9 +6,14 @@ const os = require('os');
 const express = require('express');
 const { Server } = require('socket.io');
 const { Game, GameError } = require('./game');
+const crypto = require('crypto');
+const D = require('./public/data.js');
+const sha = (x) => crypto.createHash('sha256').update(String(x)).digest('hex');
+// 创建房间的密码（只存哈希值）。想换密码：在服务器上设置环境变量 CREATE_PASSWORD
+const PASS_HASH = process.env.CREATE_PASSWORD ? sha(process.env.CREATE_PASSWORD) : 'f21ce2390cc90e663ac24786ff3591e1b015daf8fc12ff9cdaefca5f8fd6b384';
 
 const PORT = process.env.PORT || 3000;
-const SAVE = path.join(__dirname, 'data', 'rooms-v3.json');
+const SAVE = path.join(__dirname, 'data', 'rooms-v4.json');
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
@@ -75,8 +80,9 @@ io.on('connection', (socket) => {
     p.connected = true;
   };
 
-  socket.on('create', ({ name, token, size }, cb) => {
+  socket.on('create', ({ name, token, size, password }, cb) => {
     try {
+      if (sha(password || '') !== PASS_HASH) throw new GameError('创建房间的密码不正确（没有密码只能加入房间）');
       const g = new Game(newCode());
       const n = Math.floor(Number(size));
       if (n >= 2 && n <= 8) g.maxPlayers = n;
@@ -112,6 +118,14 @@ io.on('connection', (socket) => {
       reply(cb, { ok: false, error: e instanceof GameError ? e.message : '服务器出错了' });
     }
     broadcast(g);
+  });
+
+  socket.on('emote', ({ to, e } = {}) => {
+    const g = rooms.get(socket.data.code); if (!g) return;
+    const p = g.P(socket.data.token); if (!p || !D.EMOTES.includes(e) || !g.byId(to)) return;
+    if (Date.now() - (socket.data.lastEmote || 0) < 500) return;
+    socket.data.lastEmote = Date.now();
+    io.to(g.code).emit('emote', { from: p.id, to, e });
   });
 
   socket.on('disconnect', () => {

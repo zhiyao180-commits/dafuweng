@@ -440,3 +440,68 @@ input:focus { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(10,111,224,.
 .owner { width: calc(var(--u) * 2.1); height: calc(var(--u) * 2.1); font-size: calc(var(--u) * 1.2); line-height: 1; display: grid; place-items: center; bottom: 3%; right: 3%; box-shadow: 0 0 0 1.5px #fff, 0 1px 3px rgba(0,0,0,.35); z-index: 2; }
 .side-t .owner { top: 3%; }
 .avatar, .token { box-shadow: 0 0 0 1.5px rgba(255,255,255,.9), 0 2px 6px rgba(0,0,0,.3); }
+
+/* ====== v4 ====== */
+.goal { font-size: 13px; line-height: 1.6; background: var(--soft); border-radius: 12px; padding: 10px 12px; margin: 0 0 14px; }
+.pick button { width: 30px; height: 30px; font-size: 15px; }
+/* 地产颜色只留色条，格子底色留给主人颜色，两者不再混淆 */
+.cell { background: color-mix(in srgb, var(--tint, transparent) 6%, var(--cell)); }
+.cell.owned { box-shadow: inset 0 0 0 calc(var(--u) * .62) var(--own), inset 0 0 0 calc(var(--u) * .8) #fff, inset 0 0 0 calc(var(--u) * .9) rgba(0,0,0,.35); background: color-mix(in srgb, var(--own) 30%, var(--cell)); }
+.cell .bar { box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+/* 棋子大小随人数变化；移动时小步走 */
+.token { scale: var(--s, 1); transition: transform .22s ease-out, scale .25s, opacity .3s; }
+.token.fly { scale: var(--s, 1.5); }
+.token.hop, .token.fly.hop { animation: hopwalk .22s ease-out; }
+@keyframes hopwalk { 50% { translate: 0 calc(var(--u) * -1.1); } }
+/* 行走轨道 */
+#track { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+#trackPath { fill: none; stroke: var(--ink3); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 13; opacity: .75; animation: flow 1.1s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -14; } }
+/* 刷卡机升级：立体倾斜、感应光圈、手机闪付、现金 */
+.table { perspective: 900px; }
+.pos { rotate: x 14deg; transform-style: preserve-3d; background: linear-gradient(165deg, #45464B, #17171A 70%); box-shadow: 0 calc(var(--u) * 2.2) calc(var(--u) * 3) rgba(0,0,0,.32), 0 calc(var(--u) * .5) 0 #0c0c0d, inset 0 1px 0 rgba(255,255,255,.18); }
+.pos-screen { background: linear-gradient(160deg, #0B2018, #06120D); box-shadow: inset 0 0 14px rgba(0,0,0,.8), 0 0 calc(var(--u) * 1.4) rgba(80,255,150,.12); }
+.pos-ring { position: absolute; left: 50%; top: 46%; width: 30%; aspect-ratio: 1; border-radius: 50%; border: 2px solid #7CFFA0; opacity: 0; transform: translate(-50%,-50%); pointer-events: none; z-index: 6; }
+.pos.nfc .pos-ring { animation: nfc .7s ease-out 2; }
+@keyframes nfc { from { opacity: .9; transform: translate(-50%,-50%) scale(.3); } to { opacity: 0; transform: translate(-50%,-50%) scale(3.4); } }
+.pphone { position: absolute; right: calc(var(--u) * -3); top: calc(var(--u) * 3); width: calc(var(--u) * 8.5); height: calc(var(--u) * 16); border-radius: calc(var(--u) * 1.5); background: #0d0d0f; padding: calc(var(--u) * .45); opacity: 0; transform: translate(calc(var(--u) * 9), calc(var(--u) * -6)) rotate(24deg); transition: transform .42s cubic-bezier(.3,.7,.3,1), opacity .25s; z-index: 9; box-shadow: 0 10px 24px rgba(0,0,0,.4); pointer-events: none; }
+.pphone.show { opacity: 1; transform: translate(calc(var(--u) * -4), 0) rotate(-7deg); }
+.pphone-s { width: 100%; height: 100%; border-radius: calc(var(--u) * 1.1); background: linear-gradient(160deg, var(--pc, #333), #101218); display: grid; place-items: center; font-size: calc(var(--u) * 3.6); color: #fff; font-weight: 800; transition: background .2s; }
+.pphone.ok .pphone-s { background: linear-gradient(160deg, #34C759, #14823A); }
+.pcash { position: absolute; left: 0; right: 0; top: calc(var(--u) * 1.2); height: 0; z-index: 2; pointer-events: none; }
+.note { position: absolute; left: 50%; top: 0; width: calc(var(--u) * 9.5); height: calc(var(--u) * 4.6); margin: calc(var(--u) * -2.3) 0 0 calc(var(--u) * -4.75); border-radius: calc(var(--u) * .4); background: linear-gradient(135deg, #8FD694, #3E8E55); box-shadow: inset 0 0 0 calc(var(--u) * .35) rgba(255,255,255,.35), 0 2px 6px rgba(0,0,0,.25); display: grid; place-items: center; color: #fff; font-weight: 800; font-size: calc(var(--u) * 2); }
+.pmini { position: absolute; left: 0; right: 0; top: calc(var(--u) * -4.2); display: flex; justify-content: center; gap: 3px; z-index: 9; pointer-events: none; }
+.pmini .avatar { width: calc(var(--u) * 3.2); height: calc(var(--u) * 3.2); font-size: calc(var(--u) * 1.8); animation: popin .4s cubic-bezier(.2,1.6,.4,1) backwards; }
+/* 银行卡：光泽 + 圆环纹 */
+.bank-card::after { content: ''; position: absolute; right: -18%; top: -55%; width: 75%; aspect-ratio: 1; border-radius: 50%; border: calc(var(--u) * 1.5) solid rgba(255,255,255,.14); box-shadow: 0 0 0 calc(var(--u) * 2.4) rgba(255,255,255,.06); }
+.card-dock .bank-card::before { background: linear-gradient(115deg, rgba(255,255,255,.4) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,.35) 48%, rgba(255,255,255,0) 60%, rgba(0,0,0,.18) 100%) 0 0 / 250% 100%; animation: holo 3s linear infinite; }
+@keyframes holo { from { background-position: 120% 0; } to { background-position: -60% 0; } }
+.dock-phone, .dock-cash { pointer-events: auto; cursor: grab; touch-action: none; animation: floaty 2.4s ease-in-out infinite, rise .4s; }
+.dock-phone { width: calc(var(--u) * 8.5); height: calc(var(--u) * 15); border-radius: calc(var(--u) * 1.5); border: calc(var(--u) * .45) solid #0d0d0f; background: linear-gradient(160deg, var(--pc), #101218); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: calc(var(--u) * 3.6); color: #fff; box-shadow: 0 8px 20px rgba(0,0,0,.3); }
+.dock-phone small { font-size: calc(var(--u) * 1.2); font-weight: 700; opacity: .85; margin-top: 4px; }
+.dock-cash { width: calc(var(--u) * 12); height: calc(var(--u) * 8); position: relative; }
+.dock-cash i { position: absolute; inset: 15% 0; border-radius: calc(var(--u) * .5); background: linear-gradient(135deg, #8FD694, #3E8E55); box-shadow: inset 0 0 0 calc(var(--u) * .4) rgba(255,255,255,.35), 0 3px 8px rgba(0,0,0,.25); display: grid; place-items: center; color: #fff; font-style: normal; font-weight: 800; font-size: calc(var(--u) * 2.4); }
+.dock-cash i:nth-child(1) { rotate: -9deg; } .dock-cash i:nth-child(3) { rotate: 8deg; }
+.payrow { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink2); padding: 0 2px; }
+.payrow span { flex: none; }
+.seg.pay { grid-template-columns: repeat(3, 1fr); flex: 1; padding: 2px; border-radius: 10px; }
+.seg.pay button { font-size: 12px; padding: 5px 0; border-radius: 8px; }
+/* 进账庆祝 */
+.coin { position: fixed; font-size: 22px; pointer-events: none; z-index: 210; }
+.bigwin { position: fixed; left: 50%; top: 38%; transform: translate(-50%,-50%) scale(.3); opacity: 0; z-index: 220; pointer-events: none; font-size: 64px; font-weight: 900; color: #F5B700; text-shadow: 0 3px 0 #9A6A00, 0 10px 40px rgba(0,0,0,.4); text-align: center; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.bigwin small { display: block; font-size: 22px; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
+.bigwin.t3 { font-size: 104px; }
+.bigwin.show { animation: bigwin 1.7s cubic-bezier(.2,1.5,.4,1) forwards; }
+.bigwin.t3.show { animation-duration: 2.6s; }
+@keyframes bigwin { 0% { transform: translate(-50%,-50%) scale(.3) rotate(-8deg); opacity: 0; } 18% { transform: translate(-50%,-50%) scale(1.15) rotate(3deg); opacity: 1; } 30%, 80% { transform: translate(-50%,-50%) scale(1); opacity: 1; } 100% { transform: translate(-50%,-70%) scale(1.1); opacity: 0; } }
+/* 表情 */
+.emo-fly { position: fixed; font-size: 34px; pointer-events: none; z-index: 230; }
+.emo-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; margin-top: 6px; }
+.emo-grid button { border: 0; background: var(--soft); border-radius: 10px; font-size: 22px; padding: 6px 0; cursor: pointer; transition: transform .12s; }
+.emo-grid button:hover { transform: scale(1.25); }
+/* 拍卖：左边地产信息 + 出价建议 */
+.au-wrap { display: flex; gap: 20px; align-items: flex-start; }
+.au-info { width: 270px; flex: none; }
+.au-main { min-width: 340px; }
+.au-tips { margin-top: 10px; font-size: 12.5px; line-height: 1.6; background: var(--paper); border-radius: 12px; padding: 10px 12px; box-shadow: inset 0 0 0 1px var(--line); display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 760px) { .au-wrap { flex-direction: column; } }
