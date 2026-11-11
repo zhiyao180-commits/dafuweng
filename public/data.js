@@ -112,6 +112,8 @@
     { text: '冲动买了奢侈品，支付 400K', fx: { t: 'money', amt: -400 } },
     { text: '你当选董事会主席，向每位玩家支付 500K', fx: { t: 'each', amt: -500 } },
     { text: '请所有人喝奶茶，向每位玩家支付 100K', fx: { t: 'each', amt: -100 } },
+    { text: '企业赞助：现金最多的玩家，送给现金最少的玩家 1M', fx: { t: 'sponsor', amt: 1000 } },
+    { text: '地产税：地产最多的玩家（可能不止一位）向银行支付 1M', fx: { t: 'proptax', amt: 1000 } },
   ];
 
   const CHEST = [
@@ -143,6 +145,8 @@
     { text: '街道维修：每栋房屋支付 400K，每座酒店支付 1.15M', fx: { t: 'repairs', house: 400, hotel: 1150 } },
     { text: '今天是你的生日！每位玩家送你 100K', fx: { t: 'each', amt: 100 } },
     { text: '朋友们还钱了：每位玩家付你 200K', fx: { t: 'each', amt: 200 } },
+    { text: '企业赞助：现金最多的玩家，送给现金最少的玩家 1M', fx: { t: 'sponsor', amt: 1000 } },
+    { text: '地产税：地产最多的玩家（可能不止一位）向银行支付 1M', fx: { t: 'proptax', amt: 1000 } },
   ];
   for (const c of [...CHANCE, ...CHEST]) if (c.fx.t === 'goto') c.fx.pos = BOARD.findIndex((s) => s.name === c.fx.to);
 
@@ -150,6 +154,7 @@
     startMoney: 15000,
     goSalary: 2000,
     jailFine: 500,
+    winCash: 50000, // 手上现金达到 50M 立即获胜
     maxPlayers: 8,
     houses: 40,
     hotels: 15,

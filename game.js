@@ -129,7 +129,7 @@ class Game {
     this.players = shuffle(this.players);
     this.phase = 'play';
     this.turn = 0;
-    this.say(`游戏开始！每人获得 ${fmt(RULES.startMoney)}。顺序：${this.players.map((x) => x.name).join(' → ')}`);
+    this.say(`游戏开始！每人获得 ${fmt(RULES.startMoney)}，先拿到 ${fmt(RULES.winCash)} 现金的人立即获胜。顺序：${this.players.map((x) => x.name).join(' → ')}`);
     this.say(`轮到 ${this.cur.name}`);
     this.fx.push({ type: 'turn', pid: this.cur.id });
   }
@@ -263,6 +263,21 @@ class Game {
         break;
       case 'back': this.moveBy(p, -f.n); break;
       case 'fwd': this.moveBy(p, f.n); break;
+      case 'sponsor': {
+        const act = this.active();
+        const rich = act.reduce((x, y) => (y.money > x.money ? y : x)), poor = act.reduce((x, y) => (y.money < x.money ? y : x));
+        if (rich !== poor && rich.money > poor.money) { this.transfer(rich, poor, f.amt, '企业赞助'); this.say(`企业赞助：${rich.name} 送给 ${poor.name} ${fmt(f.amt)}`); }
+        break;
+      }
+      case 'proptax': {
+        const cnt = (o) => Object.values(this.props).filter((st) => st.owner === o.id).length;
+        const act = this.active(), max = Math.max(...act.map(cnt));
+        if (max > 0) for (const o of act) if (cnt(o) === max) {
+          this.transfer(o, null, f.amt, '地产税'); this.say(`地产税：${o.name}（${max} 块地）支付 ${fmt(f.amt)}`);
+          if (o.money < 0) o.creditor = null;
+        }
+        break;
+      }
       case 'jail': this.sendJail(p); break;
       case 'goojf': p.goojf.push(pd.deck); break;
       case 'repairs': {
@@ -593,6 +608,10 @@ class Game {
     };
     must(map[type], '未知操作');
     map[type]();
+    if (this.phase === 'play') {
+      const w = this.active().find((o) => o.money >= RULES.winCash);
+      if (w) { this.say(`💰 ${w.name} 的现金达到 ${fmt(RULES.winCash)}！`); this.finish(w); }
+    }
     this.updatedAt = Date.now();
   }
 
