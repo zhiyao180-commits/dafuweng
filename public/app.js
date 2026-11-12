@@ -168,7 +168,7 @@ function cellInner(i) {
   const sq = BOARD[i];
   const ci = (icon, name, sub, en) => `<div class="ci">${icon}<div class="cname">${name}</div>${en ? `<div class="cen">${en}</div>` : ''}${sub ? `<div class="cprice">${sub}</div>` : ''}</div>`;
   switch (sq.type) {
-    case 'prop': return `<div class="bar"></div>` + ci(`<div class="lm">${landmark(sq.name)}</div>`, sq.name, fmt(sq.price), sq.en);
+    case 'prop': return `<div class="bar"></div><div class="ci"><div class="lm">${landmark(sq.name)}</div><div class="ctx"><div class="cname">${sq.name}</div>${sq.en ? `<div class="cen">${sq.en}</div>` : ''}<div class="cprice">${fmt(sq.price)}</div></div></div>`;
     case 'rail': return ci(`<div class="cicon">${railIcon(sq)}</div>`, sq.short.trim(), fmt(sq.price), sq.en);
     case 'hub': return ci('<div class="cicon">🌐</div>', sq.name, '经过 +' + fmt(RULES.goSalary));
     case 'util': return ci(`<div class="cicon">${sq.icon}</div>`, sq.name, fmt(sq.price));

@@ -916,3 +916,70 @@ body.phone .flybill { width: 60px; height: 28px; font-size: 8px; } body.phone .f
 /* 刷卡槽改到机身左侧（右侧离地图边缘太近，卡会被遮住） */
 .pos-groove { right: auto !important; left: calc(var(--u) * -.5); border-radius: calc(var(--u) * 1) 0 0 calc(var(--u) * 1) !important; background: linear-gradient(270deg, #050506, #2a2a2e) !important; }
 .bank-card.in-slot:not(.credit) { right: auto; left: calc(var(--u) * -8.6); }
+/* ====== v14：地标作为格子主体，名字和价格退为小字 ====== */
+.cell.prop .ci { height: 100%; justify-content: flex-end; gap: 0; padding-bottom: 3%; }
+.cell.prop.side-t .ci { padding-bottom: 12%; }
+.cell.prop .lm { flex: 1 1 0; min-height: 0; width: 94%; height: auto; display: flex; align-items: center; justify-content: center; margin-bottom: 2%;
+  color: color-mix(in srgb, var(--tint) 82%, #1F2328);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--tint) 24%, transparent) 0%, color-mix(in srgb, var(--tint) 8%, transparent) 60%, transparent 100%);
+  filter: drop-shadow(0 calc(var(--u) * .25) calc(var(--u) * .3) rgba(0,0,0,.2)); }
+.cell.prop .lm svg { width: 100%; height: 100%; }
+.cell.prop .cname { font-size: max(9px, calc(var(--u) * 1.08)); font-weight: 700; line-height: 1.15; opacity: .92; }
+.cell.prop .cprice { font-size: max(8px, calc(var(--u) * .88)); line-height: 1.15; opacity: .8; }
+.cell.prop .cen { display: none; }
+.cell.prop:not(.inner).side-b .cen, .cell.prop:not(.inner).side-t .cen { display: block; font-size: max(7px, calc(var(--u) * .74)); opacity: .7; }
+.cell.prop:hover .lm { transform: translateY(-2px) scale(1.06); }
+/* 机场、港口、公用事业等图标同步放大 */
+.cell:not(.prop):not(.corner):not(.corner2) .cicon { font-size: calc(var(--u) * 3); }
+.cell.mortgaged .lm { filter: grayscale(1); opacity: .5; }
+body.phone .cell.prop .lm { width: 96%; height: auto; margin: 0; }
+body.phone .cell.prop .cname { font-size: 7.5px; }
+/* ====== v15：地标铺满整个格子，文字压成角落小标签 ====== */
+.cell.prop .ci { position: absolute; inset: 0; width: auto; height: auto; padding: 5% 4% 4%; gap: 0; justify-content: flex-end; }
+.cell.prop.side-b .ci { top: 13%; padding-top: 3%; }
+.cell.prop.side-t .ci { bottom: 13%; padding-bottom: 3%; }
+.cell.prop.side-l .ci { right: 11%; }
+.cell.prop.side-r .ci { left: 11%; }
+.cell.prop .ctx { display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 0; max-width: 100%; }
+.cell.prop .ctx > div { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell.prop .lm { width: 100%; margin: 0 0 1%; }
+/* 外圈左右两列是横向长格：地标靠外侧占满高度，文字竖排在内侧 */
+body:not(.phone) .cell.prop:not(.inner).side-l .ci,
+body:not(.phone) .cell.prop:not(.inner).side-r .ci { flex-direction: row; align-items: center; justify-content: center; padding: 4% 4%; gap: 3%; }
+body:not(.phone) .cell.prop:not(.inner).side-r .ci { flex-direction: row-reverse; }
+body:not(.phone) .cell.prop:not(.inner).side-l .lm,
+body:not(.phone) .cell.prop:not(.inner).side-r .lm { flex: 0 1 auto; height: 100%; width: auto; aspect-ratio: 1; max-width: 60%; margin: 0; }
+body:not(.phone) .cell.prop:not(.inner).side-l .ctx { align-items: flex-start; text-align: left; }
+body:not(.phone) .cell.prop:not(.inner).side-r .ctx { align-items: flex-end; text-align: right; }
+body:not(.phone) .cell.prop:not(.inner).side-l .cen,
+body:not(.phone) .cell.prop:not(.inner).side-r .cen { display: block; font-size: max(7px, calc(var(--u) * .74)); opacity: .7; }
+/* 地标背后的柔光圆盘：像舞台追光，让每座地标都有自己的“画框” */
+.cell.prop .lm { background: radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--tint) 30%, transparent) 0, color-mix(in srgb, var(--tint) 12%, transparent) 46%, transparent 70%); border-radius: 50%; }
+.cell.prop .ctx { flex-shrink: 0; }
+body:not(.phone) .cell.prop:not(.inner).side-l .lm,
+body:not(.phone) .cell.prop:not(.inner).side-r .lm { min-width: 0; max-width: none; flex: 0 1 auto; }
+.cell.prop:not(.inner).side-b .cen, .cell.prop:not(.inner).side-t .cen { display: none; }
+/* 归属徽章挪到角上空白处，不再压住价格 */
+.cell .owner { width: calc(var(--u) * 1.8); height: calc(var(--u) * 1.8); font-size: calc(var(--u) * 1.05); }
+.cell.side-b .owner { top: calc(13% + 2px); bottom: auto; right: 3%; }
+.cell:not(.prop).side-b .owner { top: 3%; }
+.cell.side-t .owner { top: 3%; bottom: auto; right: 3%; }
+.cell.side-l .owner { top: 4%; bottom: auto; right: calc(11% + 2px); }
+.cell.side-r .owner { top: 4%; bottom: auto; right: 3%; }
+.cell:not(.prop).side-l .owner { right: 3%; }
+body:not(.phone) .cell.prop:not(.inner).side-r .owner { right: auto; left: calc(11% + 2px); }
+/* 手机：格子很小，名字允许换行、不再省略 */
+body.phone .cell.prop .ci { padding: 2px 1px 1px; }
+body.phone .cell.prop .ctx > div { white-space: normal; overflow: visible; text-overflow: clip; word-break: break-all; }
+body.phone .cell.prop .cname { font-size: 7px; line-height: 1.05; letter-spacing: -.3px; }
+/* 已购地产有一圈归属色边框：内容往里收，价格不压在边框上 */
+.cell.prop.owned .ci { padding: calc(var(--u) * .9) calc(var(--u) * .9) calc(var(--u) * 1); }
+body:not(.phone) .cell.prop.owned:not(.inner):is(.side-l, .side-r) .ci { padding: calc(var(--u) * .9); }
+body.phone .cell.prop.owned .ci { padding: 3px 2px 3px; }
+body:not(.phone) .cell.prop.inner.owned .ci { padding: calc(var(--u) * .7) calc(var(--u) * .6) calc(var(--u) * .8); }
+.cell.inner.owned:not(.prop) .cen { display: none; }
+/* 手机外圈左右长格也用横排：地标更大 */
+body.phone .cell.prop:not(.inner).side-l .ci, body.phone .cell.prop:not(.inner).side-r .ci { flex-direction: row; align-items: center; justify-content: center; gap: 2px; padding: 2px; }
+body.phone .cell.prop:not(.inner).side-r .ci { flex-direction: row-reverse; }
+body.phone .cell.prop:not(.inner).side-l .lm, body.phone .cell.prop:not(.inner).side-r .lm { flex: 0 1 auto; height: 100%; width: auto; aspect-ratio: 1; min-width: 0; margin: 0; }
+body.phone .cell.prop:not(.inner).side-l .ctx, body.phone .cell.prop:not(.inner).side-r .ctx { max-width: 50%; }
