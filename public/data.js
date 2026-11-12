@@ -201,8 +201,10 @@
     const s = n >= 1e6 ? r(n / 1e6) + 'B' : n >= 1000 ? r(n / 1000) + 'M' : n + 'K';
     return (neg ? '-' : '') + s;
   }
-  for (const g of Object.values(GROUPS)) g.house *= S;
-  for (const sq of BOARD) { if (sq.price) sq.price *= S; if (sq.rent) sq.rent = sq.rent.map((r) => r * S); if (sq.amount) sq.amount *= S; }
+  // 地产价格倍数：起始 300M 只够买 1–2 块地。地价、租金、房价同步放大，回报率不变
+  const PM = 5;
+  for (const g of Object.values(GROUPS)) g.house *= S * PM;
+  for (const sq of BOARD) { if (sq.price) sq.price *= S * PM; if (sq.rent) sq.rent = sq.rent.map((r) => r * S * PM); if (sq.amount) sq.amount *= S; }
   for (const c of [...CHANCE, ...CHEST]) {
     const big = c.fx.t === 'money' || c.fx.t === 'each' ? 4 : 1; // 奖惩金额放大 4 倍，更刺激
     for (const k of ['amt', 'house', 'hotel']) if (c.fx[k]) c.fx[k] *= S * big;
@@ -211,16 +213,16 @@
 
   const RULES = {
     startMoney: 300000,
-    goSalary: 40000,
+    goSalary: 60000,
     jailFine: 10000,
     winCash: 10000000,  // 总资产达到 10B 成为首富（胜出后其余玩家继续）
     turnSecs: 20,       // 每步操作限时
     maxPlayers: 8,
     houses: 56,
     hotels: 20,
-    bids: [500, 1000, 5000, 10000, 50000],
-    railRent: [5000, 10000, 20000, 40000, 60000, 80000, 100000, 120000, 140000, 160000], // 按拥有的机场+港口数量
-    utilMult: [800, 2000, 4000, 6000],
+    bids: [1000, 5000, 10000, 50000, 100000],
+    railRent: [25000, 50000, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000], // 按拥有的机场+港口数量
+    utilMult: [4000, 10000, 20000, 30000],
   };
   // 有房屋的地产每秒产生的收益：地价越低收益率越高（类似现实中的租金回报率）
   function incomePerSec(pos, houses) {
