@@ -76,6 +76,7 @@ class Game {
   ownsGroup(pid, group) { return GROUP_POS[group].every((i) => this.props[i].owner === pid); }
   countOwned(pid, type) { return BOARD.reduce((n, sq, i) => n + (sq.type === type && this.props[i].owner === pid ? 1 : 0), 0); }
 
+  get taxRate() { return Math.min(0.16, 0.04 + 0.015 * (this.stage || 0)); }
   get infl() { return Math.pow(1.5, this.stage || 0); }
   priceOf(pos) { return Math.round((this.props[pos].fore ? BOARD[pos].price / 2 : BOARD[pos].price) * this.infl); }
   houseCost(sq) { return Math.round(GROUPS[sq.group].house * this.infl); }
@@ -673,8 +674,8 @@ class Game {
   propTax(p) {
     let v = 0;
     for (const [i, st] of Object.entries(this.props)) if (st.owner === p.id && !st.mortgaged) { const sq = BOARD[i]; v += sq.price * this.infl + (sq.type === 'prop' ? st.houses * this.houseCost(sq) : 0); }
-    const tax = Math.round(v * 0.04); if (tax <= 0) return;
-    this.transfer(p, null, tax, '地产税（地产现值 4%）');
+    const r = this.taxRate, tax = Math.round(v * r); if (tax <= 0) return;
+    this.transfer(p, null, tax, `地产税（地产现值 ${Math.round(r * 1000) / 10}%）`);
     if (p.money < 0) p.creditor = null;
   }
   // 远程购买：未抵达也可购买银行持有的地产，价格为现价的 3 倍
@@ -729,7 +730,7 @@ class Game {
     for (const m of this.market) {
       const a = D.ASSETS.find((x) => x.id === m.id), base = a.base * (a.kind === 'fx' ? 1 : this.infl);
       let r = (a.drift || 0) + 0.03 * Math.log(base / m.price) + a.vol * N01();
-      if (Math.random() < 0.006) { const shock = (Math.random() < 0.5 ? -1 : 1) * (0.1 + Math.random() * 0.15) * (a.kind === 'fund' ? 0.3 : 1); r += shock; this.fx.push({ type: 'news', id: m.id, pct: Math.round(shock * 100) }); this.say(`📰 市场快讯：${a.name}${shock > 0 ? '暴涨' : '暴跌'} ${Math.abs(Math.round(shock * 100))}%`); }
+      if (Math.random() < 0.006) { const shock = (Math.random() < 0.5 ? -1 : 1) * (0.08 + Math.random() * 0.1) * (a.kind === 'stock' ? 1 : 0.25); r += shock; this.fx.push({ type: 'news', id: m.id, pct: Math.round(shock * 100) }); this.say(`📰 市场快讯：${a.name}${shock > 0 ? '暴涨' : '暴跌'} ${Math.abs(Math.round(shock * 100))}%`); }
       m.price = Math.max(a.base * 0.05, m.price * Math.exp(r)); m.hist.push(+m.price.toPrecision(5)); if (m.hist.length > 60) m.hist.shift();
     }
     let ch = false;
@@ -781,7 +782,7 @@ class Game {
   bumpStage(why) {
     this.stage++;
     this.fx.push({ type: 'stage', stage: this.stage, infl: this.infl });
-    this.say(`📈 通货膨胀（${why}）：进入第 ${this.stage + 1} 阶段，租金、工资、每秒收益变为 ×${Math.round(this.infl * 100) / 100}`);
+    this.say(`📈 通货膨胀（${why}）：进入第 ${this.stage + 1} 阶段，租金、工资、每秒收益变为 ×${Math.round(this.infl * 100) / 100}，地产税率升至 ${Math.round(this.taxRate * 1000) / 10}%`);
   }
   tickStage() {
     if (this.phase !== 'play' || !this.startedAt) return false;
@@ -915,7 +916,7 @@ class Game {
   publicState() {
     this.players.forEach((q) => this.settle(q));
     return {
-      stage: this.stage, infl: this.infl, market: this.market, startedAt: this.startedAt, tasks: this.tasks,
+      stage: this.stage, infl: this.infl, taxRate: this.taxRate, market: this.market, startedAt: this.startedAt, tasks: this.tasks,
       code: this.code, phase: this.phase, maxPlayers: this.maxPlayers, deadline: this.deadline, rich: this.rich, turn: this.turn, rolled: this.rolled, canRollAgain: this.canRollAgain,
       dice: this.dice, pending: this.pending, auction: this.auction, trades: this.trades,
       housesLeft: this.housesLeft, hotelsLeft: this.hotelsLeft, props: this.props,

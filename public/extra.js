@@ -68,7 +68,13 @@
     }
     $('#finFoot').innerHTML = `💰 现金 <b>${fmt(m.money)}</b>　📊 金融持仓 <b>${fmt(m.hv || 0)}</b>　🏦 贷款 <b>${fmt(Math.round(m.loan || 0))}</b>　🧾 总资产 <b>${fmt(m.worth)}</b>`;
   }
-  window.onMarket = finUpdate;
+  // 右侧实时行情栏：点击任一品种打开金融中心
+  function renderTicker() {
+    const el = $('#ticker'); if (!el || !S || !S.market) return;
+    const m = me(), rows = AS.map((a) => { const x = mk(a.id), c = chg(x), h = m && m.hold && m.hold[a.id]; return `<div class="tk-row" data-tick="${a.id}"><span class="tk-n">${a.name}${h ? ' <i>持</i>' : ''}</span>${spark(x.hist, 60, 18)}<b>${px(x)}</b><small class="${c >= 0 ? 'up' : 'down'}">${c >= 0 ? '+' : ''}${c.toFixed(1)}%</small></div>`; }).join('');
+    el.innerHTML = `<div class="panel-title"><span>📈 实时行情 · 点击交易</span><span>${m && m.loan ? '贷款 ' + fmt(Math.round(m.loan)) : ''}</span></div><div class="tk-list">${rows}</div>`;
+  }
+  window.onMarket = () => { finUpdate(); renderTicker(); };
   setInterval(() => { if (localView && localView.type === 'fin' && localView.tab === 'bet') finUpdate(); }, 1000);
 
   // ---------------- 右侧面板放大详情 ----------------
@@ -85,8 +91,8 @@
       return `<h3>🏠 我的地产</h3><div class="xp-table">${list.map((i) => { const sq = BOARD[i], st = S.props[i]; return `<div class="xp-row" data-deed="${i}" style="cursor:pointer"><i class="xp-dot" style="background:${sqColor(i)}"></i><div class="xp-who"><b>${sq.name}</b><small>${sq.en || ''}${st.mortgaged ? ' · 已抵押' : ''}</small></div><div class="xp-nums"><span>现价<b>${fmt(priceOf(i))}</b></span><span>房屋<b>${st.houses === 5 ? '酒店' : st.houses + ' 栋'}</b></span>${sq.type === 'prop' ? `<span>每秒收益<b>+${fmt(Math.round(incomePerSec(i, st.houses) * INF()))}</b></span>` : ''}</div></div>`; }).join('') || '<div class="mk-empty">暂无地产</div>'}</div>`;
     }
     if (kind === 'log') return `<h3>🧾 对局记录</h3><div class="xp-log">${S.log.slice().reverse().map((l) => `<div><small>${new Date(l.t).toLocaleTimeString('zh-CN', { hour12: false })}</small>${esc(l.msg)}</div>`).join('')}</div>`;
-    return `<h3>⏱ 对局信息</h3><div class="xp-info"><div>已进行 <b>${$('#elapsed').textContent}</b></div><div>通胀阶段 <b>第 ${S.stage + 1} 阶段 · 物价 ×${Math.round(S.infl * 100) / 100}</b></div><div>首富目标 <b>总资产 ${fmt(RULES.winCash)}</b></div><div>已胜出 <b>${S.rich.length} 人</b></div><div>银行剩余 <b>${S.housesLeft} 栋房屋 · ${S.hotelsLeft} 座酒店</b></div></div>
-      <div class="muted" style="line-height:1.8;margin-top:10px">· 每 10 分钟通胀一次：地价、房价、租金、工资、卡牌奖惩全部 ×1.5<br>· 经过起点 / 环球中心：领取工资，同时按地产现值 4% 缴纳地产税<br>· 抵达前也可在地产交易所以 3 倍价格远程购买银行持有的地产</div>`;
+    return `<h3>⏱ 对局信息</h3><div class="xp-info"><div>已进行 <b>${$('#elapsed').textContent}</b></div><div>通胀阶段 <b>第 ${S.stage + 1} 阶段 · 物价 ×${Math.round(S.infl * 100) / 100}</b></div><div>当前地产税率 <b>${Math.round((S.taxRate || 0.04) * 1000) / 10}%（经过起点时缴纳）</b></div><div>首富目标 <b>总资产 ${fmt(RULES.winCash)}</b></div><div>已胜出 <b>${S.rich.length} 人</b></div><div>银行剩余 <b>${S.housesLeft} 栋房屋 · ${S.hotelsLeft} 座酒店</b></div></div>
+      <div class="muted" style="line-height:1.8;margin-top:10px">· 每 10 分钟通胀一次：地价、房价、租金、工资、卡牌奖惩全部 ×1.5<br>· 经过起点 / 环球中心：领取工资，同时按地产现值缴纳地产税（第 1 阶段 4%，每次通胀 +1.5%，最高 16%）<br>· 抵达前也可在地产交易所以 3 倍价格远程购买银行持有的地产</div>`;
   }
   let expandKind = '';
   function openExpand(kind, from) {
@@ -108,6 +114,7 @@
     return false;
   };
   window.afterRender = () => {
+    renderTicker();
     if (localView && localView.type === 'fin') finUpdate();
     for (const [sel, kind] of [['#players', 'players'], ['#assets', 'assets'], ['.log-panel', 'log'], ['#clock', 'clock']]) {
       const el = $(sel); if (el && !el.querySelector(':scope > .xp-btn')) { const b = document.createElement('button'); b.className = 'xp-btn'; b.dataset.expand = kind; b.title = '放大查看详情'; b.textContent = '⤢'; el.appendChild(b); }
@@ -119,6 +126,7 @@
     const sel = t.closest('[data-finsel]'); if (sel && localView) { localView.sel = sel.dataset.finsel; return finUpdate(); }
     const q = t.closest('[data-finq]'); if (q) { const i = $('#finAmt'); if (i) i.value = q.dataset.finq; return; }
     if (t.closest('[data-local="fin"]')) return openLocal({ type: 'fin', tab: 'stock', sel: 'WTK' });
+    const tk = t.closest('[data-tick]'); if (tk && S && S.phase === 'play' && me() && !me().bankrupt) { const a = meta(tk.dataset.tick); return openLocal({ type: 'fin', tab: a.kind, sel: a.id }); }
     const xs = t.closest('[data-xpsend]'); if (xs) return openLocal({ type: 'send', to: xs.dataset.xpsend, amount: 0 });
     const xb = t.closest('[data-expand]'); if (xb) { const pnl = xb.parentElement; return openExpand(xb.dataset.expand, pnl.getBoundingClientRect()); }
     // 点击右侧面板的空白处也可放大

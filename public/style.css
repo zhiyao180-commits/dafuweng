@@ -798,3 +798,22 @@ body.phone .xp-btn { opacity: 1; }
 @media (max-width: 700px) { .lobby-card { width: 94vw; padding: 20px 16px; } .intro h2 { font-size: 26px; } .intro h2 b { font-size: 36px; } .in-dice { font-size: 72px; } .in-pay { font-size: 58px; gap: 24px; } .in-city span { width: 40px; height: 40px; } .in-city span:nth-child(even) { width: 50px; height: 50px; } .in-ppl span { width: 36px; height: 36px; font-size: 20px; } .in-crown { font-size: 90px; } .bigcard { width: 90vw; } .bigfront .txt { font-size: 19px; } }
 
 body.phone .cname { font-size: 8px; line-height: 1.05; letter-spacing: 0; padding: 0; } body.phone .corner .cname { font-size: 9px; } body.phone .corner .cicon { font-size: 16px; } body.phone .token { width: 16px; height: 16px; margin: -8px 0 0 -8px; font-size: 10px; }
+
+/* ====== v10：地图下方信息栏 ====== */
+#boardCol { display: flex; flex-direction: column; gap: 12px; flex: none; }
+.bottom { display: flex; gap: 12px; min-height: 0; }
+.bottom #assets { flex: 1; max-height: none; overflow: auto; }
+.bottom .log-panel { flex: 1.6; min-height: 0; }
+.bottom .log { columns: 2 240px; column-gap: 20px; }
+.bottom .log div { break-inside: avoid; }
+#side .log-panel { flex: 1; }
+#side #players { flex: none; }
+
+.ticker { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.tk-list { overflow: auto; flex: 1; }
+.tk-row { display: grid; grid-template-columns: 1fr 60px 64px 50px; align-items: center; gap: 6px; padding: 5px 4px; border-radius: 8px; cursor: pointer; font-size: 12.5px; }
+.tk-row:hover { background: rgba(127,127,127,.1); }
+.tk-row b { text-align: right; font-variant-numeric: tabular-nums; } .tk-row small { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tk-n i { font-style: normal; font-size: 10px; background: var(--blue); color: #fff; padding: 0 4px; border-radius: 4px; }
+.tk-row .spark { height: 18px; }
+body.phone .ticker { order: 7; max-height: 260px; }

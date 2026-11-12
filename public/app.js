@@ -497,7 +497,7 @@ async function playFx(f) {
     f.win ? Snd.win() : Snd.bad();
     await banner(`🎲 ${f.d} 点：${f.win ? '大涨，赚 ' + fmt(f.stake) : '下跌，亏 ' + fmt(Math.floor(f.stake / 2))}`, { color: f.win ? '#2DA44E' : '#E5383B', big: true, ms: 1300 });
   } else if (f.type === 'stage') {
-    Snd.alarm(); await banner(`📈 通货膨胀 · 第 ${f.stage + 1} 阶段　租金 / 工资 / 收益 ×${Math.round(f.infl * 100) / 100}`, { color: '#E2A100', big: true, ms: 2000 });
+    Snd.alarm(); await banner(`📈 通货膨胀 · 第 ${f.stage + 1} 阶段　物价 ×${Math.round(f.infl * 100) / 100} · 地产税 ${Math.round((S.taxRate || 0.04) * 1000) / 10}%`, { color: '#E2A100', big: true, ms: 2000 });
   } else if (f.type === 'boost') {
     Snd.win(); await banner('🚀 进程加速器已启动，请查看右上角的个人任务', { color: '#0A6FE0', big: true, ms: 2000 });
   } else if (f.type === 'task') {
@@ -978,7 +978,7 @@ setInterval(() => {
   box.hidden = false;
   const el = Math.max(0, Math.floor((Date.now() + skew - S.startedAt) / 1000)), pad = (x) => String(x).padStart(2, '0');
   $('#elapsed').textContent = (el >= 3600 ? Math.floor(el / 3600) + ':' + pad(Math.floor(el / 60) % 60) : Math.floor(el / 60)) + ':' + pad(el % 60);
-  $('#stageTag').textContent = `第 ${S.stage + 1} 阶段 ×${Math.round(S.infl * 100) / 100}`;
+  $('#stageTag').textContent = `第 ${S.stage + 1} 阶段 · 物价 ×${Math.round(S.infl * 100) / 100} · 地产税 ${Math.round((S.taxRate || 0.04) * 1000) / 10}%`;
   const secs = Math.max(0, Math.ceil(Math.min(left, total) / 1000));
   $('#clockText').innerHTML = `${dotOf(cur.id)}现在是 <b>${cur.id === myId ? '您' : esc(cur.name)}</b> 的回合 <span class="secs ${!paused && secs <= 5 ? 'low' : ''}">${S.auction ? '拍卖中' : paused ? '…' : '⏱ ' + secs + ' 秒'}</span>`;
   $('#clockBar').style.width = (paused ? 100 : Math.max(0, Math.min(100, (left / total) * 100))) + '%';
@@ -1035,7 +1035,13 @@ function resize() {
   const narrow = innerWidth < 1000, phone = innerWidth < 700;
   document.body.classList.toggle('phone', phone);
   const availW = narrow ? innerWidth - (phone ? 8 : 24) : innerWidth - 360 - 48, availH = narrow ? 1e9 : innerHeight - 32;
-  const cell = phone ? availW / (BW + 3) : Math.max(38, Math.min(availW / (BW + 3), availH / (BH + 3)));
+  let cell = phone ? availW / (BW + 3) : Math.max(38, Math.min(availW / (BW + 3), availH / (BH + 3)));
+  // 电脑横屏：地图下方留出一条信息栏（对局记录 + 持有地产），地图略微缩小
+  const btm = !narrow && availH - 170 >= 38 * (BH + 3);
+  if (btm) cell = Math.max(38, Math.min(availW / (BW + 3), (availH - 170) / (BH + 3)));
+  const bar = $('#bottom'), logP = $('.log-panel'), asP = $('#assets');
+  if (btm) { if (asP.parentElement !== bar) { bar.appendChild(asP); bar.appendChild(logP); } bar.hidden = false; bar.style.height = Math.floor(availH - cell * (BH + 3) - 12) + 'px'; bar.style.width = Math.floor(cell * (BW + 3)) + 'px'; }
+  else { if (asP.parentElement !== $('#side')) { $('#side').appendChild(asP); $('#side').appendChild(logP); } bar.hidden = true; }
   uPx = cell / 7.75;
   const r = document.documentElement.style;
   r.setProperty('--bw', Math.floor(cell * (BW + 3)) + 'px'); r.setProperty('--bh', Math.floor(cell * (BH + 3)) + 'px'); r.setProperty('--u', uPx + 'px');
