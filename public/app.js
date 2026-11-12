@@ -561,6 +561,7 @@ socket.on('fx', (list) => {
   for (const f of list) {
     if ((f.type === 'move' || f.type === 'jump' || f.type === 'tp') && animPos[f.pid] === undefined) { const p = pById(f.pid); if (p) animPos[f.pid] = p.pos; }
     if (f.type === 'betres') { if (f.pid === myId && window.showBetResult) showBetResult(f); continue; } // 竞猜结算不排队，立即弹出
+    if (f.type === 'tradeRes') { if (f.from === myId && window.showTradeResult) showTradeResult(f); continue; } // 报价结果只通知发起人
     fxQueue.push(f);
   }
   runFx();
@@ -730,7 +731,7 @@ function renderActions() {
     if (!cur.connected && m.host) h += `<div class="act-row"><button class="btn" data-act="skip">跳过这一回合</button><button class="btn danger" data-kick="${cur.id}">移出房间</button></div>`;
   }
   const mine = S.trades.find((t) => t.from === myId);
-  if (mine && S.phase === 'play') h += `<div class="act-sub">⏳ 等待 ${esc(pById(mine.to).name)} 回复报价 <button class="btn sm" data-act="respond" data-id="${mine.id}" data-accept="">撤回</button></div>`;
+  if (mine && S.phase === 'play') { const one = mine.give.length + mine.get.length === 1, ps = mine.get.length ? mine.get[0] : mine.give[0]; h += `<div class="ng-wait">⏳ 等待 <b>${esc(pById(mine.to).name)}</b> 回复：${one ? (mine.get.length ? `出价 ${fmt(mine.giveMoney)} 买「${BOARD[ps].name}」` : `以 ${fmt(mine.getMoney)} 卖「${BOARD[ps].name}」`) : '交易报价'}<button class="btn sm" data-act="respond" data-id="${mine.id}" data-accept="">撤回</button></div>`; }
   if (S.phase === 'play' && !m.bankrupt) h += `<div class="act-row"><button class="btn market wide" data-local="market">🏛 地产交易所${K('T')}</button></div><div class="fin-group"><div class="fg-title"><span>金融中心</span><small>随时可操作 · 快捷键 F / G / L</small></div><div class="fg-row"><button class="fg-btn stock" data-fin="stock" title="快捷键 F"><i>📈</i><b>股票</b></button><button class="fg-btn bet ${m.bet ? 'live' : ''}" data-fin="bet" title="快捷键 G"><i>🎯</i><b>涨跌竞猜</b></button><button class="fg-btn loan ${m.loan > 0 ? 'live' : ''}" data-fin="loan" title="快捷键 L"><i>🏦</i><b>银行贷款</b></button></div></div><div class="act-row tools-row"><button class="btn sm" data-local="send">💬 互动 / 转账</button>${m.host ? `<button class="btn sm boost" data-act="boost" data-confirm="启动进程加速器？\n· 立刻通货膨胀一级（租金、工资、收益 ×1.5）\n· 每个人领到一个新任务，完成有奖励">🚀 加速器</button><button class="btn sm" data-act="endGame" data-confirm="确定现在结束游戏，按总资产排名吗？">结束结算</button>` : ''}</div>${window.toolsRow ? toolsRow(m) : ''}`;
   if (el.dataset.h !== h) { el.dataset.h = h; el.innerHTML = h; }
 }
@@ -1078,26 +1079,17 @@ function renderStateModal() {
       <div class="act-row"><button class="btn" data-act="auction">拍卖<kbd>A</kbd></button><button class="btn primary" data-act="buy">${S.props[pd.pos].fore ? '法拍半价 ' : '购买 '}${fmt(priceOf(pd.pos))}<kbd>B</kbd></button></div>`;
   } else if (t && !(pd && pd.kind === 'card')) {
     key = 'trade' + t.id;
-    const canCounter = t.give.length + t.get.length === 1 && !(t.giveMoney && t.getMoney), ref = t.giveMoney || t.getMoney;
-    h = `${t.counter ? '<div class="offer-tag">↩️ 这是对方的还价</div>' : ''}${offerHTML(t)}<div class="offer-exp" data-at="${t.at || 0}"></div>
-      ${canCounter ? `<div class="counter-row"><span>不合适？还价</span><div class="mk-price"><input id="ctPrice" type="number" min="0" step="1" placeholder="${ref / 1000}"><span>M</span></div><button class="btn" id="ctGo">发出还价</button></div><div class="mk-quick">${[0.8, 0.9, 1.1, 1.2, 1.5].map((x) => `<button data-ctq="${Math.round((ref * x) / 1000)}">${x < 1 ? '压价' : '加价'} ${Math.round(x * 100)}%</button>`).join('')}</div>` : ''}
-      <div class="act-row"><button class="btn" data-act="respond" data-id="${t.id}" data-accept="">拒绝<kbd>X</kbd></button><button class="btn primary" data-act="respond" data-id="${t.id}" data-accept="1">接受<kbd>Y</kbd></button></div>`;
+    h = tradeModalHTML(t);
   }
+  if (window.setTradeFocus) setTradeFocus(key.startsWith('trade') && t ? (t.get.length ? t.get[0] : t.give[0]) : null);
   if (key === 'auction' && stateModalKey === 'auction') return updateAuction();
   if (key === stateModalKey) return;
   stateModalKey = key;
   if (!key) { md.hidden = true; return; }
   box.innerHTML = h; md.hidden = false;
   if (key === 'auction') updateAuction();
-  if (key.startsWith('trade')) {
-    Snd.turn();
-    const inp = $('#ctPrice'), go = $('#ctGo'), tid = +key.slice(5);
-    if (go) {
-      const send = () => { const k = Math.round((+inp.value || 0) * 1000); if (!k) { toast('请先输入还价金额'); inp.focus(); return; } act('counter', { id: tid, price: k }, (r) => r.ok && toast('还价已发出，等待对方回复')); };
-      go.onclick = send; inp.onkeydown = (e) => { if (e.key === 'Enter') send(); };
-      box.querySelectorAll('[data-ctq]').forEach((b) => (b.onclick = () => { inp.value = b.dataset.ctq; inp.focus(); }));
-    }
-  }
+  if (key.startsWith('trade')) { Snd.turn(); bindTradeModal(box, t); }
+
   if (key === 'end') { Snd.win(); confetti(); closeLocal(); $('#backLobby').onclick = () => { localStorage.removeItem('dfw_room'); location.href = '/'; }; if (S.recap) setTimeout(() => { if (S && S.phase === 'end' && !localView) openLocal({ type: 'recap' }); }, 3200); }
 }
 setInterval(() => {

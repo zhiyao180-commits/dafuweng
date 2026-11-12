@@ -638,7 +638,12 @@ class Game {
     must(t.to === p.id || (t.from === p.id && !accept), '无权处理此交易');
     this.trades = this.trades.filter((x) => x !== t);
     const from = this.byId(t.from), to = this.byId(t.to);
-    if (!accept) { this.say(t.from === p.id ? `${from.name} 撤回了交易` : `${to.name} 拒绝了 ${from.name} 的交易`); return; }
+    const tinfo = { tid: t.id, from: from.id, to: to.id, pos: t.get.length ? t.get[0] : t.give[0], price: t.giveMoney || t.getMoney, buy: t.get.length > 0, multi: t.give.length + t.get.length !== 1 };
+    if (!accept) {
+      this.say(t.from === p.id ? `${from.name} 撤回了给 ${to.name} 的报价` : `❌ ${to.name} 拒绝了 ${from.name} 的报价`);
+      if (t.from !== p.id) this.fx.push({ type: 'tradeRes', res: 'no', ...tinfo });
+      return;
+    }
     this.tradable(from.id, t.give); this.tradable(to.id, t.get);
     must(from.money >= t.giveMoney, `${from.name} 余额已不足`);
     must(to.money >= t.getMoney, '您的余额不足');
@@ -648,8 +653,9 @@ class Game {
     t.get.forEach((i) => (this.props[i].owner = from.id));
     if (t.giveMoney) this.transfer(from, to, t.giveMoney, '交易');
     if (t.getMoney) this.transfer(to, from, t.getMoney, '交易');
-    this.say(`${to.name} 接受了 ${from.name} 的交易 ✅`);
+    this.say(`✅ ${to.name} 同意了 ${from.name} 的报价，成交`);
     this.fx.push({ type: 'deal', from: from.id, to: to.id });
+    this.fx.push({ type: 'tradeRes', res: 'ok', ...tinfo });
     this.afterRaise(from); this.afterRaise(to);
   }
 
@@ -659,19 +665,22 @@ class Game {
     must(t && t.to === p.id, '报价已失效');
     must(t.give.length + t.get.length === 1 && !(t.giveMoney && t.getMoney), '这笔交易不能还价');
     price = Math.floor(Number(price)); must(price > 0, '请输入还价金额');
-    const from = this.byId(t.from);
+    const from = this.byId(t.from), old = t.giveMoney || t.getMoney;
+    must(price !== old, '还价金额和原报价一样');
+    const hist = (t.hist || [{ by: t.from, price: old }]).concat([{ by: p.id, price }]);
     this.trades = this.trades.filter((x) => x !== t);
     // 对方想买我的地 → 我还价卖给他；对方想卖地给我 → 我还价买他的
     const o = t.get.length ? { to: from.id, give: t.get, getMoney: price, counter: true } : { to: from.id, get: t.give, giveMoney: price, counter: true };
-    this.say(`${p.name} 对 ${from.name} 的报价还价 ${fmt(price)}`);
+    this.say(`↩️ ${p.name} 对 ${from.name} 的报价还价 ${fmt(price)}（第 ${hist.length - 1} 轮）`);
     this.propose(p, o);
+    const nt = this.trades[this.trades.length - 1]; if (nt) nt.hist = hist.slice(-8);
   }
   // 报价 2 分钟内没人处理就自动作废
   expireTrades() {
     const now = Date.now(), old = this.trades.filter((t) => now - (t.at || now) > 120000);
     if (!old.length) return false;
     this.trades = this.trades.filter((t) => !old.includes(t));
-    old.forEach((t) => this.say(`⌛ ${this.byId(t.from).name} 给 ${this.byId(t.to).name} 的报价超过 2 分钟未处理，已自动作废`));
+    old.forEach((t) => { this.say(`⌛ ${this.byId(t.from).name} 给 ${this.byId(t.to).name} 的报价超过 2 分钟未处理，已自动作废`); this.fx.push({ type: 'tradeRes', res: 'exp', tid: t.id, from: t.from, to: t.to, pos: t.get.length ? t.get[0] : t.give[0], price: t.giveMoney || t.getMoney, buy: t.get.length > 0, multi: t.give.length + t.get.length !== 1 }); });
     return true;
   }
 
