@@ -147,7 +147,7 @@ class Game {
     this.phase = 'play';
     this.startedAt = Date.now();
     this.turn = 0;
-    this.say(`游戏开始！每人获得 ${fmt(RULES.startMoney)}，总资产（现金+地产+房屋）最先达到 ${fmt(RULES.winCash)} 的人获胜，游戏立即结束。顺序：${this.players.map((x) => x.name).join(' → ')}`);
+    this.say(`游戏开始！每人获得 ${fmt(RULES.startMoney)}，总资产（现金+地产+房屋）率先达到 ${fmt(RULES.winCash)} 者成为首富并胜出，其余玩家继续对战争夺名次。顺序：${this.players.map((x) => x.name).join(' → ')}`);
     this.say(`轮到 ${this.cur.name}`);
     this.fx.push({ type: 'turn', pid: this.cur.id });
     this.touch();
@@ -580,12 +580,19 @@ class Game {
   checkGoals() {
     if (this.phase !== 'play') return false;
     let ch = false;
-    for (const o of this.active()) if (this.netWorth(o) >= RULES.winCash && !this.rich.includes(o.id)) {
-      this.rich.push(o.id); ch = true;
-      this.fx.push({ type: 'rich', pid: o.id, rank: this.rich.length });
-      this.say(`👑 ${o.name} 的总资产达到 ${fmt(RULES.winCash)}，${this.rich.length === 1 ? '成为首富！' : '第 ' + this.rich.length + ' 个达成！'}`);
+    for (const o of this.active()) if (this.netWorth(o) >= RULES.winCash) {
+      this.rich.push(o.id); o.won = this.rich.length; ch = true;
+      this.fx.push({ type: 'rich', pid: o.id, rank: o.won });
+      this.say(`👑 ${o.name} 的总资产达到 ${fmt(RULES.winCash)}，以第 ${o.won} 名胜出！其名下地产交还银行，其余玩家继续对战`);
+      // 胜出者离场：地产交还银行（原价），房屋退回
+      for (const st of Object.values(this.props)) if (st.owner === o.id) { if (st.houses === 5) this.hotelsLeft++; else this.housesLeft += st.houses; st.houses = 0; st.owner = null; st.mortgaged = false; st.fore = false; }
+      for (const d of o.goojf) { const list = d === 'chance' ? CHANCE : CHEST; this.decks[d].push(list.findIndex((c) => c.fx.t === 'goojf')); }
+      o.goojf = []; o.inJail = false; o.creditor = null; o.bankrupt = true; delete this.tasks[o.id];
+      this.trades = this.trades.filter((t) => t.from !== o.id && t.to !== o.id);
+      const pd = this.pending; if (pd && (pd.payer === o.id || pd.pid === o.id)) { this.dropCard(); this.pending = null; }
+      if (this.active().length <= 1) { this.finish(); return true; }
+      if (this.cur === o) { const keep = this.pending && this.pending.kind === 'auction' ? this.pending : null; this.nextTurn(); this.pending = keep; }
     }
-    if (ch) this.finish(); // 有人达到目标，游戏结束
     return ch;
   }
   // 集齐一个颜色组时提醒可以建房
@@ -749,7 +756,10 @@ class Game {
     this.nextTurn();
   }
 
+  // 还没确认就被取消的出狱卡要放回牌堆
+  dropCard() { const pd = this.pending; if (pd && pd.kind === 'card' && this.decks[pd.deck] && (pd.deck === 'chance' ? CHANCE : CHEST)[pd.id].fx.t === 'goojf') this.decks[pd.deck].push(pd.id); }
   nextTurn() {
+    this.dropCard();
     const n = this.players.length;
     let i = this.turn;
     do { i = (i + 1) % n; } while (this.players[i].bankrupt);

@@ -1,6 +1,7 @@
 // 8 个机器人随机对局，检查规则引擎不会卡死/出错
 const { Game, GameError } = require('../game');
 const D = require('../public/data.js');
+if (process.env.WIN) D.RULES.winCash = +process.env.WIN;
 let games = 0, turnsTotal = 0, errs = 0, stuck = 0, endings = {};
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 for (let gi = 0; gi < 300; gi++) {

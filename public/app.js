@@ -460,7 +460,7 @@ async function playFx(f) {
       if ((BOARD[pos].type === 'go' || BOARD[pos].type === 'hub') && dir > 0 && p) ripple(pos, p.color);
       await wait(dt);
     }
-    if (p) ripple(pos, p.color);
+    if (p) ripple(pos, p.color); Snd.noise(0.12, 0, 0.35, 180); Snd.tone(140, 0.12, 'sine', 0.12);
     await wait(260); flying[f.pid] = false; placeTokens(); await wait(200);
   } else if (f.type === 'jump') {
     Snd.jail(); await banner(`🚔 ${esc(p ? p.name : '')} 被送进监狱`, { color: '#E5383B', ms: 900 });
@@ -485,7 +485,7 @@ async function playFx(f) {
     else await banner(`${avatar(p)}${esc(p.name)} 集齐了${g.name}地产`, { color: g.color, ms: 900 });
   } else if (f.type === 'rich') {
     Snd.win(); confetti();
-    await banner(`👑 ${esc(p.name)} ${f.rank === 1 ? '成为首富！' : '第 ' + f.rank + ' 个达到 ' + fmt(RULES.winCash)}`, { color: '#E2A100', big: true, ms: 2600 });
+    await banner(`👑 ${esc(p.name)} ${f.rank === 1 ? '成为首富，率先胜出！' : '以第 ' + f.rank + ' 名胜出'}　其余玩家继续对战`, { color: '#E2A100', big: true, ms: 3000 });
   } else if (f.type === 'tp') {
     Snd.swoosh(); const el = tokenEls[f.pid]; if (el) el.animate([{ opacity: 1 }, { opacity: 0 }], 300);
     await banner(`🌀 ${esc(p.name)} 传送到 ${BOARD[f.to].name}`, { color: '#8E5BD6', ms: 700 });
@@ -515,11 +515,11 @@ async function playFx(f) {
 function renderPlayers() {
   $('#players').innerHTML = S.players.map((p, i) => {
     const v = disp[p.id] === undefined ? (shown[p.id] === undefined ? p.money : shown[p.id]) : disp[p.id], dg = !fxBusy && inDanger(p);
-    return `<div class="pl ${i === S.turn && S.phase === 'play' ? 'cur' : ''} ${p.bankrupt ? 'dead' : ''} ${dg ? 'danger' : ''}" data-pid="${p.id}">
+    return `<div class="pl ${i === S.turn && S.phase === 'play' ? 'cur' : ''} ${p.won ? 'won' : p.bankrupt ? 'dead' : ''} ${dg ? 'danger' : ''}" data-pid="${p.id}">
       ${avatar(p)}
       <div class="who">
         <div class="nm">${esc(p.name)}${S.rich.includes(p.id) ? `<span class="badge crown">👑${S.rich.indexOf(p.id) + 1}</span>` : ''}${p.id === myId ? '<span class="badge">我</span>' : ''}${dg ? '<span class="badge warn">濒临破产</span>' : ''}${p.inJail ? '<span class="badge jail">监狱</span>' : ''}${!p.connected && !p.bankrupt ? '<span class="badge off">离线</span>' : ''}</div>
-        ${p.bankrupt ? '<div class="mn">已破产</div>' : `<div class="mn ${v < 0 ? 'neg' : ''}" data-pid="${p.id}">${fmt(Math.round(v / 10) * 10)}</div>`}${p.bankrupt ? '' : `<div class="wt" data-pid="${p.id}">总资产 ${fmt(p.worth)}</div>`}${S.tasks[p.id] && !p.bankrupt ? `<div class="tk ${S.tasks[p.id].done ? 'done' : ''}">${S.tasks[p.id].done ? '✅' : '🎯'} ${S.tasks[p.id].text}${S.tasks[p.id].done ? '' : `（${S.tasks[p.id].have}/${S.tasks[p.id].need}）奖 ${fmt(S.tasks[p.id].reward)}`}</div>` : ''}
+        ${p.won ? `<div class="wonTag">👑 第 ${p.won} 名 · 已胜出</div>` : p.bankrupt ? '<div class="mn">已破产</div>' : `<div class="mn ${v < 0 ? 'neg' : ''}" data-pid="${p.id}">${fmt(Math.round(v / 10) * 10)}</div>`}${p.bankrupt ? '' : `<div class="wt" data-pid="${p.id}">总资产 ${fmt(p.worth)}</div>`}${S.tasks[p.id] && !p.bankrupt ? `<div class="tk ${S.tasks[p.id].done ? 'done' : ''}">${S.tasks[p.id].done ? '✅' : '🎯'} ${S.tasks[p.id].text}${S.tasks[p.id].done ? '' : `（${S.tasks[p.id].have}/${S.tasks[p.id].need}）奖 ${fmt(S.tasks[p.id].reward)}`}</div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -531,6 +531,7 @@ function renderActions() {
   const myTurn = cur.id === myId, K = (k) => `<kbd>${k}</kbd>`;
   let h = '';
   if (S.phase === 'end') h = `<div class="act-title">游戏结束</div>`;
+  else if (m.won) h = `<div class="act-title">👑 您已以第 ${m.won} 名胜出</div><div class="act-sub">其余玩家仍在对战，您可继续观战</div>`;
   else if (m.bankrupt) h = `<div class="act-title">您已破产</div><div class="act-sub">可以继续观战</div>`;
   else if (fxBusy) h = `<div class="act-title">${myTurn ? '您的回合' : esc(cur.name) + ' 的回合'}</div><div class="act-sub">…</div>`;
   else if (pd && pd.kind === 'pay' && pd.payer === myId) {
@@ -612,7 +613,7 @@ function renderDanger() {
 function renderCard() {
   const pd = S.pending, stage = $('#cardStage');
   const want = S.phase === 'play' && pd && pd.kind === 'card' ? 'c' + pd.seq : '';
-  if (!want) { if (cardKey) { cardKey = ''; stage.hidden = true; stage.innerHTML = ''; } return; }
+  if (!want) { if (cardKey) { cardKey = ''; stage.hidden = true; stage.innerHTML = ''; stage.className = 'card-stage'; } return; }
   if (want === cardKey || fxBusy) return;
   cardKey = want;
   const dk = pd.deck, chance = dk === 'chance', card = (chance ? CHANCE : dk === 'chest' ? CHEST : GameData.WHEEL)[pd.id], who = pById(pd.pid), c = chance ? '#F08A2E' : dk === 'chest' ? '#0A6FE0' : '#C026D3';
@@ -621,7 +622,7 @@ function renderCard() {
       <div class="bigface bigfront"><div class="kind">${chance ? '机 会' : dk === 'chest' ? '命 运' : '转 盘'}</div><div class="txt">${esc(card.text)}</div></div>
     </div></div>
     <div class="stage-foot">${esc(who.name)} 抽到的${chance ? '机会牌' : dk === 'chest' ? '命运牌' : '幸运转盘'}${pd.pid === myId ? `<br><button class="btn primary big" data-act="card">确认<kbd>空格</kbd></button>` : ''}</div>`;
-  stage.hidden = false;
+  stage.className = 'card-stage'; stage.hidden = false;
   const big = stage.querySelector('.bigcard'), inner = stage.querySelector('.bigcard-in'), foot = stage.querySelector('.stage-foot');
   const cr = $('#cell' + who.pos).getBoundingClientRect(), br = big.getBoundingClientRect();
   const dx = cr.left + cr.width / 2 - (br.left + br.width / 2), dy = cr.top + cr.height / 2 - (br.top + br.height / 2), sc = Math.max(0.08, cr.width / br.width);
@@ -634,6 +635,19 @@ function renderCard() {
   const key = cardKey;
   setTimeout(() => { if (cardKey === key) Snd.flip(); }, 1750);
   inner.animate([{ transform: 'rotateY(180deg)' }, { transform: 'rotateY(90deg) scale(1.08)', offset: 0.5 }, { transform: 'rotateY(0)' }], { duration: 1300, delay: 1750, easing: 'cubic-bezier(.45,0,.3,1)', fill: 'forwards' });
+  const f = card.fx, good = (f.t === 'money' && f.amt > 0) || (f.t === 'each' && f.amt > 0) || f.t === 'goojf', bad = (f.t === 'money' && f.amt < 0) || (f.t === 'each' && f.amt < 0) || f.t === 'jail' || f.t === 'repairs' || f.t === 'proptax';
+  setTimeout(() => { if (cardKey === key) { Snd.tone(110, 0.5, 'sawtooth', 0.05); big.classList.add('charge'); } }, 1050);
+  setTimeout(() => {
+    if (cardKey !== key) return;
+    big.classList.remove('charge'); big.classList.add(good ? 'good' : bad ? 'bad' : 'plain'); stage.classList.add(good ? 'good' : bad ? 'bad' : 'plain');
+    good ? Snd.win() : bad ? (Snd.bad(), Snd.noise(0.4, 0, 0.4, 200)) : Snd.plus();
+    const r = big.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    for (let i = 0; i < 26; i++) {
+      const d = document.createElement('div'); d.className = 'coin'; d.textContent = good ? (i % 3 ? '🪙' : '✨') : bad ? (i % 3 ? '💥' : '💢') : '✨'; d.style.left = cx + 'px'; d.style.top = cy + 'px'; $('#floats').appendChild(d);
+      const ang = Math.random() * Math.PI * 2, rr = 180 + Math.random() * 260;
+      d.animate([{ transform: 'translate(-50%,-50%) scale(.3)', opacity: 1 }, { transform: `translate(calc(-50% + ${Math.cos(ang) * rr}px), calc(-50% + ${Math.sin(ang) * rr + 80}px)) scale(1.4) rotate(${Math.random() * 540}deg)`, opacity: 0 }], { duration: 900 + Math.random() * 600, easing: 'cubic-bezier(.1,.7,.3,1)' }).onfinish = () => d.remove();
+    }
+  }, 2500);
   setTimeout(() => { if (cardKey === key) foot.classList.add('show'); }, 3000);
 }
 
@@ -957,6 +971,7 @@ setInterval(() => {
   $('#clockText').innerHTML = `${dotOf(cur.id)}现在是 <b>${cur.id === myId ? '您' : esc(cur.name)}</b> 的回合 <span class="secs ${!paused && secs <= 5 ? 'low' : ''}">${S.auction ? '拍卖中' : paused ? '…' : '⏱ ' + secs + ' 秒'}</span>`;
   $('#clockBar').style.width = (paused ? 100 : Math.max(0, Math.min(100, (left / total) * 100))) + '%';
   const hurry = !paused && left < 5000;
+  if (hurry && cur.id === myId && secs !== window._lastTick) { window._lastTick = secs; Snd.tone(1000, 0.05, 'square', 0.06); }
   document.querySelectorAll('#players .pl').forEach((el) => el.classList.toggle('hurry', hurry && el.dataset.pid === cur.id));
 }, 250);
 
