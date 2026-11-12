@@ -124,9 +124,12 @@ const inDanger = (p) => !p.bankrupt && S.phase === 'play' && (p.money < 0 || (S.
 function applyTheme(t) { document.documentElement.dataset.theme = t; localStorage.setItem('dfw_theme', t); $('#btnTheme').textContent = t === 'dark' ? '☀️' : '🌙'; }
 applyTheme(localStorage.getItem('dfw_theme') || 'light');
 const toggleTheme = () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+// 省电模式：关闭所有装饰性循环动画和毛玻璃，适合旧电脑或想让电脑更凉快时
+function applyEco() { const on = localStorage.getItem('dfw_eco') === '1'; document.documentElement.classList.toggle('eco', on); const b = $('#btnEco'); if (b) { b.classList.toggle('on', on); b.title = on ? '省电模式：已开启（点击关闭）' : '省电模式：已关闭（点击开启）'; } }
+function toggleEco() { localStorage.setItem('dfw_eco', localStorage.getItem('dfw_eco') === '1' ? '0' : '1'); applyEco(); toast(localStorage.getItem('dfw_eco') === '1' ? '🍃 省电模式已开启：关闭装饰动画和毛玻璃效果' : '省电模式已关闭'); }
 function toggleMute() { Snd.muted = !Snd.muted; localStorage.setItem('dfw_mute', Snd.muted ? '1' : '0'); $('#btnMute').textContent = Snd.muted ? '🔇' : '🔊'; toast(Snd.muted ? '已静音' : '声音已打开'); }
 $('#btnMute').textContent = Snd.muted ? '🔇' : '🔊';
-$('#btnTheme').onclick = toggleTheme; $('#btnMute').onclick = toggleMute; $('#btnHelp').onclick = () => openLocal({ type: 'help' });
+$('#btnEco').onclick = toggleEco; applyEco(); $('#btnTheme').onclick = toggleTheme; $('#btnMute').onclick = toggleMute; $('#btnHelp').onclick = () => openLocal({ type: 'help' });
 
 // ================= 片头动画 =================
 (function intro() {
@@ -619,14 +622,22 @@ function renderPlayers() {
   }).join('');
 }
 
+// 房主破产或胜出后，仍然可以管理这局游戏
+function hostPanel(m) {
+  if (!m.host || S.phase !== 'play') return '';
+  const cur = curP(), others = S.players.filter((p) => !p.bankrupt && p.id !== m.id);
+  return `<div class="host-panel"><div class="fg-title"><span>👑 房主管理</span><small>破产 / 胜出后依然有效</small></div>
+    <div class="act-row tools-row"><button class="btn sm boost" data-act="boost" data-confirm="启动进程加速器？\n· 立刻通货膨胀一级（租金、工资、收益 ×1.5）\n· 每个人领到一个新任务，完成有奖励">🚀 加速器</button>${cur && !cur.connected ? '<button class="btn sm" data-act="skip">跳过掉线玩家</button>' : ''}<button class="btn sm danger" data-act="endGame" data-confirm="确定现在结束游戏，按总资产排名吗？">结束并结算</button></div>
+    ${others.length ? `<div class="hp-kick">${others.map((p) => `<button class="chip-k" data-kick="${p.id}" title="将 ${esc(p.name)} 移出房间">${avatar(p)}${esc(p.name)}${p.connected ? '' : ' · 离线'}<b>移出</b></button>`).join('')}</div>` : ''}</div>`;
+}
 function renderActions() {
   const el = $('#actions'), m = me(), cur = curP(), pd = S.pending;
   if (!m) { el.innerHTML = '<div class="act-sub">观战模式</div>'; return; }
   const myTurn = cur.id === myId, K = (k) => `<kbd>${k}</kbd>`;
   let h = '';
   if (S.phase === 'end') h = `<div class="act-title">游戏结束</div>`;
-  else if (m.won) h = `<div class="act-title">👑 您已以第 ${m.won} 名胜出</div><div class="act-sub">其余玩家仍在对战，您可继续观战</div>`;
-  else if (m.bankrupt) h = `<div class="act-title">您已破产</div><div class="act-sub">可以继续观战</div>`;
+  else if (m.won) h = `<div class="act-title">👑 您已以第 ${m.won} 名胜出</div><div class="act-sub">其余玩家仍在对战，您可继续观战</div>` + hostPanel(m);
+  else if (m.bankrupt) h = `<div class="act-title">您已破产</div><div class="act-sub">可以继续观战</div>` + hostPanel(m);
   else if (fxBusy) h = `<div class="act-title">${myTurn ? '您的回合' : esc(cur.name) + ' 的回合'}</div><div class="act-sub">…</div>`;
   else if (pd && pd.kind === 'pay' && pd.payer === myId) {
     const to = pd.to === 'each' ? '每位玩家' : pd.to ? pById(pd.to).name : '银行';
@@ -999,8 +1010,8 @@ function renderStateModal() {
   if (S.phase === 'end') {
     key = 'end';
     const w = pById(S.winner);
-    h = `<div class="trophy">🏆</div><h3 style="text-align:center">${esc(w.name)} ${S.ranking[0].won ? '成为首富！' : '获得第一名！'}</h3><p class="muted" style="text-align:center">👑 成为富翁：总资产达到 ${fmt(RULES.winCash)}，按达成先后排名；其余玩家按总资产排名</p><div class="rank">${S.ranking.map((r, i) => { const p = pById(r.id); return `<div style="animation-delay:${i * 0.12}s"><span>${i + 1}</span>${avatar(p)}<span>${esc(p.name)}</span><span class="${r.won ? 'rk-win' : r.broke ? 'rk-lose' : ''}">${r.won ? '👑 成为富翁 · ' + fmt(r.worth) : r.broke ? '💥 破产' : fmt(r.worth)}</span></div>`; }).join('')}</div>
-      <div class="act-row"><button class="btn primary wide" id="backLobby">回到大厅</button></div>`;
+    h = `<div class="trophy">🏆</div><h3 style="text-align:center">${esc(w.name)} ${S.ranking[0].won ? '成为首富！' : '获得第一名！'}</h3><p class="muted" style="text-align:center">👑 成为富翁：总资产达到 ${fmt(RULES.winCash)}，按达成先后排名；其余玩家按总资产排名</p><div class="rank">${S.ranking.map((r, i) => { const p = pById(r.id); return `<div style="animation-delay:${i * 0.12}s"><span>${i + 1}</span>${avatar(p)}<span>${esc(p.name)}</span><span class="${r.won ? 'rk-win' : r.broke ? 'rk-lose' : ''}">${r.won ? '👑 达成目标时 ' + fmt(r.worth) : r.broke ? '💥 破产' : '结束时 ' + fmt(r.worth)}</span></div>`; }).join('')}</div>
+      <div class="act-row"><button class="btn primary" data-recap="1">📋 查看本局复盘清单</button><button class="btn" id="backLobby">回到大厅</button></div>`;
   } else if (pd && pd.kind === 'auction' && S.auction) {
     key = 'auction';
     const a = S.auction, sq = BOARD[a.pos];
@@ -1024,13 +1035,13 @@ function renderStateModal() {
   box.innerHTML = h; md.hidden = false;
   if (key === 'auction') updateAuction();
   if (key.startsWith('trade')) Snd.turn();
-  if (key === 'end') { Snd.win(); confetti(); closeLocal(); $('#backLobby').onclick = () => { localStorage.removeItem('dfw_room'); location.href = '/'; }; }
+  if (key === 'end') { Snd.win(); confetti(); closeLocal(); $('#backLobby').onclick = () => { localStorage.removeItem('dfw_room'); location.href = '/'; }; if (S.recap) setTimeout(() => { if (S && S.phase === 'end' && !localView) openLocal({ type: 'recap' }); }, 3200); }
 }
 setInterval(() => {
   const bar = $('#cdBar');
   if (bar && S && S.auction) {
     const left = S.auction.endsAt - (Date.now() + skew), sec = Math.max(0, Math.ceil(left / 1000)), el = $('#cdSec');
-    bar.style.width = Math.max(0, Math.min(100, (left / (S.auction.total || 15000)) * 100)) + '%';
+    bar.style.transform = `scaleX(${Math.max(0, Math.min(1, left / (S.auction.total || 15000))).toFixed(3)})`;
     if (el && el.dataset.s !== String(sec)) { el.dataset.s = sec; el.textContent = sec > 0 ? `${sec} 秒` : '成交中'; el.classList.toggle('urgent', sec <= 3); if (sec > 0 && sec <= 3) Snd.tone(1400, 0.06, 'square', 0.05); }
     bar.classList.toggle('urgent', sec <= 3);
   }
@@ -1116,7 +1127,12 @@ document.addEventListener('keydown', (e) => {
 // ================= 每秒收益 & 倒计时 =================
 socket.on('tick', (money) => {
   if (!S) return;
-  for (const p of S.players) if (money[p.id] !== undefined) { const d = money[p.id] - p.money; p.money = money[p.id]; p.worth += d; if (shown[p.id] !== undefined) shown[p.id] += d; if (d) { const w = document.querySelector(`.wt[data-pid="${p.id}"]`); if (w) w.textContent = '总资产 ' + fmt(p.worth); } }
+  for (const p of S.players) {
+    const v = money[p.id]; if (v === undefined) continue;
+    const [mn, wt] = Array.isArray(v) ? v : [v, p.worth + v - p.money], d = mn - p.money;
+    p.money = mn; if (shown[p.id] !== undefined) shown[p.id] += d;
+    if (wt !== p.worth) { p.worth = wt; const w = document.querySelector(`.wt[data-pid="${p.id}"]`); if (w) w.textContent = '总资产 ' + fmt(p.worth); }
+  }
   const pd = S.pending; if (pd && pd.kind === 'pay' && pd.payer === myId && !fxBusy) { renderActions(); renderDock(); }
 });
 socket.on('income', (list) => {           // 只有主人自己能收到：在自己的地标上飘 +多少
@@ -1132,14 +1148,16 @@ setInterval(() => {
   const cur = curP(), total = RULES.turnSecs * 1000, left = S.deadline - (Date.now() + skew), paused = !!S.auction || left > total;
   box.hidden = false;
   const el = Math.max(0, Math.floor((Date.now() + skew - S.startedAt) / 1000)), pad = (x) => String(x).padStart(2, '0');
-  $('#elapsed').textContent = (el >= 3600 ? Math.floor(el / 3600) + ':' + pad(Math.floor(el / 60) % 60) : Math.floor(el / 60)) + ':' + pad(el % 60);
-  $('#stageTag').textContent = `第 ${S.stage + 1} 阶段 · 地价 ×${Math.round(PINF() * 100) / 100} · 租金 ×${Math.round(S.infl * 100) / 100} · 地产税 ${Math.round((S.taxRate || 0.04) * 1000) / 10}%`;
+  // 只在内容真的变化时才改 DOM，避免每 0.25 秒重排一次（省电）
+  const setT = (id, v, html) => { const n = $(id); if (n && n._v !== v) { n._v = v; html ? (n.innerHTML = v) : (n.textContent = v); } };
+  setT('#elapsed', (el >= 3600 ? Math.floor(el / 3600) + ':' + pad(Math.floor(el / 60) % 60) : Math.floor(el / 60)) + ':' + pad(el % 60));
+  setT('#stageTag', `第 ${S.stage + 1} 阶段 · 地价 ×${Math.round(PINF() * 100) / 100} · 租金 ×${Math.round(S.infl * 100) / 100} · 地产税 ${Math.round((S.taxRate || 0.04) * 1000) / 10}%`);
   const secs = Math.max(0, Math.ceil(Math.min(left, total) / 1000));
-  $('#clockText').innerHTML = `${dotOf(cur.id)}现在是 <b>${cur.id === myId ? '您' : esc(cur.name)}</b> 的回合 <span class="secs ${!paused && secs <= 5 ? 'low' : ''}">${S.auction ? '拍卖中' : paused ? '…' : '⏱ ' + secs + ' 秒'}</span>`;
-  $('#clockBar').style.width = (paused ? 100 : Math.max(0, Math.min(100, (left / total) * 100))) + '%';
+  setT('#clockText', `${dotOf(cur.id)}现在是 <b>${cur.id === myId ? '您' : esc(cur.name)}</b> 的回合 <span class="secs ${!paused && secs <= 5 ? 'low' : ''}">${S.auction ? '拍卖中' : paused ? '…' : '⏱ ' + secs + ' 秒'}</span>`, true);
+  $('#clockBar').style.transform = `scaleX(${paused ? 1 : Math.max(0, Math.min(1, left / total)).toFixed(3)})`;
   const hurry = !paused && left < 5000;
   if (hurry && cur.id === myId && secs !== window._lastTick) { window._lastTick = secs; Snd.tone(1000, 0.05, 'square', 0.06); }
-  document.querySelectorAll('#players .pl').forEach((el) => el.classList.toggle('hurry', hurry && el.dataset.pid === cur.id));
+  const hk = hurry ? cur.id : ''; if (window._hurryKey !== hk) { window._hurryKey = hk; document.querySelectorAll('#players .pl').forEach((el) => el.classList.toggle('hurry', hurry && el.dataset.pid === cur.id)); }
 }, 250);
 
 // ================= 表情互动 =================
@@ -1172,6 +1190,7 @@ socket.on('state', (st) => {
 });
 function renderAll() {
   if (!S) return;
+  document.body.classList.toggle('ingame', S.phase !== 'lobby');
   if (S.phase === 'lobby') { $('#lobby').hidden = false; $('#game').hidden = true; renderLobby(); return; }
   if ($('#game').hidden) { $('#lobby').hidden = true; $('#game').hidden = false; $('#roomTag').textContent = S.code; resize(); }
   updateBoard(); placeTokens(); renderPlayers(); renderActions(); renderAssets(); renderLog(); renderStatus(); renderDock(); renderDanger(); renderCard(); markAuction(); renderStateModal(); renderPay(); if (window.afterRender) afterRender();

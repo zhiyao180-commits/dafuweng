@@ -1233,3 +1233,59 @@ body.phone #side { overflow: visible; }
   background: linear-gradient(135deg, #0A6FE0, #8E5BD6); box-shadow: 0 10px 30px rgba(10,111,224,.4); animation: shBob 1.6s ease-in-out infinite; }
 @keyframes shBob { 50% { transform: translateX(-50%) translateY(-4px); } }
 body.phone #soundHint { bottom: 90px; }
+/* ====== v17：省电优化（减少持续重绘，降低发热） ====== */
+/* 背景不再缓慢移动：移动的背景会让所有毛玻璃面板每一帧都重新模糊，最耗电 */
+body::before { animation: none; }
+body.ingame .lobby-bg { display: none; }
+.aurora i { animation: none; }
+#trackPath { animation: none; }
+.center-sub { animation: none; }
+.title span, #title span { animation: bob 3.2s ease-in-out infinite; animation-delay: calc(var(--i) * .22s); will-change: transform; }
+/* 地图上的特殊格子：静态更精致，悬停时才动 */
+.cell.chance::after, .cell.chest::after { display: none; }
+.cell.chance .sicon svg, .cell.chest .sicon svg { animation: none; transition: transform .25s; }
+.cell.chance:hover .sicon svg, .cell.chest:hover .sicon svg { transform: translateY(-4%) rotate(-3deg) scale(1.05); }
+.sicon .spin, .sicon .bulbs circle { animation: none; }
+.cell.portal .sicon svg { animation: sxSpin 18s linear infinite; will-change: transform; }
+.cell.wheel:hover .sicon .spin.slow { animation: sxSpin 3s linear infinite; }
+.token.cur::after { will-change: transform, opacity; }
+/* 倒计时条改用 transform 缩放，不触发页面重排 */
+.clock-bar div { width: 100% !important; transform-origin: left center; transition: transform .25s linear; }
+.countdown div { width: 100% !important; transform-origin: left center; transition: transform .2s linear; }
+/* 毛玻璃模糊半径减小，GPU 负担更轻 */
+.panel, .clock, .tools button, .payrow { -webkit-backdrop-filter: blur(12px) saturate(150%); backdrop-filter: blur(12px) saturate(150%); }
+/* 省电模式：关掉全部装饰循环动画和毛玻璃 */
+.tools button#btnEco.on { background: #2DA44E; color: #fff; }
+:root.eco *, :root.eco *::before, :root.eco *::after { animation-iteration-count: 1 !important; }
+:root.eco .panel, :root.eco .clock, :root.eco .tools button, :root.eco .payrow, :root.eco .modal-box, :root.eco .lobby-card, :root.eco #betPill { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+:root.eco .panel, :root.eco .clock, :root.eco .payrow { background: color-mix(in srgb, var(--card) 94%, transparent); }
+:root.eco .cell .lm, :root.eco .cell.special .sicon svg { filter: none; }
+.aurora i:nth-child(n) { animation: none; }
+.sicon .bulbs .b1, .sicon .bulbs .b2 { animation: none; }
+/* ====== v17：复盘清单、房主管理面板 ====== */
+.host-panel { margin-top: 10px; padding: 9px; border-radius: 14px; background: linear-gradient(135deg, rgba(226,161,0,.12), rgba(10,111,224,.08)); box-shadow: inset 0 0 0 1px rgba(226,161,0,.3); }
+.hp-kick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip-k { display: inline-flex; align-items: center; gap: 5px; border: 0; cursor: pointer; padding: 3px 8px 3px 3px; border-radius: 999px; background: var(--soft); font: inherit; font-size: 12px; color: var(--ink); }
+.chip-k .avatar { width: 20px; height: 20px; font-size: 11px; } .chip-k b { color: var(--red); font-size: 11px; margin-left: 2px; }
+.chip-k:hover { background: color-mix(in srgb, var(--red) 14%, var(--soft)); }
+.rc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.rc-head h3 { margin: 0 0 4px; }
+.rc-body { max-height: min(68vh, 760px); overflow: auto; padding-right: 4px; }
+.rc-sec { margin-top: 14px; } .rc-sec h4 { margin: 0 0 8px; font-size: 14px; }
+.rc-rank { display: flex; flex-direction: column; gap: 6px; }
+.rc-r { display: grid; grid-template-columns: 26px 30px 1fr 1.3fr 1.2fr 1.3fr; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: rgba(127,127,127,.08); font-size: 13px; }
+.rc-r > b:first-child { font-size: 17px; text-align: center; } .rc-r .nm { font-weight: 800; } .rc-r.won { background: rgba(245,183,0,.16); } .rc-r.out { opacity: .75; }
+.rc-aw { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.rc-aw > div { padding: 9px 11px; border-radius: 12px; background: rgba(245,183,0,.12); display: flex; flex-direction: column; gap: 2px; } .rc-aw > div.bad { background: rgba(127,127,127,.1); }
+.rc-aw b { font-size: 13.5px; } .rc-aw span { font-weight: 800; font-size: 14px; } .rc-aw small { color: var(--ink2); font-size: 11.5px; }
+.rc-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; }
+.rc-card { padding: 11px 12px; border-radius: 14px; background: rgba(127,127,127,.07); box-shadow: inset 3px 0 0 var(--pc); }
+.rc-ch { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; } .rc-ch b { font-size: 15px; } .rc-ch span { margin-left: auto; font-size: 12px; color: var(--ink2); }
+.rc-card ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; line-height: 1.5; }
+.rc-card li i { font-style: normal; display: inline-block; min-width: 74px; color: var(--ink2); font-weight: 700; }
+.rc-tips { margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(127,127,127,.3); display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; line-height: 1.5; }
+.rc-list { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.8; }
+.rc-tl { display: flex; flex-direction: column; gap: 2px; font-size: 13px; border-left: 2px solid rgba(127,127,127,.25); padding-left: 12px; }
+.rc-tl div { display: flex; gap: 10px; } .rc-tl small { min-width: 54px; color: var(--ink3); font-variant-numeric: tabular-nums; }
+body.phone .rc-r { grid-template-columns: 22px 26px 1fr; } body.phone .rc-r > span:nth-child(n+4) { grid-column: 3; font-size: 12px; }
+body.phone .rc-cards { grid-template-columns: 1fr; }

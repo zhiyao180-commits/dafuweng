@@ -68,10 +68,12 @@ setInterval(() => {
     if (g.tickStage()) broadcast(g);
     if (g.settleBets()) broadcast(g);
     if (g.phase === 'play' && (g.mt = (g.mt || 0) + 1) % 2 === 0) { const ch = g.tickMarket(2); if (ch || g.fx.length) broadcast(g); else io.to(g.code).emit('market', { market: g.market, loans: Object.fromEntries(g.players.map((p) => [p.id, p.loan || 0])) }); }
-    const inc = g.tickIncome(); if (!inc) continue;
-    for (const pid of Object.keys(inc)) io.to(g.code + ':' + pid).emit('income', inc[pid]);
+    if (g.phase !== 'play') continue;
+    const inc = g.tickIncome();
+    if (inc) for (const pid of Object.keys(inc)) io.to(g.code + ':' + pid).emit('income', inc[pid]);
+    // 每秒都检查是否有人达到目标（地价每分钟上涨、股价波动也会让总资产越过目标）
     if (g.checkGoals()) broadcast(g);
-    else io.to(g.code).emit('tick', Object.fromEntries(g.players.map((p) => [p.id, p.money])));
+    else io.to(g.code).emit('tick', g.tickWorth());
   }
 }, 1000);
 

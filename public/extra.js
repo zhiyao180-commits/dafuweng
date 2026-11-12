@@ -170,6 +170,55 @@
   }
   window.refreshExpand = () => { if (localView && localView.type === 'expand') { const b = $('#localBox'), y = (b.querySelector('.xp-table, .xp-log') || {}).scrollTop; b.innerHTML = expandHTML(expandKind) + '<div class="act-row"><button class="btn wide" data-close>收起</button></div>'; const sc = b.querySelector('.xp-table, .xp-log'); if (sc && y) sc.scrollTop = y; } };
 
+  // ---------------- 对局复盘清单 ----------------
+  const hms = (ms) => { const t = Math.max(0, Math.round((ms || 0) / 1000)), h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, s2 = t % 60, p2 = (x) => String(x).padStart(2, '0'); return h ? `${h}:${p2(m)}:${p2(s2)}` : `${m}:${p2(s2)}`; };
+  const sg = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(Math.round(v || 0)));
+  const pn = (id) => { const p = pById(id); return p ? esc(p.name) : '?'; };
+  function tips(x) {
+    const s = x.st || {}, out = [];
+    if (x.won) out.push(`✅ 第 ${hms(x.wonAt)} 达成 ${fmt(S.recap.goal)} 目标，以第 ${x.won} 名胜出`);
+    if (x.out) out.push(`❌ 第 ${hms(x.outAt)} 出局：${esc(x.outWhy || '')}`);
+    if ((s.rentOut || 0) > (s.rentIn || 0) * 2 && s.rentOut > 0) out.push(`⚠️ 交出的租金（${fmt(s.rentOut)}）是收到的 ${s.rentIn ? (s.rentOut / s.rentIn).toFixed(1) + ' 倍' : '很多倍'}，下次优先集齐同色组并建房`);
+    if (!s.builds) out.push('⚠️ 整局没有建房：房屋的每秒收益是后期最主要的收入来源');
+    else if ((s.houseIncome || 0) > (s.buildSpent || 0)) out.push(`👍 建房投入 ${fmt(s.buildSpent)}，靠每秒收益赚回 ${fmt(s.houseIncome)}，已经回本`);
+    if ((s.interest || 0) > 0) out.push(`⚠️ 贷款利息共支付约 ${fmt(s.interest)}，有闲钱时尽早还贷`);
+    if (x.bet < 0) out.push(`⚠️ 涨跌竞猜净亏 ${fmt(-x.bet)}（${s.bets || 0} 次，命中 ${s.betWins || 0} 次）`);
+    else if (x.bet > 0) out.push(`👍 涨跌竞猜净赚 ${fmt(x.bet)}（${s.bets || 0} 次，命中 ${s.betWins || 0} 次）`);
+    if (x.stock < 0) out.push(`⚠️ 股票净亏 ${fmt(-x.stock)}`); else if (x.stock > 0) out.push(`👍 股票净赚 ${fmt(x.stock)}`);
+    if ((s.tax || 0) > (s.salary || 0) && s.tax > 0) out.push(`⚠️ 交税 ${fmt(s.tax)} 超过领到的工资 ${fmt(s.salary || 0)}，后期地产税很重，注意现金储备`);
+    if ((s.jail || 0) >= 3) out.push(`⚠️ 入狱 ${s.jail} 次，耽误了不少回合`);
+    if (!out.length) out.push('👍 表现平稳，没有明显失误');
+    return out;
+  }
+  function recapHTML() {
+    const R = S.recap; if (!R) return '<div class="mk-empty">暂无复盘数据</div>';
+    const head = `<div class="rc-head"><div><h3>📋 对局复盘清单</h3><div class="muted">时长 ${hms(R.dur)} · ${R.players.length} 位玩家 · 共 ${R.rounds} 个回合 · 通胀到第 ${R.stage + 1} 阶段 · ${esc(R.why || '')}</div></div><button class="btn sm" id="rcCopy">📄 复制文字版</button></div>`;
+    const rank = `<div class="rc-sec"><h4>🏆 最终名次</h4><div class="rc-rank">${R.players.map((x) => `<div class="rc-r ${x.won ? 'won' : x.out ? 'out' : ''}"><b>${x.rank}</b>${avatar(x)}<span class="nm">${esc(x.name)}</span><span>${x.won ? `👑 ${hms(x.wonAt)} 达成目标` : x.out ? `💥 ${hms(x.outAt)} 出局` : '坚持到最后'}</span><span>${x.won ? '达成时' : x.out ? '出局' : '结束时'} <b>${x.out ? '0' : fmt(x.worth)}</b></span><span class="muted">最高 ${fmt(x.peak[0])}（${hms(x.peak[1])}）</span></div>`).join('')}</div></div>`;
+    const aw = R.awards.length ? `<div class="rc-sec"><h4>🏅 本局奖项</h4><div class="rc-aw">${R.awards.map((a) => `<div class="${a.good ? '' : 'bad'}"><b>${a.title}</b><span>${pn(a.pid)}</span><small>${/^(块地|次)/.test(a.unit) ? a.v + ' ' + a.unit : a.unit + ' ' + fmt(Math.round(a.v))}</small></div>`).join('')}</div></div>` : '';
+    const cards = `<div class="rc-sec"><h4>🧾 每位玩家的清单</h4><div class="rc-cards">${R.players.map((x) => { const s = x.st || {}; return `<div class="rc-card" style="--pc:${x.color}"><div class="rc-ch">${avatar(x)}<b>${esc(x.name)}</b><span>第 ${x.rank} 名</span></div>
+      <ul>
+        <li><i>🗺 地产</i>买地 ${s.buys || 0} 块、拍得 ${s.auctionsWon || 0} 块，共花 ${fmt(s.landSpent || 0)}；建房 ${s.builds || 0} 次，花 ${fmt(s.buildSpent || 0)}${s.hotels ? `（酒店 ${s.hotels} 座）` : ''}</li>
+        <li><i>💰 收入</i>工资 ${fmt(s.salary || 0)} · 租金 ${fmt(s.rentIn || 0)}（${s.rentN || 0} 次）· 房屋每秒收益 ${fmt(s.houseIncome || 0)}${s.bonus ? ' · 分红 ' + fmt(s.bonus) : ''}${s.taskReward ? ' · 任务 ' + fmt(s.taskReward) : ''}</li>
+        <li><i>💸 支出</i>租金 ${fmt(s.rentOut || 0)} · 税 ${fmt(s.tax || 0)}${s.jailFine ? ' · 保释金 ' + fmt(s.jailFine) : ''}${s.interest ? ' · 贷款利息 ' + fmt(s.interest) : ''}</li>
+        <li><i>📈 金融</i>股票 ${sg(x.stock)} · 竞猜 ${s.bets || 0} 次命中 ${s.betWins || 0} 次 ${sg(x.bet)}${s.loanTaken ? ` · 贷款 ${fmt(s.loanTaken)}` : ''}</li>
+        <li><i>🍀 运气</i>机会/命运/转盘 ${s.cards || 0} 张，净 ${sg(s.luck || 0)} · 双数 ${s.doubles || 0} 次 · 入狱 ${s.jail || 0} 次 · 经过起点 ${s.laps || 0} 次</li>
+        ${s.maxIn ? `<li><i>⬆️ 最大进账</i>${fmt(s.maxIn[0])}（${esc(s.maxIn[1])}）</li>` : ''}${s.maxOut ? `<li><i>⬇️ 最大支出</i>${fmt(s.maxOut[0])}（${esc(s.maxOut[1])}）</li>` : ''}
+      </ul><div class="rc-tips">${tips(x).map((t) => `<div>${t}</div>`).join('')}</div></div>`; }).join('')}</div></div>`;
+    const rents = R.rents.length ? `<div class="rc-sec"><h4>🔥 本局最贵的租金</h4><ol class="rc-list">${R.rents.map((r) => `<li>${hms(r.t)}　${pn(r.from)} → ${pn(r.to)}　<b>${fmt(r.amt)}</b>（${esc(r.city)}）</li>`).join('')}</ol></div>` : '';
+    const tl = `<div class="rc-sec"><h4>🕒 关键时刻</h4><div class="rc-tl">${R.moments.map((m) => `<div><small>${hms(m.t)}</small><span>${esc(m.text)}</span></div>`).join('')}</div></div>`;
+    return head + `<div class="rc-body">${rank}${aw}${cards}${rents}${tl}</div><div class="act-row"><button class="btn wide" data-close>关闭</button></div>`;
+  }
+  function recapText() {
+    const R = S.recap; if (!R) return '';
+    const L = [`【大富翁 · 世界银行】对局复盘清单`, `时长 ${hms(R.dur)}｜${R.players.length} 位玩家｜${R.rounds} 个回合｜通胀第 ${R.stage + 1} 阶段｜${R.why || ''}`, '', '一、最终名次'];
+    R.players.forEach((x) => L.push(`${x.rank}. ${x.name}　${x.won ? `👑 ${hms(x.wonAt)} 达成目标（${fmt(x.worth)}）` : x.out ? `💥 ${hms(x.outAt)} 出局（${x.outWhy || ''}）` : `结束时总资产 ${fmt(x.worth)}`}　最高 ${fmt(x.peak[0])}`));
+    if (R.awards.length) { L.push('', '二、本局奖项'); R.awards.forEach((a) => L.push(`${a.title}：${(pById(a.pid) || {}).name || '?'}（${/^(块地|次)/.test(a.unit) ? a.v + ' ' + a.unit : a.unit + ' ' + fmt(Math.round(a.v))}）`)); }
+    L.push('', '三、每位玩家');
+    R.players.forEach((x) => { const s = x.st || {}; L.push(`■ ${x.name}（第 ${x.rank} 名）`, `  地产：买地 ${s.buys || 0}、拍得 ${s.auctionsWon || 0}，花 ${fmt(s.landSpent || 0)}；建房 ${s.builds || 0} 次，花 ${fmt(s.buildSpent || 0)}`, `  收入：工资 ${fmt(s.salary || 0)}，租金 ${fmt(s.rentIn || 0)}，房屋收益 ${fmt(s.houseIncome || 0)}`, `  支出：租金 ${fmt(s.rentOut || 0)}，税 ${fmt(s.tax || 0)}，利息 ${fmt(s.interest || 0)}`, `  金融：股票 ${sg(x.stock)}，竞猜 ${sg(x.bet)}`); tips(x).forEach((t) => L.push('  ' + t)); });
+    if (R.rents.length) { L.push('', '四、最贵的租金'); R.rents.forEach((r, i) => L.push(`${i + 1}. ${hms(r.t)} ${(pById(r.from) || {}).name} → ${(pById(r.to) || {}).name} ${fmt(r.amt)}（${r.city}）`)); }
+    L.push('', '五、关键时刻'); R.moments.forEach((m) => L.push(`${hms(m.t)}　${m.text}`));
+    return L.join('\n');
+  }
   window.renderExtra = (v, box) => {
     if (v.type === 'fin') {
       box.classList.add('market');
@@ -177,6 +226,11 @@
       finUpdate(); return true;
     }
     if (v.type === 'expand') { box.classList.add('market'); box.dataset.v = 'expand'; refreshExpand(); return true; }
+    if (v.type === 'recap') {
+      box.classList.add('market'); if (box.dataset.v === 'recap') return true; box.dataset.v = 'recap'; box.innerHTML = recapHTML();
+      const cp = box.querySelector('#rcCopy'); if (cp) cp.onclick = () => { const t = recapText(); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('复盘清单已复制，可以直接粘贴发给朋友'), () => { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('复盘清单已复制'); }); };
+      return true;
+    }
     return false;
   };
   window.afterRender = () => {
@@ -194,6 +248,7 @@
     const fb = t.closest('[data-fin]'); if (fb) return openFin(fb.dataset.fin);
     const tk = t.closest('[data-tick]'); if (tk && S && S.phase === 'play' && me() && !me().bankrupt) return openFin('stock', tk.dataset.tick);
     if (t.closest('#betPill')) return openFin('bet', me() && me().bet ? me().bet.id : undefined);
+    if (t.closest('[data-recap]')) return openLocal({ type: 'recap' });
     const xs = t.closest('[data-xpsend]'); if (xs) return openLocal({ type: 'send', to: xs.dataset.xpsend, amount: 0 });
     const xb = t.closest('[data-expand]'); if (xb) { const pnl = xb.parentElement; return openExpand(xb.dataset.expand, pnl.getBoundingClientRect()); }
     // 点击右侧面板的空白处也可放大
