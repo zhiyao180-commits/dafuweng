@@ -13,7 +13,7 @@ const sha = (x) => crypto.createHash('sha256').update(String(x)).digest('hex');
 const PASS_HASH = process.env.CREATE_PASSWORD ? sha(process.env.CREATE_PASSWORD) : 'f21ce2390cc90e663ac24786ff3591e1b015daf8fc12ff9cdaefca5f8fd6b384';
 
 const PORT = process.env.PORT || 3000;
-const SAVE = path.join(__dirname, 'data', 'rooms-v5.json');
+const SAVE = path.join(__dirname, 'data', 'rooms-v6.json');
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
@@ -66,6 +66,7 @@ setInterval(() => {
 setInterval(() => {
   for (const g of rooms.values()) {
     if (g.tickStage()) broadcast(g);
+    if (g.phase === 'play' && (g.mt = (g.mt || 0) + 1) % 2 === 0) { const ch = g.tickMarket(2); if (ch || g.fx.length) broadcast(g); else io.to(g.code).emit('market', { market: g.market, loans: Object.fromEntries(g.players.map((p) => [p.id, p.loan || 0])) }); }
     const inc = g.tickIncome(); if (!inc) continue;
     for (const pid of Object.keys(inc)) io.to(g.code + ':' + pid).emit('income', inc[pid]);
     if (g.checkGoals()) broadcast(g);
@@ -111,7 +112,10 @@ io.on('connection', (socket) => {
     const g = rooms.get(socket.data.code);
     if (!g) return reply(cb, { ok: false, error: '不在房间中' });
     try {
+      const kicked = type === 'kick' && g.phase === 'lobby' ? g.byId(args.id) : null;
+      if (type === 'kick' && g.byId(args.id)) io.to(g.code + ':' + args.id).emit('kicked');
       g.act(socket.data.token, type, args);
+      if (kicked) for (const [, sk] of io.sockets.sockets) if (sk.data.token === kicked.token) { sk.leave(g.code); sk.data.code = null; }
       reply(cb, { ok: true });
     } catch (e) {
       if (!(e instanceof GameError)) console.error(e);
@@ -121,12 +125,15 @@ io.on('connection', (socket) => {
     broadcast(g);
   });
 
-  socket.on('emote', ({ to, e } = {}) => {
+  socket.on('emote', ({ to, e, text } = {}) => {
     const g = rooms.get(socket.data.code); if (!g) return;
-    const p = g.P(socket.data.token); if (!p || !D.EMOTES.includes(e) || !g.byId(to)) return;
+    const p = g.P(socket.data.token); if (!p || !g.byId(to)) return;
     if (Date.now() - (socket.data.lastEmote || 0) < 500) return;
+    const msg = typeof text === 'string' ? text.replace(/\s+/g, ' ').trim().slice(0, 20) : '';
+    if (!msg && !D.EMOTES.includes(e)) return;
     socket.data.lastEmote = Date.now();
-    io.to(g.code).emit('emote', { from: p.id, to, e });
+    io.to(g.code).emit('emote', { from: p.id, to, e: msg ? '' : e, text: msg });
+    if (msg) { g.say(`💬 ${p.name} 对 ${g.byId(to).name} 说：${msg}`); broadcast(g); }
   });
 
   socket.on('disconnect', () => {

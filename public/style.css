@@ -710,3 +710,91 @@ body.auction-mode #center, body.auction-mode #lane { filter: brightness(.7); }
 @keyframes cardshake { 10%, 50%, 90% { translate: -14px 0; rotate: -2deg; } 30%, 70% { translate: 14px 0; rotate: 2deg; } }
 .pl.won { background: rgba(226,161,0,.14); box-shadow: inset 0 0 0 1.5px #E2A100; }
 .wonTag { font-size: 12px; font-weight: 700; color: #A97800; }
+
+/* ====== v9：彩色背景 + 毛玻璃界面 ====== */
+:root { --glass: rgba(255,255,255,.58); --glass2: rgba(255,255,255,.72); --gline: rgba(255,255,255,.65); }
+:root[data-theme="dark"] { --glass: rgba(28,32,40,.6); --glass2: rgba(34,38,48,.75); --gline: rgba(255,255,255,.1); }
+body { background: #E9EEF8; }
+body::before { content: ''; position: fixed; inset: -20%; z-index: -1; pointer-events: none;
+  background: radial-gradient(40% 45% at 15% 20%, #9EC5FF 0, transparent 70%), radial-gradient(35% 40% at 85% 15%, #FFC3D8 0, transparent 70%), radial-gradient(40% 45% at 80% 85%, #B6F0D2 0, transparent 70%), radial-gradient(35% 40% at 20% 85%, #FFE2A8 0, transparent 70%), linear-gradient(135deg, #EEF2FF, #FDF2F8);
+  animation: meshmove 30s ease-in-out infinite alternate; }
+:root[data-theme="dark"] body { background: #0d1017; }
+:root[data-theme="dark"] body::before { background: radial-gradient(40% 45% at 15% 20%, #1E3A8A 0, transparent 70%), radial-gradient(35% 40% at 85% 15%, #6B21A8 0, transparent 70%), radial-gradient(40% 45% at 80% 85%, #065F46 0, transparent 70%), radial-gradient(35% 40% at 20% 85%, #7C2D12 0, transparent 70%), #0d1017; opacity: .7; }
+@keyframes meshmove { to { transform: translate(4%, -3%) rotate(6deg) scale(1.08); } }
+#game { background: transparent; }
+#board { background: rgba(255,255,255,.35); box-shadow: 0 20px 60px rgba(40,50,90,.18), inset 0 0 0 1px var(--gline); }
+:root[data-theme="dark"] #board { background: rgba(0,0,0,.35); }
+#lane, #center { background: linear-gradient(135deg, rgba(219,234,254,.85), rgba(252,231,243,.8) 50%, rgba(220,252,231,.85)); }
+:root[data-theme="dark"] #lane, :root[data-theme="dark"] #center { background: linear-gradient(135deg, rgba(30,41,82,.85), rgba(76,29,90,.7) 50%, rgba(20,70,60,.8)); }
+.panel, .clock, .tools button, .payrow { background: var(--glass); -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%); box-shadow: 0 8px 28px rgba(40,50,90,.1), inset 0 0 0 1px var(--gline); }
+.payrow { border-radius: 14px; padding: 6px 8px; }
+.modal-box, .lobby-card { background: var(--glass2); -webkit-backdrop-filter: blur(26px) saturate(170%); backdrop-filter: blur(26px) saturate(170%); box-shadow: 0 30px 80px rgba(20,30,60,.28), inset 0 0 0 1px var(--gline); }
+.modal { background: rgba(20,25,45,.22); }
+#side .panel, #side .clock { position: relative; transition: transform .2s, box-shadow .2s; }
+#side .panel:hover, #side .clock:hover { box-shadow: 0 12px 34px rgba(40,50,90,.16), inset 0 0 0 1px var(--gline); }
+.xp-btn { position: absolute; right: 6px; top: 6px; width: 22px; height: 22px; border: 0; border-radius: 7px; background: rgba(127,127,127,.14); color: var(--ink2); font-size: 13px; cursor: pointer; opacity: .55; transition: opacity .2s, transform .2s; z-index: 2; }
+#side .panel:hover .xp-btn, #side .clock:hover .xp-btn { opacity: 1; } .xp-btn:hover { transform: scale(1.15); }
+#players { padding-top: 10px; } .clock .secs { margin-right: 22px; }
+.act-row.big2 { flex-wrap: nowrap; } .act-row.big2 .btn.market { padding: 12px 6px; font-size: 14px; }
+.btn.market.fin { background: linear-gradient(135deg, #D92D2D, #F08A2E); }
+/* 放大详情 */
+.xp-table { display: flex; flex-direction: column; gap: 8px; max-height: 66vh; overflow: auto; margin-top: 10px; }
+.xp-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.45); box-shadow: inset 0 0 0 1px var(--gline); animation: rise .35s backwards; }
+:root[data-theme="dark"] .xp-row { background: rgba(255,255,255,.05); }
+.xp-row.won { box-shadow: inset 0 0 0 2px #E2A100; } .xp-row.dead { opacity: .45; }
+.xp-row .avatar { width: 40px; height: 40px; font-size: 22px; }
+.xp-dot { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+.xp-who { width: 170px; flex: none; } .xp-who b { font-size: 15px; } .xp-who small { display: block; color: var(--ink2); font-size: 11.5px; margin-top: 2px; }
+.xp-nums { display: flex; flex-wrap: wrap; gap: 6px 16px; flex: 1; font-size: 12px; color: var(--ink2); }
+.xp-nums span { display: flex; flex-direction: column; } .xp-nums b { color: var(--ink); font-size: 14px; font-variant-numeric: tabular-nums; }
+.xp-ops { display: flex; gap: 6px; flex: none; }
+.xp-log { max-height: 66vh; overflow: auto; font-size: 13.5px; line-height: 1.6; margin-top: 10px; }
+.xp-log div { padding: 5px 0; border-bottom: 1px solid var(--line); } .xp-log small { color: var(--ink3); margin-right: 10px; font-variant-numeric: tabular-nums; }
+.xp-info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; } .xp-info div { padding: 12px; border-radius: 12px; background: rgba(255,255,255,.4); font-size: 12.5px; color: var(--ink2); } .xp-info b { display: block; color: var(--ink); font-size: 15px; margin-top: 3px; }
+/* 金融中心 */
+.fin-body { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+.fin-list { display: flex; flex-direction: column; gap: 6px; max-height: 56vh; overflow: auto; }
+.fin-row { display: grid; grid-template-columns: 1fr 74px 82px; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 12px; cursor: pointer; background: rgba(255,255,255,.4); box-shadow: inset 0 0 0 1px var(--gline); transition: transform .15s; }
+:root[data-theme="dark"] .fin-row { background: rgba(255,255,255,.05); }
+.fin-row:hover { transform: translateX(3px); } .fin-row.on { box-shadow: inset 0 0 0 2px var(--blue); }
+.fin-row b { font-size: 14px; } .fin-row small { display: block; font-size: 11px; color: var(--ink2); }
+.fr-px { text-align: right; font-variant-numeric: tabular-nums; }
+.spark { width: 100%; height: 26px; display: block; }
+.up { color: #E5383B !important; } .down { color: #2DA44E !important; }
+.btn.up { background: #E5383B; color: #fff; } .btn.down { background: #2DA44E; color: #fff; }
+.fin-detail { padding: 14px; border-radius: 16px; background: rgba(255,255,255,.45); box-shadow: inset 0 0 0 1px var(--gline); }
+:root[data-theme="dark"] .fin-detail { background: rgba(255,255,255,.05); }
+.fd-h { display: flex; justify-content: space-between; align-items: flex-end; } .fd-h b { font-size: 18px; } .fd-h small { font-size: 12px; color: var(--ink2); }
+.fd-px { text-align: right; } .fd-px b { font-size: 24px; font-variant-numeric: tabular-nums; display: block; }
+.fd-chart { height: 110px; margin: 10px 0; } .fd-chart .spark { height: 110px; }
+.fd-hold { font-size: 13px; color: var(--ink2); margin-bottom: 4px; }
+.fin-foot { margin-top: 12px; font-size: 13px; color: var(--ink2); padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.35); } .fin-foot b { color: var(--ink); margin-right: 8px; }
+.fin-loan { display: grid; grid-template-columns: 1fr 1.3fr; gap: 16px; } .loan-card { padding: 18px; border-radius: 16px; background: linear-gradient(135deg, #1F2A44, #3B4A7A); color: #fff; } .loan-card .muted { color: rgba(255,255,255,.7); }
+.loan-big { font-size: 36px; font-weight: 800; margin: 6px 0; font-variant-numeric: tabular-nums; }
+.bet-live { margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--blue); min-height: 18px; }
+/* 互动：文字 + 小号转账 */
+.say-row { display: flex; gap: 8px; margin-top: 6px; } .say-row input { padding: 9px 12px; font-size: 14px; }
+.xfer { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 12px; color: var(--ink2); } .xfer .mk-price { margin: 0; flex: 1; } .xfer input { padding: 6px 10px; font-size: 14px; }
+.emo-grid button { font-size: 19px; padding: 4px 0; }
+.emo-fly.bubble { font-size: 15px; font-weight: 700; background: #fff; color: #1F2328; padding: 6px 12px; border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,.25); white-space: nowrap; }
+.emo-fly.bubble.stay::after { content: ''; position: absolute; left: 50%; bottom: -6px; margin-left: -6px; border: 6px solid transparent; border-top-color: #fff; border-bottom: 0; }
+.lp-kick { margin-left: auto; border: 0; background: rgba(229,56,59,.14); color: var(--red); width: 22px; height: 22px; border-radius: 50%; cursor: pointer; font-size: 11px; }
+.rank .rk-win { color: #A97800; font-weight: 800; } .rank .rk-lose { color: var(--red); }
+/* ====== 手机适配 ====== */
+body.phone { overflow: auto; }
+body.phone #game { flex-direction: column; align-items: center; padding: 4px; gap: 8px; height: auto; overflow-x: auto; }
+body.phone #side { width: 100%; height: auto; gap: 8px; }
+body.phone #side > .topbar { order: 0; } body.phone #clock { order: 1; } body.phone #actions { order: 2; position: sticky; bottom: 6px; z-index: 50; box-shadow: 0 -6px 30px rgba(0,0,0,.18); }
+body.phone .payrow { order: 3; } body.phone #players { order: 4; } body.phone #assets { order: 5; } body.phone .log-panel { order: 6; max-height: 220px; }
+body.phone .cen, body.phone .cprice, body.phone .owner { display: none; }
+body.phone .cname { font-size: 9px; } body.phone .lm { width: 14px; height: 14px; } body.phone .cicon { font-size: 13px; }
+body.phone #center { grid-template-columns: 1fr; padding: 4px; } body.phone .center-title, body.phone .center-sub, body.phone .status { display: none; }
+body.phone .table { grid-column: 1; grid-row: 1 / 4; width: auto; justify-content: center; gap: 10px; }
+body.phone .modal-box { padding: 14px; min-width: 0; width: 96vw; } body.phone .mk-body, body.phone .fin-body, body.phone .fin-loan, body.phone .au-wrap { grid-template-columns: 1fr; display: grid; }
+body.phone .au-info { width: auto; } body.phone .au-main { min-width: 0; } body.phone .xp-who { width: 110px; }
+body.phone .modal.glass { padding: 0 2vw; justify-items: center !important; align-items: end; } body.phone .modal.glass .modal-box { margin-bottom: 8px; }
+body.phone .card-dock { left: 50%; transform: translateX(-50%); bottom: 4px; } body.phone .bigwin { font-size: 40px; } body.phone .bigwin.t3 { font-size: 54px; }
+body.phone .xp-btn { opacity: 1; }
+@media (max-width: 700px) { .lobby-card { width: 94vw; padding: 20px 16px; } .intro h2 { font-size: 26px; } .intro h2 b { font-size: 36px; } .in-dice { font-size: 72px; } .in-pay { font-size: 58px; gap: 24px; } .in-city span { width: 40px; height: 40px; } .in-city span:nth-child(even) { width: 50px; height: 50px; } .in-ppl span { width: 36px; height: 36px; font-size: 20px; } .in-crown { font-size: 90px; } .bigcard { width: 90vw; } .bigfront .txt { font-size: 19px; } }
+
+body.phone .cname { font-size: 8px; line-height: 1.05; letter-spacing: 0; padding: 0; } body.phone .corner .cname { font-size: 9px; } body.phone .corner .cicon { font-size: 16px; } body.phone .token { width: 16px; height: 16px; margin: -8px 0 0 -8px; font-size: 10px; }

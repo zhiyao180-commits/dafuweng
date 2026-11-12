@@ -148,6 +148,10 @@
     { text: '请所有人喝奶茶，向每位玩家支付 100K', fx: { t: 'each', amt: -100 } },
     { text: '企业赞助：现金最多的玩家，送给现金最少的玩家 1M', fx: { t: 'sponsor', amt: 1000 } },
     { text: '地产税：地产最多的玩家（可能不止一位）向银行支付 1M', fx: { t: 'proptax', amt: 1000 } },
+    { text: '手机钱包遭遇电信诈骗：📱 手机钱包余额损失 30%', fx: { t: 'wallet', w: 'phone', pct: -30 } },
+    { text: '银行卡账户获得理财利息：💳 银行卡余额增加 8%', fx: { t: 'wallet', w: 'card', pct: 8 } },
+    { text: '现金在机场被盗：💵 现金损失一半', fx: { t: 'wallet', w: 'cash', pct: -50 } },
+    { text: '海外消费只收现金，您的现金获得汇兑收益：💵 现金增加 25%', fx: { t: 'wallet', w: 'cash', pct: 25 } },
   ];
 
   const CHEST = [
@@ -179,6 +183,10 @@
     { text: '街道维修：每栋房屋支付 400K，每座酒店支付 1.15M', fx: { t: 'repairs', house: 400, hotel: 1150 } },
     { text: '今天是您的生日！每位玩家送您 100K', fx: { t: 'each', amt: 100 } },
     { text: '朋友们还钱了：每位玩家付您 200K', fx: { t: 'each', amt: 200 } },
+    { text: '手机支付节日返现：📱 手机钱包余额增加 12%', fx: { t: 'wallet', w: 'phone', pct: 12 } },
+    { text: '银行卡被境外盗刷：💳 银行卡余额损失 15%', fx: { t: 'wallet', w: 'card', pct: -15 } },
+    { text: '家中保险柜失窃：💵 现金损失 40%', fx: { t: 'wallet', w: 'cash', pct: -40 } },
+    { text: '银行卡年度积分兑换：💳 银行卡余额增加 6%', fx: { t: 'wallet', w: 'card', pct: 6 } },
     { text: '企业赞助：现金最多的玩家，送给现金最少的玩家 1M', fx: { t: 'sponsor', amt: 1000 } },
     { text: '地产税：地产最多的玩家（可能不止一位）向银行支付 1M', fx: { t: 'proptax', amt: 1000 } },
   ];
@@ -217,7 +225,7 @@
   // 有房屋的地产每秒产生的收益：地价越低收益率越高（类似现实中的租金回报率）
   function incomePerSec(pos, houses) {
     const sq = BOARD[pos]; if (sq.type !== 'prop') return 0;
-    return Math.round((GROUPS[sq.group].house / 200) * houses); // 约 3 分多钟回本一栋房
+    return Math.round((GROUPS[sq.group].house / 100) * houses); // 约 100 秒回本一栋房
   }
   // 幸运转盘
   const WHEEL = [
@@ -233,12 +241,26 @@
     { t: 'build', need: 2, text: '建 2 栋房屋' }, { t: 'buy', need: 1, text: '买下 1 块地（拍卖也算）' }, { t: 'lap', need: 1, text: '经过起点或环球中心 1 次' },
     { t: 'rent', need: 1, text: '收到 1 次租金' }, { t: 'dbl', need: 1, text: '掷出 1 次双数' }, { t: 'card', need: 1, text: '抽 1 张机会/命运/转盘' },
   ];
+  // 金融中心：股票 / 基金 / 外汇（价格由服务器每 2 秒随机波动）
+  const ASSETS = [
+    { id: 'WTK', kind: 'stock', name: '环球科技', base: 120, vol: 0.035 },
+    { id: 'SHP', kind: 'stock', name: '远洋航运', base: 45, vol: 0.03 },
+    { id: 'NEV', kind: 'stock', name: '新能源汽车', base: 260, vol: 0.05 },
+    { id: 'BTX', kind: 'stock', name: '加密货币', base: 980, vol: 0.09 },
+    { id: 'BND', kind: 'fund', name: '稳健债券基金', base: 10, vol: 0.004, drift: 0.0012 },
+    { id: 'IDX', kind: 'fund', name: '全球指数基金', base: 30, vol: 0.012, drift: 0.0008 },
+    { id: 'USD', kind: 'fx', name: '美元', base: 7.2, vol: 0.008 },
+    { id: 'EUR', kind: 'fx', name: '欧元', base: 7.8, vol: 0.009 },
+    { id: 'JPY', kind: 'fx', name: '日元', base: 0.048, vol: 0.011 },
+    { id: 'MYR', kind: 'fx', name: '林吉特', base: 1.55, vol: 0.01 },
+    { id: 'GBP', kind: 'fx', name: '英镑', base: 9.1, vol: 0.009 },
+  ];
   const EMOTES = ['👍', '😀', '😂', '😭', '😡', '❤️', '⚡️', '🔥', '💩', '🎉', '🙏', '👏', '🤝', '💰', '😱', '🤡', '🌹', '💣'];
 
   const COLORS = ['#E6194B', '#F58231', '#FFD400', '#2FB344', '#00C2D1', '#2F5BEA', '#9B27D8', '#1F2328', '#8B4513', '#FF69B4', '#8FE000', '#008080', '#0A1F7A', '#9AA0A6', '#FF00E6', '#B89B00'];
   const TOKENS = ['🚗', '🎩', '🐶', '🚢', '✈️', '🦖', '🐱', '🚀', '🦊', '🐼', '🐯', '🦄', '🐸', '🐵', '🐧', '🦁', '👑', '💎', '🎸', '⚽️', '🍔', '🌈', '👻', '🤖'];
 
-  const api = { GROUPS, BOARD, LAYOUT, CHANCE, CHEST, RULES, COLORS, TOKENS, fmt, incomePerSec, EMOTES, WHEEL, TASKS };
+  const api = { GROUPS, BOARD, LAYOUT, CHANCE, CHEST, RULES, COLORS, TOKENS, fmt, incomePerSec, EMOTES, WHEEL, TASKS, ASSETS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.GameData = api;
 })(typeof window !== 'undefined' ? window : globalThis);

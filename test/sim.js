@@ -32,7 +32,8 @@ for (let gi = 0; gi < 300; gi++) {
     const p = g.cur, pd = g.pending;
     const tryA = (t, a) => { try { g.act(p.token, t, a); return true; } catch (e) { if (!(e instanceof GameError)) throw e; return false; } };
     if (Math.random() < 0.05 && g.trades.length) { const t = g.trades[0]; try { g.act(g.byId(t.to).token, 'respond', { id: t.id, accept: Math.random() < 0.5 }); } catch (e) { if (!(e instanceof GameError)) throw e; } }
-    if (Math.random() < 0.02) { const o = pick(g.active().filter((x) => x !== p)); const mine = Object.keys(g.props).filter((k) => g.props[k].owner === p.id); tryA('propose', { to: o.id, give: mine.slice(0, 1), getMoney: 2000 }); }
+    if (g.phase === 'play' && g.active().length <= 1) { console.log('BAD: play with', g.active().length, 'active', g.log.slice(-4).map((l) => l.msg)); break; }
+    if (Math.random() < 0.02 && g.active().length > 1) { const o = pick(g.active().filter((x) => x !== p)); const mine = Object.keys(g.props).filter((k) => g.props[k].owner === p.id); tryA('propose', { to: o.id, give: mine.slice(0, 1), getMoney: 2000 }); }
     if (pd) {
       if (pd.kind === 'buy') { if (Math.random() < 0.7) tryA('buy'); else tryA('auction'); continue; }
       if (pd.kind === 'card') { tryA('card'); continue; }
@@ -60,7 +61,8 @@ for (let gi = 0; gi < 300; gi++) {
     if (Math.random() < 0.3) for (const k of Object.keys(g.props)) if (g.props[k].owner === p.id && p.money > 80000) tryA('build', { pos: +k });
     if (Math.random() < 0.1) for (const k of Object.keys(g.props)) if (g.props[k].mortgaged && g.props[k].owner === p.id) tryA('unmortgage', { pos: +k });
     if (p.money < 0) continue; // 先由上面的欠款处理筹钱
-    if (!g.rolled || g.canRollAgain) { if (!tryA('roll')) { stuck++; console.log('cannot roll', p.money, g.pending); break; } continue; }
+    if (g.cur !== p || g.phase !== 'play') continue;
+    if (!g.rolled || g.canRollAgain) { if (!tryA('roll')) { stuck++; try { g.act(p.token,'roll') } catch(e) { console.log('cannot roll', e.message, p.bankrupt, p.won, g.active().length, g.auction) }; break; } continue; }
     if (!tryA('endTurn')) { stuck++; console.log('cannot end', p.money, g.pending, g.canRollAgain); break; }
     turnsTotal++;
     // 不变量检查
