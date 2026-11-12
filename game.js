@@ -90,7 +90,7 @@ class Game {
     else if (L.startsWith('竞猜 ')) { a(from, 'betStake', amt); a(from, 'bets', 1); }
     else if (L === '竞猜获胜') { a(to, 'betPayout', amt); a(to, 'betWins', 1); }
     else if (L === '银行贷款') a(to, 'loanTaken', amt);
-    else if (L === '偿还贷款') a(from, 'loanRepaid', amt);
+    else if (L === '偿还贷款' || L === '自动还贷') a(from, 'loanRepaid', amt);
     else if (L === '保释金') a(from, 'jailFine', amt);
     else if (L === '交易') { a(from, 'tradeOut', amt); a(to, 'tradeIn', amt); }
     else if (L === '私人转账') { a(from, 'giftOut', amt); a(to, 'giftIn', amt); }
@@ -99,8 +99,18 @@ class Game {
     else if (L.includes('破产清算')) a(to, 'liquidation', amt);
     else if (L.endsWith('卖房') || L.startsWith('抵押') || L.startsWith('赎回')) { a(to, 'raised', amt); a(from, 'raised', -amt); }
     else { a(to, 'luck', amt); a(from, 'luck', -amt); } // 机会、命运、转盘、维修费等
+    a(from, 'outAll', amt); a(to, 'inAll', amt);
+    this.ledge(from, -amt, L, to); this.ledge(to, amt, L, from);
     if (from) { const t = from.st || (from.st = {}); if (!t.maxOut || amt > t.maxOut[0]) t.maxOut = [amt, L]; }
     if (to) { const t = to.st || (to.st = {}); if (!t.maxIn || amt > t.maxIn[0]) t.maxIn = [amt, L]; }
+  }
+  // 个人账本：只发给本人（见 server.js 的 sendLedgers）
+  ledge(p, amt, label, other) {
+    if (!p) return;
+    const l = p.ledger || (p.ledger = []);
+    l.push({ t: Math.floor((Date.now() - (this.startedAt || Date.now())) / 1000), a: amt, r: label || '', w: other ? other.name : '银行', b: p.money });
+    if (l.length > 80) l.splice(0, l.length - 80);
+    p.ledgerDirty = true;
   }
   transfer(from, to, amt, label) {
     if (amt <= 0) return;
@@ -786,6 +796,7 @@ class Game {
       out[p.id] = [p.money, w];
       if (!p.bankrupt && (!p.peak || w > p.peak[0])) p.peak = [w, Date.now() - this.startedAt];
       const sec = Math.floor((Date.now() - this.startedAt) / 1000), step = this.whStep || (this.whStep = 30);
+      if (p.incMin && sec - (p.incAt || 0) >= 60) { const v = p.incMin; p.incMin = 0; p.incAt = sec; this.ledge(p, v, '⏱ 房屋每秒收益（近 1 分钟合计）', null); }
       if (!p.wh) p.wh = [[0, RULES.startMoney]];
       if (!p.bankrupt && sec - p.wh[p.wh.length - 1][0] >= step) { p.wh.push([sec, Math.round(w)]); if (p.wh.length > 240) { p.wh = p.wh.filter((_, k) => k % 2 === 0); this.whStep = step * 2; } }
     }
@@ -865,7 +876,7 @@ class Game {
     for (const [i, st] of Object.entries(this.props)) {
       if (!st.owner || !st.houses || st.mortgaged) continue;
       const o = this.byId(st.owner), amt = Math.round(D.incomePerSec(+i, st.houses) * this.infl);
-      o.money += amt; (inc[o.id] = inc[o.id] || []).push([+i, amt]); this.stat(o, 'houseIncome', amt);
+      o.money += amt; (inc[o.id] = inc[o.id] || []).push([+i, amt]); this.stat(o, 'houseIncome', amt); this.stat(o, 'inAll', amt); o.incMin = (o.incMin || 0) + amt;
       if (o.money >= 0 && o.creditor) o.creditor = null;
     }
     return Object.keys(inc).length ? inc : null;
@@ -927,6 +938,24 @@ class Game {
     must(p.loan > 0, '您没有贷款'); amount = Math.min(Math.floor(Number(amount)), Math.ceil(p.loan), p.money); must(amount > 0, '现金不足');
     p.loan -= amount; if (p.loan < 1) p.loan = 0; this.transfer(p, null, amount, '偿还贷款');
   }
+  setAutoRepay(p, on, keep) {
+    keep = Math.max(0, Math.floor(Number(keep) || 0));
+    p.autoRepay = { on: !!on, keep };
+    this.say(`🏦 ${p.name} ${on ? `开启自动还款：现金超过 ${fmt(keep)} 的部分自动还贷` : '关闭了自动还款'}`);
+  }
+  // 每秒：开启自动还款的玩家，现金超过保留额的部分自动还贷（欠款时不动）
+  tickAutoRepay() {
+    if (this.phase !== 'play') return false;
+    let ch = false;
+    for (const p of this.active()) {
+      const ar = p.autoRepay; if (!ar || !ar.on || !(p.loan > 0) || this.owes(p)) continue;
+      const amt = Math.min(Math.ceil(p.loan), Math.floor(p.money - ar.keep));
+      if (amt < 1000) continue;
+      p.loan -= amt; if (p.loan < 1) p.loan = 0; this.transfer(p, null, amt, '自动还贷'); ch = true;
+      if (!p.loan) this.say(`🏦 ${p.name} 的贷款已通过自动还款全部还清`);
+    }
+    return ch;
+  }
   bet(p, id, dir, stake) {
     const m = this.asset(id); stake = Math.floor(Number(stake));
     must(['up', 'down'].includes(dir), '请选择看涨或看跌'); this.noDebt(p); must(stake > 0 && p.money >= stake, '现金余额不足');
@@ -968,6 +997,7 @@ class Game {
       if (p.bankrupt || p.won) continue;
       const payout = win ? Math.round(b.stake * 1.9) : 0, nm = D.ASSETS.find((a) => a.id === b.id).name;
       this.fx.push({ type: 'betres', pid: p.id, win, stake: b.stake, payout, id: b.id, dir: b.dir, start: b.start, end, path: [...(b.path || [b.start]), end] });
+      (p.betHist || (p.betHist = [])).push({ id: b.id, dir: b.dir, stake: b.stake, win, pnl: win ? payout - b.stake : -b.stake, start: b.start, end }); if (p.betHist.length > 30) p.betHist.shift();
       if (win) { this.transfer(null, p, payout, '竞猜获胜'); this.say(`🎯 ${p.name} 竞猜 ${nm} ${b.dir === 'up' ? '看涨' : '看跌'}命中，结算 +${fmt(payout)}`); }
       else this.say(`📉 ${p.name} 竞猜 ${nm} ${b.dir === 'up' ? '看涨' : '看跌'}未命中，损失 ${fmt(b.stake)}`);
     }
@@ -1138,7 +1168,7 @@ class Game {
       bankrupt: () => this.bankrupt(p), endTurn: () => this.endTurn(p),
       endGame: () => this.endGame(p), skip: () => this.skip(p), send: () => this.send(p, a.to, a.amount), stock: () => this.stock(p, a.pct), portal: () => this.portal(p, a.pos), force: () => this.force(p, a.pos),
       boost: () => this.accelerate(p), remoteBuy: () => this.remoteBuy(p, a.pos), auto: () => this.setAuto(p, a.on),
-      trade: () => this.trade(p, a.id, a.side, a.amount), borrow: () => this.borrow(p, a.amount), repay: () => this.repay(p, a.amount), bet: () => this.bet(p, a.id, a.dir, a.amount), wallet: () => this.exchange(p, a.from, a.to, a.amount),
+      trade: () => this.trade(p, a.id, a.side, a.amount), borrow: () => this.borrow(p, a.amount), repay: () => this.repay(p, a.amount), bet: () => this.bet(p, a.id, a.dir, a.amount), autoRepay: () => this.setAutoRepay(p, a.on, a.keep), wallet: () => this.exchange(p, a.from, a.to, a.amount),
     };
     must(map[type], '未知操作');
     map[type]();
@@ -1157,7 +1187,7 @@ class Game {
       housesLeft: this.housesLeft, hotelsLeft: this.hotelsLeft, props: this.props,
       rentNow: Object.fromEntries(Object.entries(this.props).filter(([, st]) => st.owner && !st.mortgaged).map(([i]) => [i, this.rentFor(+i)])),
       log: this.log.slice(-60), winner: this.winner, ranking: this.ranking, recap: this.phase === 'end' ? this.recap : null, joinReqs: (this.joinReqs || []).map((r) => ({ rid: r.rid, name: r.name, at: r.at })),
-      players: this.players.map(({ token, ...rest }) => ({ ...rest, host: token === this.hostToken, worth: this.netWorth(rest), hv: this.holdValue(rest) })),
+      players: this.players.map(({ token, ledger, ledgerDirty, incMin, incAt, ...rest }) => ({ ...rest, host: token === this.hostToken, worth: this.netWorth(rest), hv: this.holdValue(rest) })),
       now: Date.now(),
     };
   }

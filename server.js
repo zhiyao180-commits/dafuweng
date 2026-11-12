@@ -50,7 +50,12 @@ function newCode() {
 function broadcast(g) {
   if (g.fx.length) { io.to(g.code).emit('fx', g.fx); g.fx = []; }
   io.to(g.code).emit('state', g.publicState());
+  sendLedgers(g);
   save();
+}
+// 个人账本只发给本人，且只在有变化时发送
+function sendLedgers(g, force) {
+  for (const p of g.players) if (p.ledger && (p.ledgerDirty || force)) { p.ledgerDirty = false; io.to(g.code + ':' + p.id).emit('ledger', p.ledger.slice(-60)); }
 }
 
 // 拍卖倒计时
@@ -75,8 +80,9 @@ setInterval(() => {
     const inc = g.tickIncome();
     if (inc) for (const pid of Object.keys(inc)) io.to(g.code + ':' + pid).emit('income', inc[pid]);
     // 每秒都检查是否有人达到目标（地价每分钟上涨、股价波动也会让总资产越过目标）
+    if (g.tickAutoRepay()) { broadcast(g); continue; }
     if (g.checkGoals()) broadcast(g);
-    else io.to(g.code).emit('tick', g.tickWorth());
+    else { io.to(g.code).emit('tick', g.tickWorth()); sendLedgers(g); }
   }
 }, 1000);
 
@@ -85,7 +91,7 @@ io.on('connection', (socket) => {
   const bind = (g, p) => {
     socket.join(g.code); socket.join(g.code + ':' + p.id);
     socket.data.code = g.code; socket.data.token = p.token;
-    p.connected = true;
+    p.connected = true; p.ledgerDirty = true; // 重新连上时把账本补发给本人
   };
 
   socket.on('create', ({ name, token, size, password }, cb) => {

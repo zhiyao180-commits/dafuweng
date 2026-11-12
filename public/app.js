@@ -747,7 +747,36 @@ function renderAssets() {
 }
 
 let logKey = '';
-function renderLog() { const last = S.log[S.log.length - 1], k = last ? last.t + last.msg : ''; if (k === logKey) return; logKey = k; $('#log').innerHTML = S.log.slice().reverse().map((l) => `<div>${esc(l.msg)}</div>`).join(''); }
+// 对局记录：单列、最新在上、带时间，可筛选「与我有关 / 交易 / 资金」
+let logFilter = 'all';
+const LOGF = {
+  all: () => true,
+  me: (l) => { const m = me(); return m && l.msg.includes(m.name); },
+  deal: (l) => /交易|报价|还价|拍|买下|成交|拒绝|撤回/.test(l.msg),
+  money: (l) => /💳|余额|租金|贷款|竞猜|买入|卖出|税|工资|收益/.test(l.msg),
+};
+function renderLog() {
+  const last = S.log[S.log.length - 1], k = (last ? last.t + last.msg : '') + logFilter; if (k === logKey) return; logKey = k;
+  const m = me(), t0 = S.startedAt || 0, mm = (t) => { const s = Math.max(0, Math.floor((t - t0) / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const rows = S.log.filter(LOGF[logFilter]).slice().reverse();
+  $('#log').innerHTML = rows.length ? rows.map((l) => `<div class="lg-row ${m && l.msg.includes(m.name) ? 'mine' : ''}"><small>${t0 && l.t >= t0 ? mm(l.t) : ''}</small><span>${esc(l.msg)}</span></div>`).join('') : '<div class="lg-empty">暂无相关记录</div>';
+}
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-logf]'); if (!b) return; logFilter = b.dataset.logf; document.querySelectorAll('[data-logf]').forEach((x) => x.classList.toggle('on', x === b)); logKey = ''; renderLog(); $('#log').scrollTop = 0; });
+// 我的账本：只有自己能看到的每一笔进出账（服务器单独发送）
+let myLedger = [], ledFilter = 'all';
+socket.on('ledger', (l) => { myLedger = l || []; renderLedger(); });
+function renderLedger() {
+  const box = $('#ledger'); if (!box || !S) return;
+  const m = me(), st = (m && m.st) || {}, rows = myLedger.filter((x) => ledFilter === 'all' || (ledFilter === 'in' ? x.a > 0 : x.a < 0)).slice().reverse();
+  const inA = st.inAll || 0, outA = st.outAll || 0, net = inA - outA, recent = myLedger.filter((x) => x.t >= (myLedger.length ? myLedger[myLedger.length - 1].t : 0) - 60).reduce((s2, x) => s2 + x.a, 0);
+  const sum = `<span>本局收入<b class="up">${fmt(inA)}</b></span><span>支出<b class="down">${fmt(outA)}</b></span><span>净额<b class="${net >= 0 ? 'up' : 'down'}">${net >= 0 ? '+' : '−'}${fmt(Math.abs(net))}</b></span><span>近 1 分钟<b class="${recent >= 0 ? 'up' : 'down'}">${recent >= 0 ? '+' : '−'}${fmt(Math.abs(recent))}</b></span>`;
+  const se = $('#ledSum'); if (se._h !== sum) { se._h = sum; se.innerHTML = sum; }
+  const icon = (r) => /租金/.test(r) ? '🏠' : /经过|分红/.test(r) ? '🏁' : /贷|还贷/.test(r) ? '🏦' : /竞猜/.test(r) ? '🎯' : /买入|卖出|股票/.test(r) ? '📈' : /税/.test(r) ? '🧾' : /建|酒店/.test(r) ? '🏗' : /购买|拍得|交易/.test(r) ? '🗺' : /收益/.test(r) ? '⏱' : /转账/.test(r) ? '💬' : '🍀';
+  const mm = (s2) => Math.floor(s2 / 60) + ':' + String(s2 % 60).padStart(2, '0');
+  const h = rows.length ? rows.map((x) => `<div class="ld-row"><small>${mm(x.t)}</small><i>${icon(x.r)}</i><span class="ld-r">${esc(x.r)}<em>${x.a > 0 ? '来自' : '付给'} ${esc(x.w)}</em></span><b class="${x.a >= 0 ? 'up' : 'down'}">${x.a >= 0 ? '+' : '−'}${fmt(Math.abs(x.a))}</b><small class="ld-b">余额 ${fmt(x.b)}</small></div>`).join('') : '<div class="lg-empty">还没有进出账</div>';
+  if (box._h !== h) { box._h = h; box.innerHTML = h; }
+}
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-ledf]'); if (!b) return; ledFilter = b.dataset.ledf; document.querySelectorAll('[data-ledf]').forEach((x) => x.classList.toggle('on', x === b)); renderLedger(); });
 
 function renderStatus() {
   if (fxBusy) return;
@@ -1250,7 +1279,7 @@ function renderAll() {
   if (S.phase === 'lobby') { $('#lobby').hidden = false; $('#game').hidden = true; renderLobby(); return; }
   renderJoinReqs();
   if ($('#game').hidden) { $('#lobby').hidden = true; $('#game').hidden = false; $('#roomTag').textContent = S.code; resize(); }
-  updateBoard(); placeTokens(); renderPlayers(); renderActions(); renderAssets(); renderLog(); renderStatus(); renderDock(); renderDanger(); renderCard(); markAuction(); renderStateModal(); renderPay(); if (window.afterRender) afterRender();
+  updateBoard(); placeTokens(); renderPlayers(); renderActions(); renderAssets(); renderLog(); renderLedger(); renderStatus(); renderDock(); renderDanger(); renderCard(); markAuction(); renderStateModal(); renderPay(); if (window.afterRender) afterRender();
   if (localView && (localView.type === 'deed' || localView.type === 'market')) renderLocal();
   if (localView && localView.type === 'expand' && window.refreshExpand) refreshExpand();
   if (localView && S.phase !== 'play' && localView.type !== 'help') closeLocal();

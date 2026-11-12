@@ -1522,3 +1522,87 @@ body.phone .sx-head .muted { display: none; }
 .tn-i { font-size: 46px; line-height: 1; } .tn-box h3 { margin: 10px 0 6px; } .tn-box p { margin: 0 0 14px; color: var(--ink2); font-size: 14px; line-height: 1.7; }
 #tradeNote.ok .tn-box { box-shadow: 0 30px 80px rgba(0,0,0,.35), inset 0 0 0 3px #2DA44E; } #tradeNote.no .tn-box { box-shadow: 0 30px 80px rgba(0,0,0,.35), inset 0 0 0 3px #E5383B; }
 body.phone .ng-top { grid-template-columns: 1fr; }
+/* ====== v21：对局记录（单列）+ 我的账本 ====== */
+.log-panel { flex-direction: row !important; gap: 0; padding: 0 !important; }
+.lg-half { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; padding: 12px 14px; }
+.lg-half + .lg-half { border-left: 1px solid rgba(127,127,127,.18); }
+.lg-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.lg-tabs { display: flex; gap: 3px; } .lg-tabs button { border: 0; cursor: pointer; padding: 2px 8px; border-radius: 7px; font: inherit; font-size: 11px; font-weight: 700; color: var(--ink2); background: rgba(127,127,127,.1); }
+.lg-tabs button.on { background: var(--ink); color: var(--card); }
+.bottom .log, .log { columns: auto !important; column-count: 1 !important; }
+.log .lg-row { display: grid; grid-template-columns: 34px 1fr; gap: 6px; padding: 4px 0; border-bottom: 1px solid rgba(127,127,127,.1); break-inside: avoid; }
+.log .lg-row small { color: var(--ink3); font-variant-numeric: tabular-nums; font-size: 11px; padding-top: 1px; }
+.log .lg-row.mine span { color: var(--ink); font-weight: 600; }
+.lg-empty { padding: 16px 0; text-align: center; color: var(--ink3); font-size: 12.5px; }
+.led-sum { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 6px; }
+.led-sum span { display: flex; flex-direction: column; padding: 4px 6px; border-radius: 8px; background: rgba(127,127,127,.08); font-size: 10.5px; color: var(--ink2); }
+.led-sum b { font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.ledger { flex: 1; overflow: auto; font-size: 12px; }
+.ld-row { display: grid; grid-template-columns: 34px 18px 1fr auto; grid-template-rows: auto auto; column-gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid rgba(127,127,127,.1); }
+.ld-row > small:first-child { grid-row: span 2; color: var(--ink3); font-variant-numeric: tabular-nums; font-size: 11px; }
+.ld-row i { font-style: normal; grid-row: span 2; }
+.ld-r { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.ld-r em { font-style: normal; color: var(--ink3); font-size: 11px; margin-left: 5px; }
+.ld-row > b { text-align: right; font-variant-numeric: tabular-nums; }
+.ld-row .ld-b { grid-column: 4; text-align: right; color: var(--ink3); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+body.phone .log-panel { flex-direction: column !important; } body.phone .lg-half + .lg-half { border-left: 0; border-top: 1px solid rgba(127,127,127,.18); }
+body.phone .lg-half { max-height: 260px; }
+
+/* ====== v21：涨跌竞猜（好用版） ====== */
+.bt-body { display: grid; grid-template-columns: 1fr 1.25fr; gap: 14px; margin-top: 10px; }
+.bt-main { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.bt-live { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 14px; position: relative; background: rgba(124,77,255,.1); box-shadow: inset 0 0 0 1.5px rgba(124,77,255,.35); }
+.bt-live.ahead { background: rgba(46,160,67,.12); box-shadow: inset 0 0 0 1.5px rgba(46,160,67,.5); } .bt-live.behind { background: rgba(229,56,59,.08); box-shadow: inset 0 0 0 1.5px rgba(229,56,59,.4); }
+.bt-live svg { width: 40px; height: 40px; transform: rotate(-90deg); flex: none; } .bt-live circle { fill: none; stroke-width: 3.5; } .bt-live .bg { stroke: rgba(127,127,127,.2); } .bt-live .fg { stroke: #7C4DFF; stroke-linecap: round; }
+.bt-live .bt-s { position: absolute; left: 12px; width: 40px; text-align: center; font-size: 15px; }
+.bt-live div { display: flex; flex-direction: column; font-size: 13px; } .bt-live small { color: var(--ink2); font-size: 11.5px; }
+.bt-q { display: flex; justify-content: space-between; align-items: flex-end; } .bt-q small { display: block; color: var(--ink3); font-size: 11px; } .bt-q > div > b { font-size: 17px; }
+.bt-px { text-align: right; } .bt-px b { font-size: 24px; font-variant-numeric: tabular-nums; } .bt-px span { display: block; font-size: 11.5px; font-weight: 700; }
+.bt-px.up b, .bt-px.up span { color: #E5383B; } .bt-px.down b, .bt-px.down span { color: #1E9B4D; }
+.bt-mom { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; font-size: 12px; color: var(--ink2); }
+.bt-mom small { grid-column: 1 / -1; font-size: 10.5px; color: var(--ink3); }
+.bt-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: rgba(127,127,127,.15); } .bt-bar i.up { background: #E5383B; } .bt-bar i.down { background: #1E9B4D; }
+.bt-stake { padding: 10px; border-radius: 14px; background: rgba(127,127,127,.06); display: flex; flex-direction: column; gap: 6px; }
+.bt-stake .mk-price, .bt-stake .mk-quick { margin: 0; } .bt-stake .act-row { margin: 2px 0 0; }
+.bt-est { font-size: 12px; color: var(--ink2); min-height: 16px; }
+.bt-again { background: rgba(124,77,255,.12); color: #6D3FE0; font-weight: 800; }
+.bt-rec { padding: 9px 11px; border-radius: 13px; background: rgba(127,127,127,.06); }
+.bt-rh { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; flex-wrap: wrap; } .bt-rh span { color: var(--ink2); }
+.bt-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.bt-chips span { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; font-variant-numeric: tabular-nums; }
+.bt-chips .w { background: rgba(229,56,59,.12); color: #E5383B; } .bt-chips .l { background: rgba(127,127,127,.14); color: var(--ink2); }
+.fin-detail .btn.bull:disabled, .fin-detail .btn.bear:disabled, .bt-stake .btn:disabled { opacity: .45; }
+.bt-stake .btn.bull { background: linear-gradient(135deg, #E5383B, #FF6B4A); color: #fff; } .bt-stake .btn.bear { background: linear-gradient(135deg, #1E9B4D, #36C46E); color: #fff; }
+.bt-stake kbd { background: rgba(255,255,255,.25); color: #fff; }
+
+/* ====== v21：银行贷款（好用版） ====== */
+.ln-body { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px; }
+.ln-left, .ln-right { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ln-card { padding: 16px 18px; border-radius: 18px; color: #fff; background: linear-gradient(135deg, #1F2A44, #3B4A7A); box-shadow: 0 12px 28px rgba(31,42,68,.3); }
+.ln-card .muted { color: rgba(255,255,255,.7); } .ln-card .loan-big { font-size: 32px; font-weight: 900; margin: 2px 0 8px; font-variant-numeric: tabular-nums; }
+.ln-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.2); overflow: hidden; } .ln-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #5EE0A0, #F5B700 60%, #FF6B6B); }
+.ln-cap { font-size: 12px; color: rgba(255,255,255,.8); margin-top: 6px; }
+.ln-kv { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.ln-kv span { display: flex; flex-direction: column; font-size: 11.5px; color: rgba(255,255,255,.7); padding: 7px 10px; border-radius: 10px; background: rgba(255,255,255,.1); }
+.ln-kv b { font-size: 15px; color: #fff; } .ln-kv .r-ok { color: #5EE0A0; } .ln-kv .r-mid { color: #F5D06B; } .ln-kv .r-bad { color: #FF8A8A; }
+.ln-owe { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 13px; font-size: 13px; background: rgba(229,56,59,.09); box-shadow: inset 3px 0 0 #E5383B; }
+.ln-owe small { color: var(--ink2); }
+.ln-proj table { width: 100%; border-collapse: collapse; font-size: 12.5px; } .ln-proj td { padding: 5px 4px; border-bottom: 1px solid rgba(127,127,127,.12); font-variant-numeric: tabular-nums; } .ln-proj td:nth-child(2), .ln-proj td:nth-child(3) { text-align: right; }
+.ln-tip { font-size: 12.5px; line-height: 1.7; color: var(--ink2); padding: 10px 12px; border-radius: 12px; background: rgba(10,111,224,.06); }
+.ln-op { padding: 10px; border-radius: 14px; background: rgba(127,127,127,.06); display: flex; flex-direction: column; gap: 7px; }
+.ln-op .mk-price, .ln-op .mk-quick { margin: 0; }
+.ln-tabs { display: grid; grid-template-columns: 1fr 1fr; background: rgba(127,127,127,.12); border-radius: 10px; padding: 3px; }
+.ln-tabs button { border: 0; cursor: pointer; padding: 7px; border-radius: 8px; font: inherit; font-weight: 800; background: transparent; color: var(--ink2); }
+.ln-tabs button.on[data-lnside="borrow"] { background: #0A6FE0; color: #fff; } .ln-tabs button.on[data-lnside="repay"] { background: #2DA44E; color: #fff; }
+.btn.ln-b { background: linear-gradient(135deg, #0A6FE0, #3B8CFF); color: #fff; } .btn.ln-r { background: linear-gradient(135deg, #1E9B4D, #36C46E); color: #fff; }
+.ln-auto { padding: 10px 12px; border-radius: 14px; background: rgba(127,127,127,.06); display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
+.ln-auto .mk-quick { margin: 0; }
+.ln-ah { display: flex; align-items: center; justify-content: space-between; } .ln-ah b { font-size: 13.5px; }
+.sw { width: 44px; height: 26px; border-radius: 13px; border: 0; cursor: pointer; background: rgba(127,127,127,.3); position: relative; transition: background .2s; }
+.sw i { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s; }
+.sw.on { background: #2DA44E; } .sw.on i { transform: translateX(18px); }
+.ln-keep { display: flex; align-items: center; gap: 8px; } .ln-keep span { white-space: nowrap; font-weight: 700; } .ln-keep .mk-price { flex: 1; margin: 0; }
+.ln-on { color: #1E9B4D; font-weight: 700; }
+.ln-stat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; } .ln-stat span { display: flex; flex-direction: column; padding: 7px 9px; border-radius: 10px; background: rgba(127,127,127,.08); font-size: 11px; color: var(--ink2); } .ln-stat b { font-size: 13.5px; color: var(--ink); font-variant-numeric: tabular-nums; } .ln-stat b.down { color: #E5383B; }
+body.phone .bt-body, body.phone .ln-body { grid-template-columns: 1fr; }
+.lg-ledger .lg-head { padding-right: 24px; }
