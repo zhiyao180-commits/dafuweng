@@ -261,7 +261,7 @@ input:focus { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(10,111,224,.
 .clock .secs { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
 .clock .secs.low { color: #D98200; }
 .clock-bar { height: 3px; background: var(--soft); border-radius: 9px; overflow: hidden; margin-top: 7px; }
-.clock-bar div { height: 100%; background: var(--blue); transition: width .25s linear; }
+.clock-bar div { height: 100%; background: var(--blue); transition: width .2s linear; }
 .badge.crown { background: rgba(226,161,0,.2); color: #A97800; }
 #players .pl { cursor: pointer; }
 
@@ -352,7 +352,7 @@ input:focus { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(10,111,224,.
 .auction-price.bump { animation: sumpop .3s cubic-bezier(.2,1.6,.4,1); }
 .auction-who { text-align: center; color: var(--ink2); font-size: 14px; min-height: 20px; }
 .countdown { height: 4px; background: var(--soft); border-radius: 9px; overflow: hidden; margin: 14px 0 4px; }
-.countdown div { height: 100%; background: var(--blue); transition: width .25s linear; }
+.countdown div { height: 100%; background: var(--blue); transition: width .2s linear; }
 
 /* 地产交易所 */
 .market { width: min(1020px, 92vw); }

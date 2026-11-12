@@ -1004,7 +1004,7 @@ function renderStateModal() {
   } else if (pd && pd.kind === 'auction' && S.auction) {
     key = 'auction';
     const a = S.auction, sq = BOARD[a.pos];
-    h = `<h3>🔨 拍卖 · ${sq.name}</h3><div class="au-meta">${a.by && pById(a.by) ? `<span>发起人 ${avatar(pById(a.by))}<b>${esc(pById(a.by).name)}</b></span>` : ''}<span>${a.seller ? `强制拍卖 · 原主人 <b>${esc(pById(a.seller).name)}</b>（成交款归原主人）` : '银行地产 · 成交款归银行'}</span></div><p class="muted">全体玩家均可出价：开拍 30 秒，每次有人加价后至少再留 15 秒，倒计时结束即成交。地图上发光的格子就是这块地。</p>
+    h = `<h3>🔨 拍卖 · ${sq.name}</h3><div class="au-meta">${a.by && pById(a.by) ? `<span>发起人 ${avatar(pById(a.by))}<b>${esc(pById(a.by).name)}</b></span>` : ''}<span>${a.seller ? `强制拍卖 · 原主人 <b>${esc(pById(a.seller).name)}</b>（成交款归原主人）` : '银行地产 · 成交款归银行'}</span></div><p class="muted">全体玩家均可出价：开拍 10 秒，有人加价后只剩 5 秒，倒计时结束即成交。地图上发光的格子就是这块地。</p>
       <div class="auction-price" id="auPrice"></div><div class="auction-who" id="auWho"></div>
       <div class="au-cd"><div class="countdown"><div id="cdBar"></div></div><b id="cdSec"></b></div>
       ${m && !m.bankrupt ? `<div class="act-row" id="auBtns">${RULES.bids.map((n, i) => `<button class="btn ${i === 2 ? 'primary' : ''}" data-act="bid" data-inc="${n}">+${fmt(n)}<kbd>${i + 1}</kbd></button>`).join('')}</div><p class="muted" style="text-align:center">您的余额 ${fmt(m.money)}</p>` : ''}`;
@@ -1031,8 +1031,8 @@ setInterval(() => {
   if (bar && S && S.auction) {
     const left = S.auction.endsAt - (Date.now() + skew), sec = Math.max(0, Math.ceil(left / 1000)), el = $('#cdSec');
     bar.style.width = Math.max(0, Math.min(100, (left / (S.auction.total || 15000)) * 100)) + '%';
-    if (el && el.dataset.s !== String(sec)) { el.dataset.s = sec; el.textContent = sec > 0 ? `${sec} 秒` : '成交中'; el.classList.toggle('urgent', sec <= 5); if (sec > 0 && sec <= 3) Snd.tone(1400, 0.06, 'square', 0.05); }
-    bar.classList.toggle('urgent', sec <= 5);
+    if (el && el.dataset.s !== String(sec)) { el.dataset.s = sec; el.textContent = sec > 0 ? `${sec} 秒` : '成交中'; el.classList.toggle('urgent', sec <= 3); if (sec > 0 && sec <= 3) Snd.tone(1400, 0.06, 'square', 0.05); }
+    bar.classList.toggle('urgent', sec <= 3);
   }
 }, 200);
 function confetti() {

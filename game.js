@@ -1,6 +1,6 @@
 // 大富翁规则引擎（服务器权威：所有点数、余额都由这里决定）
 const D = require('./public/data.js');
-const AUCTION_START = 30000, AUCTION_EXT = 15000; // 拍卖：开拍 30 秒，有人加价后至少再留 15 秒
+const AUCTION_START = 10000, AUCTION_EXT = 5000; // 拍卖：开拍 10 秒，每次有人加价后倒计时重置为 5 秒
 const { BOARD, GROUPS, CHANCE, CHEST, RULES, fmt } = D;
 const N = BOARD.length;
 const JAIL = BOARD.findIndex((s) => s.type === 'jail');
@@ -408,7 +408,7 @@ class Game {
     const amt = a.bid + inc;
     must(p.money >= amt, '余额不足');
     a.bid = amt; a.bidder = p.id;
-    if (Date.now() + AUCTION_EXT > a.endsAt) { a.endsAt = Date.now() + AUCTION_EXT; a.total = AUCTION_EXT; } // 有人加价：至少再留 15 秒
+    a.endsAt = Date.now() + AUCTION_EXT; a.total = AUCTION_EXT; // 有人加价：倒计时重置为 5 秒
     this.fx.push({ type: 'bid', pid: p.id, amount: amt });
   }
 
