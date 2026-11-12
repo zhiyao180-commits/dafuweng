@@ -130,7 +130,7 @@
     { text: '前往最近的机场。若已有主人，支付双倍租金', fx: { t: 'nearest', kind: 'rail' } },
     { text: '前往最近的机场。若已有主人，支付双倍租金', fx: { t: 'nearest', kind: 'rail' } },
     { text: '出狱许可证：可保留至需要时使用', fx: { t: 'goojf' } },
-    { text: '后退 3 格', fx: { t: 'back', n: 3 } },
+    { text: '后退 3 格', s: '后退3格', fx: { t: 'back', n: 3 } },
     { text: '后退 2 格', fx: { t: 'back', n: 2 } },
     { text: '顺风车：前进 5 格', fx: { t: 'fwd', n: 5 } },
     { text: '直接入狱，不得经过起点，不得领取 2M', fx: { t: 'jail' } },
@@ -232,11 +232,11 @@
   }
   // 幸运转盘
   const WHEEL = [
-    { text: '🎉 头奖！获得 150M', fx: { t: 'money', amt: 150000 } }, { text: '获得 60M', fx: { t: 'money', amt: 60000 } }, { text: '获得 30M', fx: { t: 'money', amt: 30000 } },
-    { text: '💸 破财：支付 40M', fx: { t: 'money', amt: -40000 } }, { text: '支付 20M', fx: { t: 'money', amt: -20000 } },
-    { text: '前进 3 格', fx: { t: 'fwd', n: 3 } }, { text: '后退 3 格', fx: { t: 'back', n: 3 } },
-    { text: '人气王：每位玩家给您 15M', fx: { t: 'each', amt: 15000 } }, { text: '请客：您给每位玩家 10M', fx: { t: 'each', amt: -10000 } },
-    { text: '🚔 手气太差：直接入狱', fx: { t: 'jail' } }, { text: '企业赞助：现金最多的玩家送给现金最少的玩家 20M', fx: { t: 'sponsor', amt: 20000 } },
+    { text: '🎉 头奖！获得 150M', s: '头奖', fx: { t: 'money', amt: 150000 } }, { text: '获得 60M', s: '大红包', fx: { t: 'money', amt: 60000 } }, { text: '获得 30M', s: '小红包', fx: { t: 'money', amt: 30000 } },
+    { text: '💸 破财：支付 40M', s: '破财', fx: { t: 'money', amt: -40000 } }, { text: '支付 20M', s: '罚款', fx: { t: 'money', amt: -20000 } },
+    { text: '前进 3 格', s: '前进3格', fx: { t: 'fwd', n: 3 } }, { text: '后退 3 格', s: '后退3格', fx: { t: 'back', n: 3 } },
+    { text: '人气王：每位玩家给您 15M', s: '人气王', fx: { t: 'each', amt: 15000 } }, { text: '请客：您给每位玩家 10M', s: '请客', fx: { t: 'each', amt: -10000 } },
+    { text: '🚔 手气太差：直接入狱', s: '入狱', fx: { t: 'jail' } }, { text: '企业赞助：现金最多的玩家送给现金最少的玩家 20M', s: '赞助', fx: { t: 'sponsor', amt: 20000 } },
   ];
   for (const c of WHEEL) if (c.fx.amt) { c.fx.amt *= 12; c.text = c.text.replace(/(\d+)M/, (m, a) => fmt(a * 12000)); }
   // 进程加速器发的任务
@@ -244,21 +244,17 @@
     { t: 'build', need: 2, text: '建 2 栋房屋' }, { t: 'buy', need: 1, text: '买下 1 块地（拍卖也算）' }, { t: 'lap', need: 1, text: '经过起点或环球中心 1 次' },
     { t: 'rent', need: 1, text: '收到 1 次租金' }, { t: 'dbl', need: 1, text: '掷出 1 次双数' }, { t: 'card', need: 1, text: '抽 1 张机会/命运/转盘' },
   ];
-  // 金融中心：股票 / 基金 / 外汇（价格由服务器每 2 秒随机波动）
+  // 金融中心：只保留股票（价格由服务器每 2 秒随机波动），涨跌竞猜也用这些股票
   const ASSETS = [
     { id: 'WTK', kind: 'stock', name: '环球科技', base: 120, vol: 0.035 },
-    { id: 'SHP', kind: 'stock', name: '远洋航运', base: 45, vol: 0.03 },
+    { id: 'AIX', kind: 'stock', name: '人工智能', base: 520, vol: 0.06 },
     { id: 'NEV', kind: 'stock', name: '新能源汽车', base: 260, vol: 0.05 },
-    { id: 'BTX', kind: 'stock', name: '加密货币', base: 980, vol: 0.09 },
-    { id: 'BND', kind: 'fund', name: '稳健债券基金', base: 10, vol: 0.004, drift: 0.0012 },
-    { id: 'IDX', kind: 'fund', name: '全球指数基金', base: 30, vol: 0.012, drift: 0.0008 },
-    { id: 'USD', kind: 'fx', name: '美元', base: 7.2, vol: 0.008 },
-    { id: 'EUR', kind: 'fx', name: '欧元', base: 7.8, vol: 0.009 },
-    { id: 'JPY', kind: 'fx', name: '日元', base: 0.048, vol: 0.011 },
-    { id: 'MYR', kind: 'fx', name: '林吉特', base: 1.55, vol: 0.01 },
-    { id: 'GBP', kind: 'fx', name: '英镑', base: 9.1, vol: 0.009 },
+    { id: 'BIO', kind: 'stock', name: '生物医药', base: 88, vol: 0.04 },
+    { id: 'SHP', kind: 'stock', name: '远洋航运', base: 45, vol: 0.03 },
+    { id: 'BTX', kind: 'stock', name: '区块链科技', base: 980, vol: 0.09 },
   ];
-  const EMOTES = ['👍', '😀', '😂', '😭', '😡', '❤️', '⚡️', '🔥', '💩', '🎉', '🙏', '👏', '🤝', '💰', '😱', '🤡', '🌹', '💣'];
+  // 互动表情：每个表情都有自己的专属特效（见 app.js 的 EMO_FX）
+  const EMOTES = ['👍', '😂', '😭', '😡', '❤️', '🌹', '👏', '🎉', '🙏', '🤝', '💰', '👑', '⚡️', '🔥', '💣', '💩', '🥶', '😱', '🤡', '🚀', '🎁', '💎', '⏰', '💤'];
 
   const COLORS = ['#E6194B', '#F58231', '#FFD400', '#2FB344', '#00C2D1', '#2F5BEA', '#9B27D8', '#1F2328', '#8B4513', '#FF69B4', '#8FE000', '#008080', '#0A1F7A', '#9AA0A6', '#FF00E6', '#B89B00'];
   const TOKENS = ['🚗', '🎩', '🐶', '🚢', '✈️', '🦖', '🐱', '🚀', '🦊', '🐼', '🐯', '🦄', '🐸', '🐵', '🐧', '🦁', '👑', '💎', '🎸', '⚽️', '🍔', '🌈', '👻', '🤖'];

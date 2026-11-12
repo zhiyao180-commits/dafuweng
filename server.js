@@ -66,6 +66,7 @@ setInterval(() => {
 setInterval(() => {
   for (const g of rooms.values()) {
     if (g.tickStage()) broadcast(g);
+    if (g.settleBets()) broadcast(g);
     if (g.phase === 'play' && (g.mt = (g.mt || 0) + 1) % 2 === 0) { const ch = g.tickMarket(2); if (ch || g.fx.length) broadcast(g); else io.to(g.code).emit('market', { market: g.market, loans: Object.fromEntries(g.players.map((p) => [p.id, p.loan || 0])) }); }
     const inc = g.tickIncome(); if (!inc) continue;
     for (const pid of Object.keys(inc)) io.to(g.code + ':' + pid).emit('income', inc[pid]);

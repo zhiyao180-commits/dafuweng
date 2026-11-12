@@ -727,7 +727,7 @@ class Game {
     const m = this.asset(id); stake = Math.floor(Number(stake));
     must(['up', 'down'].includes(dir), '请选择看涨或看跌'); must(stake > 0 && p.money >= stake, '现金余额不足');
     must(!(p.bet), '您已有一笔竞猜在进行中');
-    p.bet = { id, dir, stake, start: m.price, endAt: Date.now() + 10000 };
+    p.bet = { id, dir, stake, start: m.price, endAt: Date.now() + 10000, path: [m.price] };
     this.transfer(p, null, stake, `竞猜 ${D.ASSETS.find((a) => a.id === id).name} ${dir === 'up' ? '看涨' : '看跌'}`);
   }
   // 每 2 秒：行情波动、利息累计、竞猜结算。返回是否有需要广播的变化
@@ -735,7 +735,7 @@ class Game {
     if (this.phase !== 'play') return false;
     const N01 = () => Math.sqrt(-2 * Math.log(Math.random() || 1e-9)) * Math.cos(2 * Math.PI * Math.random());
     for (const m of this.market) {
-      const a = D.ASSETS.find((x) => x.id === m.id), base = a.base * (a.kind === 'fx' ? 1 : this.infl);
+      const a = D.ASSETS.find((x) => x.id === m.id), base = a.base * this.infl;
       let r = (a.drift || 0) + 0.03 * Math.log(base / m.price) + a.vol * N01();
       if (Math.random() < 0.006) { const shock = (Math.random() < 0.5 ? -1 : 1) * (0.08 + Math.random() * 0.1) * (a.kind === 'stock' ? 1 : 0.25); r += shock; this.fx.push({ type: 'news', id: m.id, pct: Math.round(shock * 100) }); this.say(`📰 市场快讯：${a.name}${shock > 0 ? '暴涨' : '暴跌'} ${Math.abs(Math.round(shock * 100))}%`); }
       m.price = Math.max(a.base * 0.05, m.price * Math.exp(r)); m.hist.push(+m.price.toPrecision(5)); if (m.hist.length > 60) m.hist.shift();
@@ -743,14 +743,23 @@ class Game {
     let ch = false;
     for (const p of this.players) {
       if (p.loan > 0) p.loan *= Math.pow(1.03, dt / 60);
-      if (p.bet && Date.now() >= p.bet.endAt) {
-        const b = p.bet, m = this.asset(b.id), win = b.dir === 'up' ? m.price > b.start : m.price < b.start;
-        p.bet = null; ch = true;
-        if (p.bankrupt) continue;
-        this.fx.push({ type: 'betres', pid: p.id, win, stake: b.stake });
-        if (win) this.transfer(null, p, Math.round(b.stake * 1.9), '竞猜获胜');
-        else this.say(`📉 ${p.name} 竞猜失败，损失 ${fmt(b.stake)}`);
-      }
+      if (p.bet) { const b = p.bet; (b.path = b.path || [b.start]).push(this.asset(b.id).price); }
+    }
+    return ch;
+  }
+  // 每秒检查：涨跌竞猜到 10 秒立即结算
+  settleBets() {
+    if (this.phase !== 'play') return false;
+    let ch = false;
+    for (const p of this.players) {
+      if (!p.bet || Date.now() < p.bet.endAt) continue;
+      const b = p.bet, m = this.asset(b.id), end = m.price, win = b.dir === 'up' ? end > b.start : end < b.start;
+      p.bet = null; ch = true;
+      if (p.bankrupt || p.won) continue;
+      const payout = win ? Math.round(b.stake * 1.9) : 0, nm = D.ASSETS.find((a) => a.id === b.id).name;
+      this.fx.push({ type: 'betres', pid: p.id, win, stake: b.stake, payout, id: b.id, dir: b.dir, start: b.start, end, path: [...(b.path || [b.start]), end] });
+      if (win) { this.transfer(null, p, payout, '竞猜获胜'); this.say(`🎯 ${p.name} 竞猜 ${nm} ${b.dir === 'up' ? '看涨' : '看跌'}命中，结算 +${fmt(payout)}`); }
+      else this.say(`📉 ${p.name} 竞猜 ${nm} ${b.dir === 'up' ? '看涨' : '看跌'}未命中，损失 ${fmt(b.stake)}`);
     }
     return ch;
   }
@@ -935,7 +944,17 @@ class Game {
   }
 
   toJSON() { const { fx, ...rest } = this; return rest; }
-  static from(obj) { const g = new Game(obj.code); Object.assign(g, obj); g.fx = []; g.players.forEach((p) => (p.connected = false)); return g; }
+  static from(obj) {
+    const g = new Game(obj.code); Object.assign(g, obj); g.fx = []; g.players.forEach((p) => (p.connected = false));
+    // 旧存档里已下架的品种（基金、外汇）按最后价格折回现金
+    const ok = new Set(D.ASSETS.map((a) => a.id)), old = g.market || [];
+    for (const p of g.players) {
+      for (const id of Object.keys(p.hold || {})) if (!ok.has(id)) { const m = old.find((x) => x.id === id); p.money += Math.round(p.hold[id] * (m ? m.price : 0)); delete p.hold[id]; }
+      if (p.bet && !ok.has(p.bet.id)) { p.money += p.bet.stake; p.bet = null; }
+    }
+    g.market = D.ASSETS.map((a) => old.find((x) => x.id === a.id) || { id: a.id, price: a.base * (g.infl || 1), hist: [a.base * (g.infl || 1)] });
+    return g;
+  }
 }
 
 module.exports = { Game, GameError };

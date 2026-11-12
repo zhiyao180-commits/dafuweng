@@ -52,6 +52,15 @@ const Snd = {
   turn() { this.tone(784, 0.15, 'sine', 0.09); this.tone(1046, 0.3, 'sine', 0.09, 0.12); },
   alarm() { for (let i = 0; i < 3; i++) { this.tone(880, 0.16, 'square', 0.05, i * 0.36); this.tone(660, 0.16, 'square', 0.05, i * 0.36 + 0.18); } },
   jail() { this.tone(180, 0.4, 'sawtooth', 0.06); this.noise(0.3, 0.1, 0.2, 300); },
+  // 滑音：频率从 f1 平滑滑到 f2（蓄力、火箭、惊叫等）
+  sweep(f1, f2, d, type = 'sine', v = 0.1, at = 0) {
+    const c = this.ctx; if (!c || this.muted) return;
+    const t = c.currentTime + at, o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(f2, t + d);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.01); g.gain.setValueAtTime(v, t + d * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g).connect(c.destination); o.start(t); o.stop(t + d + 0.02);
+  },
+  chord(fs, d, type = 'sine', v = 0.05, at = 0) { fs.forEach((f) => this.tone(f, d, type, v, at)); },
 };
 document.addEventListener('pointerdown', () => Snd.init());
 
@@ -166,24 +175,24 @@ const gridPos = (i) => cellInfo(i);
 const sideOf = (i) => cellInfo(i)[2];
 function cellInner(i) {
   const sq = BOARD[i];
-  const ci = (icon, name, sub, en) => `<div class="ci">${icon}<div class="cname">${name}</div>${en ? `<div class="cen">${en}</div>` : ''}${sub ? `<div class="cprice">${sub}</div>` : ''}</div>`;
+  const ci = (icon, name, sub, en) => `<div class="ci">${icon}<div class="ctx"><div class="cname">${name}</div>${en ? `<div class="cen">${en}</div>` : ''}${sub ? `<div class="cprice">${sub}</div>` : ''}</div></div>`;
   switch (sq.type) {
     case 'prop': return `<div class="bar"></div><div class="ci"><div class="lm">${landmark(sq.name)}</div><div class="ctx"><div class="cname">${sq.name}</div>${sq.en ? `<div class="cen">${sq.en}</div>` : ''}<div class="cprice">${fmt(sq.price)}</div></div></div>`;
-    case 'rail': return ci(`<div class="cicon">${railIcon(sq)}</div>`, sq.short.trim(), fmt(sq.price), sq.en);
-    case 'hub': return ci('<div class="cicon">🌐</div>', sq.name, '经过 +' + fmt(RULES.goSalary));
+    case 'rail': return ci(`<div class="sicon">${SPECIAL_ICON[sq.kind === 'port' ? 'port' : 'air']}</div>`, sq.short.trim(), fmt(sq.price), sq.en);
+    case 'hub': return ci(`<div class="sicon">${SPECIAL_ICON.hub}</div>`, sq.name, '经过 +' + fmt(RULES.goSalary));
     case 'util': return ci(`<div class="cicon">${sq.icon}</div>`, sq.name, fmt(sq.price));
-    case 'chance': return ci('<div class="cicon">?</div>', '机会');
-    case 'chest': return ci('<div class="cicon">✦</div>', '命运');
-    case 'tax': return ci('<div class="cicon">💸</div>', sq.name, '付 ' + fmt(sq.amount));
-    case 'bonus': return ci('<div class="cicon">🏦</div>', sq.name, '+' + fmt(sq.amount));
-    case 'go': return ci('<div class="cicon">🏁</div>', '起点', '经过 +' + fmt(RULES.goSalary));
-    case 'jail': return ci('<div class="cicon">🔒</div>', '监狱', '路过探监');
-    case 'parking': return ci(`<div class="cicon">${i < OUT ? '🅿️' : '🏝'}</div>`, sq.name);
-    case 'gotojail': return ci('<div class="cicon">👮</div>', sq.name, i < OUT ? '' : '入狱');
-    case 'stock': return ci('<div class="cicon">📈</div>', '股票', '翻倍或亏半');
-    case 'wheel': return ci('<div class="cicon">🎡</div>', '幸运转盘');
-    case 'portal': return ci('<div class="cicon">🌀</div>', '传送门', '任选一格');
-    case 'force': return ci('<div class="cicon">🔨</div>', '强制拍卖');
+    case 'chance': return ci(`<div class="sicon">${SPECIAL_ICON.chance}</div>`, '机会');
+    case 'chest': return ci(`<div class="sicon">${SPECIAL_ICON.chest}</div>`, '命运');
+    case 'tax': return ci(`<div class="sicon">${SPECIAL_ICON.tax}</div>`, sq.name, '付 ' + fmt(sq.amount));
+    case 'bonus': return ci(`<div class="sicon">${SPECIAL_ICON.bank}</div>`, sq.name, '+' + fmt(sq.amount));
+    case 'go': return ci(`<div class="sicon">${SPECIAL_ICON.go}</div>`, '起点', '经过 +' + fmt(RULES.goSalary));
+    case 'jail': return ci(`<div class="sicon">${SPECIAL_ICON.jail}</div>`, '监狱', '路过探监');
+    case 'parking': return i < OUT ? ci(`<div class="sicon">${SPECIAL_ICON.parking}</div>`, sq.name, '免费休息') : `<div class="scene">${SPECIAL_ICON.resort}</div>` + ci('', sq.name, '度假休息');
+    case 'gotojail': return ci(`<div class="sicon">${SPECIAL_ICON.police}</div>`, sq.name, i < OUT ? '直接入狱' : '入狱');
+    case 'stock': return ci(`<div class="sicon">${SPECIAL_ICON.stock}</div>`, '股票', '翻倍或亏半');
+    case 'wheel': return ci(`<div class="sicon">${SPECIAL_ICON.wheel}</div>`, '幸运转盘');
+    case 'portal': return ci(`<div class="sicon">${SPECIAL_ICON.portal}</div>`, '传送门', '任选一格');
+    case 'force': return ci(`<div class="sicon">${SPECIAL_ICON.force}</div>`, '强制拍卖');
   }
 }
 function buildBoard() {
@@ -195,7 +204,7 @@ function buildBoard() {
   BOARD.forEach((sq, i) => {
     const [r, c, side] = gridPos(i), inner = i >= OUT;
     const d = document.createElement('div');
-    d.className = `cell ${side === 'corner' ? (inner ? 'corner2' : 'corner') : side} ${inner ? 'inner' : ''} ${sq.type}`;
+    d.className = `cell ${side === 'corner' ? (inner ? 'corner2' : 'corner') : side} ${inner ? 'inner' : ''} ${sq.type}${sq.type === 'rail' ? ' ' + (sq.kind === 'port' ? 'port' : 'air') : ''}${sq.type === 'parking' && inner ? ' resort' : ''}${['rail', 'chance', 'chest', 'jail', 'parking', 'wheel', 'portal', 'go', 'gotojail', 'stock', 'force', 'bonus', 'hub', 'tax'].includes(sq.type) ? ' special' : ''}`;
     d.style.gridRow = r; d.style.gridColumn = c; d.dataset.pos = i; d.id = 'cell' + i;
     if (sq.type === 'prop') d.style.setProperty('--tint', GROUPS[sq.group].color);
     d.title = sq.type === 'prop' ? `${sq.name} ${sq.en} · ${sq.mark}` : sq.name;
@@ -465,6 +474,7 @@ function renderDock() {
 socket.on('fx', (list) => {
   for (const f of list) {
     if ((f.type === 'move' || f.type === 'jump' || f.type === 'tp') && animPos[f.pid] === undefined) { const p = pById(f.pid); if (p) animPos[f.pid] = p.pos; }
+    if (f.type === 'betres') { if (f.pid === myId && window.showBetResult) showBetResult(f); continue; } // 竞猜结算不排队，立即弹出
     fxQueue.push(f);
   }
   runFx();
@@ -553,8 +563,6 @@ async function playFx(f) {
     window.lastNews = { id: f.id, text: `${a.name}${f.pct > 0 ? '暴涨 +' : '暴跌 '}${f.pct}%`, up: f.pct > 0, t: Date.now() };
     Snd.tone(f.pct > 0 ? 1320 : 520, 0.12, 'sine', 0.025);
     if (window.onMarket) onMarket();
-  } else if (f.type === 'betres') {
-    if (f.pid === myId) { f.win ? Snd.win() : Snd.bad(); await banner(f.win ? `🎯 竞猜成功！获得 ${fmt(Math.round(f.stake * 1.9))}` : `📉 竞猜失败，损失 ${fmt(f.stake)}`, { color: f.win ? '#2DA44E' : '#E5383B', big: true, ms: 1200 }); }
   } else if (f.type === 'deal') {
     Snd.buy(); await banner(`🤝 ${esc(pById(f.from).name)} 和 ${esc(pById(f.to).name)} 成交`, { ms: 900 });
   } else if (f.type === 'bid') {
@@ -627,7 +635,7 @@ function renderActions() {
   }
   const mine = S.trades.find((t) => t.from === myId);
   if (mine && S.phase === 'play') h += `<div class="act-sub">⏳ 等待 ${esc(pById(mine.to).name)} 回复报价 <button class="btn sm" data-act="respond" data-id="${mine.id}" data-accept="">撤回</button></div>`;
-  if (S.phase === 'play' && !m.bankrupt) h += `<div class="act-row big2"><button class="btn market" data-local="market">🏛 地产交易所${K('T')}</button><button class="btn market fin" data-local="fin">📈 金融中心${K('F')}</button></div><div class="act-row"><button class="btn sm" data-local="send">💬 互动 / 转账</button>${m.host ? `<button class="btn sm" data-act="endGame" data-confirm="确定现在结束游戏，按总资产排名吗？">结束并结算</button>` : ''}</div>`;
+  if (S.phase === 'play' && !m.bankrupt) h += `<div class="act-row"><button class="btn market wide" data-local="market">🏛 地产交易所${K('T')}</button></div><div class="fin-group"><div class="fg-title"><span>金融中心</span><small>随时可操作</small></div><div class="fg-row"><button class="fg-btn stock" data-fin="stock"><i>📈</i><b>股票</b>${K('F')}</button><button class="fg-btn bet ${m.bet ? 'live' : ''}" data-fin="bet"><i>🎯</i><b>涨跌竞猜</b>${K('G')}</button><button class="fg-btn loan ${m.loan > 0 ? 'live' : ''}" data-fin="loan"><i>🏦</i><b>银行贷款</b>${K('L')}</button></div></div><div class="act-row"><button class="btn sm" data-local="send">💬 互动 / 转账</button>${m.host ? `<button class="btn sm" data-act="endGame" data-confirm="确定现在结束游戏，按总资产排名吗？">结束并结算</button>` : ''}</div>`;
   if (m.host && S.phase === 'play') h += `<button class="btn boost" data-act="boost" data-confirm="启动进程加速器？\n· 立刻通货膨胀一级（租金、工资、收益 ×1.5）\n· 每个人领到一个新任务，完成有奖励">🚀 进程加速器</button>`;
   if (el.dataset.h !== h) { el.dataset.h = h; el.innerHTML = h; }
 }
@@ -662,46 +670,108 @@ function renderDanger() {
   else if (!should && dangerOn) { dangerOn = false; $('#danger').hidden = true; }
 }
 
-// ================= 机会 / 命运牌 =================
+// ================= 机会 / 命运牌 / 幸运转盘 =================
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+function csSpark(stage, txt, x, y, kf, dur) { const d = document.createElement('div'); d.className = 'cs-p'; d.textContent = txt; d.style.left = x + 'px'; d.style.top = y + 'px'; stage.appendChild(d); d.animate(kf, dur).onfinish = () => d.remove(); return d; }
+function wheelSVG(list) {
+  const n = list.length, seg = 360 / n, R = 150, cols = ['#EF4444', '#F59E0B', '#FACC15', '#22C55E', '#14B8A6', '#0EA5E9', '#3B82F6', '#8B5CF6', '#D946EF', '#EC4899', '#F97316', '#84CC16'];
+  const P = (deg, r) => { const a = ((deg - 90) * Math.PI) / 180; return `${(r * Math.cos(a)).toFixed(2)} ${(r * Math.sin(a)).toFixed(2)}`; };
+  const segs = list.map((w, k) => `<path d="M0 0L${P(k * seg, R)}A${R} ${R} 0 0 1 ${P((k + 1) * seg, R)}z" fill="${cols[k % cols.length]}" class="wh-seg" data-k="${k}"/>`).join('');
+  const labels = list.map((w, k) => `<g transform="rotate(${(k + 0.5) * seg})"><text y="-104" text-anchor="middle">${w.s || ''}</text></g>`).join('');
+  const bulbs = Array.from({ length: 22 }, (_, i) => `<circle cx="${(158 * Math.cos((i / 22) * Math.PI * 2)).toFixed(1)}" cy="${(158 * Math.sin((i / 22) * Math.PI * 2)).toFixed(1)}" r="4.2" class="${i % 2 ? 'b1' : 'b2'}"/>`).join('');
+  return `<div class="wheel-wrap"><svg viewBox="-180 -192 360 380"><circle r="170" fill="#3B0A2E" opacity=".55"/><g class="wh-rot">${segs}<g class="wh-lbl">${labels}</g><g stroke="#fff" stroke-width="1.5" opacity=".6">${list.map((w, k) => `<path d="M0 0L${P(k * seg, R)}"/>`).join('')}</g></g>
+    <circle r="158" fill="none" stroke="url(#gGold)" stroke-width="14"/><circle r="151" fill="none" stroke="#7A4A00" stroke-width="1.5" opacity=".5"/><g class="wh-bulbs">${bulbs}</g>
+    <circle r="27" fill="url(#gGold)" stroke="#fff" stroke-width="3"/><text y="7" text-anchor="middle" class="wh-hub">转</text>
+    <g class="wh-ptr"><path d="M-17 -190h34l-17 34z" fill="#E11D48" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/><circle cy="-183" r="5" fill="#fff"/></g></svg></div>`;
+}
 function renderCard() {
   const pd = S.pending, stage = $('#cardStage');
   const want = S.phase === 'play' && pd && pd.kind === 'card' ? 'c' + pd.seq : '';
   if (!want) { if (cardKey) { cardKey = ''; stage.hidden = true; stage.innerHTML = ''; stage.className = 'card-stage'; } return; }
   if (want === cardKey || fxBusy) return;
   cardKey = want;
-  const dk = pd.deck, chance = dk === 'chance', card = (chance ? CHANCE : dk === 'chest' ? CHEST : GameData.WHEEL)[pd.id], who = pById(pd.pid), c = chance ? '#F08A2E' : dk === 'chest' ? '#0A6FE0' : '#C026D3';
-  stage.innerHTML = `<div class="bigcard" style="--c:${c}"><div class="bigcard-in">
-      <div class="bigface bigback"><div class="sym">${chance ? '?' : dk === 'chest' ? '✦' : '🎡'}</div><div class="nm">${chance ? '机会牌' : dk === 'chest' ? '命运牌' : '幸运转盘'}</div></div>
-      <div class="bigface bigfront"><div class="kind">${chance ? '机 会' : dk === 'chest' ? '命 运' : '转 盘'}</div><div class="txt">${esc(pd.text || card.text)}</div></div>
+  const key = cardKey, alive = () => cardKey === key, at = (ms, fn) => setTimeout(() => alive() && fn(), ms);
+  const dk = pd.deck, chance = dk === 'chance', wheel = dk === 'wheel', list = chance ? CHANCE : dk === 'chest' ? CHEST : GameData.WHEEL, card = list[pd.id], who = pById(pd.pid);
+  const c = chance ? '#F07A1E' : dk === 'chest' ? '#2453D6' : '#C026D3', name = chance ? '机会' : dk === 'chest' ? '命运' : '幸运转盘', en = chance ? 'CHANCE' : dk === 'chest' ? 'DESTINY' : 'LUCKY WHEEL';
+  const f = card.fx, good = (f.t === 'money' && f.amt > 0) || (f.t === 'each' && f.amt > 0) || f.t === 'goojf', bad = (f.t === 'money' && f.amt < 0) || (f.t === 'each' && f.amt < 0) || f.t === 'jail' || f.t === 'repairs' || f.t === 'proptax';
+  const mood = good ? 'good' : bad ? 'bad' : 'plain', text = pd.text || card.text, am = (f.t === 'money' || f.t === 'each') && text.match(/([\d.]+)([KMB])/);
+  const stampTxt = good ? pick(['好运降临', '意外之财', '鸿运当头']) : bad ? pick(['厄运当头', '破财消灾', '天有不测']) : pick(['命运转折', '风云突变', '峰回路转']);
+  stage.innerHTML = `<div class="cs-burst ${mood}"></div>${wheel ? wheelSVG(list) : ''}
+    <div class="bigcard ${mood}-m" style="--c:${c}"><div class="bigcard-in">
+      <div class="bigface bigback"><div class="emb">${SPECIAL_ICON[chance ? 'chance' : dk === 'chest' ? 'chest' : 'wheel']}</div><div class="bk-t"><div class="nm">${name}</div><small>WORLD BANK · ${en}</small></div><i class="foil"></i></div>
+      <div class="bigface bigfront"><div class="kind">${name} · ${en}</div><div class="txt">${esc(text)}</div>${am ? `<div class="amt ${f.amt > 0 ? 'gain' : 'loss'}" data-v="${am[1]}" data-u="${am[2]}">${f.amt > 0 ? '+' : '−'}0${am[2]}</div>` : ''}<div class="stamp">${stampTxt}</div></div>
     </div></div>
-    <div class="stage-foot">${esc(who.name)} 抽到的${chance ? '机会牌' : dk === 'chest' ? '命运牌' : '幸运转盘'}${pd.pid === myId ? `<br><button class="btn primary big" data-act="card">确认<kbd>空格</kbd></button>` : ''}</div>`;
-  stage.className = 'card-stage'; stage.hidden = false;
+    <div class="cs-flash"></div>
+    <div class="stage-foot">${esc(who.name)} 抽到的${wheel ? '转盘结果' : name + '牌'}${pd.pid === myId ? `<br><button class="btn primary big" data-act="card">确认<kbd>空格</kbd></button>` : ''}</div>`;
+  stage.className = 'card-stage ' + dk; stage.hidden = false;
   const big = stage.querySelector('.bigcard'), inner = stage.querySelector('.bigcard-in'), foot = stage.querySelector('.stage-foot');
   const cr = $('#cell' + who.pos).getBoundingClientRect(), br = big.getBoundingClientRect();
   const dx = cr.left + cr.width / 2 - (br.left + br.width / 2), dy = cr.top + cr.height / 2 - (br.top + br.height / 2), sc = Math.max(0.08, cr.width / br.width);
+  const cx = br.left + br.width / 2, cy = br.top + br.height / 2;
+
+  // 蓄力：光点从四周汇聚到牌上
+  const charge = (t0) => {
+    at(t0, () => { big.classList.add('charge'); Snd.sweep(180, 1500, 0.75, 'sawtooth', 0.025); Snd.sweep(360, 3000, 0.75, 'sine', 0.03); });
+    for (let i = 0; i < 22; i++) at(t0 + i * 28, () => { const a = Math.random() * Math.PI * 2, r = 280 + Math.random() * 260; csSpark(stage, pick(['✦', '✧', '·', '✦']), cx + Math.cos(a) * r, cy + Math.sin(a) * r, [{ transform: 'translate(-50%,-50%) scale(.6)', opacity: 0 }, { opacity: 1, offset: 0.3 }, { transform: `translate(calc(-50% + ${-Math.cos(a) * r}px), calc(-50% + ${-Math.sin(a) * r}px)) scale(1.4)`, opacity: 0.9 }], 520); });
+  };
+  // 翻牌 + 揭晓
+  const flip = (t0) => {
+    at(t0, () => { big.classList.remove('charge'); Snd.flip(); inner.animate([{ transform: 'rotateY(180deg)' }, { transform: 'rotateY(95deg) scale(1.12)', offset: 0.45 }, { transform: 'rotateY(-12deg) scale(1.04)', offset: 0.8 }, { transform: 'rotateY(0)' }], { duration: 700, easing: 'cubic-bezier(.5,0,.3,1)', fill: 'forwards' }); });
+    at(t0 + 300, () => { stage.querySelector('.cs-flash').animate([{ opacity: 0.95 }, { opacity: 0 }], { duration: 420, easing: 'ease-out' }); stage.querySelector('.cs-burst').classList.add('on'); });
+    at(t0 + 700, () => reveal());
+    at(t0 + 1250, () => foot.classList.add('show'));
+  };
+  const reveal = () => {
+    big.classList.add('revealed'); stage.classList.add(mood);
+    if (good) { Snd.win(); [1568, 2093, 2637, 3136].forEach((q, i) => Snd.tone(q, 0.18, 'sine', 0.05, 0.3 + i * 0.07)); confetti(); }
+    else if (bad) { Snd.noise(0.6, 0, 0.6, 180); Snd.tone(70, 0.7, 'sine', 0.25); Snd.sweep(500, 90, 0.7, 'sawtooth', 0.05); const g = $('#game'); if (g) g.animate([0, 1, 2, 3, 4, 5, 6].map((i) => ({ translate: i === 6 ? '0 0' : `${(i % 2 ? 1 : -1) * (12 - i * 2)}px ${(i % 3 - 1) * 4}px` })), 520); }
+    else { Snd.chord([784, 988, 1175], 0.6, 'sine', 0.05); }
+    at(180, () => Snd.noise(0.12, 0, 0.6, 600)); // 盖章声
+    const r = big.getBoundingClientRect(), x0 = r.left + r.width / 2, y0 = r.top + r.height / 2;
+    for (let i = 0; i < (good ? 34 : 22); i++) { const a = Math.random() * Math.PI * 2, rr = 200 + Math.random() * 280; csSpark(stage, good ? pick(['🪙', '🪙', '✨', '💰']) : bad ? pick(['💥', '💢', '☁️', '⚡️']) : pick(['✨', '💫', '⭐']), x0, y0, [{ transform: 'translate(-50%,-50%) scale(.3)', opacity: 1 }, { transform: `translate(calc(-50% + ${Math.cos(a) * rr}px), calc(-50% + ${Math.sin(a) * rr + (good ? 90 : 30)}px)) scale(1.4) rotate(${Math.random() * 540}deg)`, opacity: 0 }], 1000 + Math.random() * 700); }
+    const amt = stage.querySelector('.amt');
+    if (amt) { const v = +amt.dataset.v, u = amt.dataset.u, dec = (amt.dataset.v.split('.')[1] || '').length, sign = amt.textContent[0], t0 = performance.now(); const tick = (t) => { const k = Math.min(1, (t - t0) / 800), e = 1 - Math.pow(1 - k, 3); amt.textContent = sign + (v * e).toFixed(dec) + u; if (k < 1 && alive()) requestAnimationFrame(tick); }; requestAnimationFrame(tick); }
+  };
+
+  if (!wheel) {
+    Snd.card(); Snd.sweep(500, 1100, 0.6, 'sine', 0.03);
+    big.animate([
+      { transform: `translate(${dx}px, ${dy}px) scale(${sc}) rotateX(70deg) rotateZ(-50deg)`, opacity: 0.3, filter: 'blur(4px) brightness(2)' },
+      { transform: `translate(${dx * 0.35}px, ${dy * 0.35 - 140}px) scale(.75) rotateX(25deg) rotateZ(190deg)`, opacity: 1, filter: 'blur(1.5px) brightness(1.4)', offset: 0.5 },
+      { transform: 'translate(0, -4%) scale(1.1) rotateX(-10deg) rotateZ(352deg)', filter: 'blur(0) brightness(1.1)', offset: 0.82 },
+      { transform: 'rotateZ(360deg)', opacity: 1, filter: 'none' },
+    ], { duration: 950, easing: 'cubic-bezier(.25,.7,.25,1)', fill: 'backwards' });
+    at(950, () => { Snd.tone(80, 0.3, 'sine', 0.22); Snd.noise(0.15, 0, 0.3, 400); big.classList.add('landed'); const rg = document.createElement('div'); rg.className = 'cs-ring'; stage.appendChild(rg); rg.animate([{ transform: 'translate(-50%,-50%) scale(.3)', opacity: 0.9 }, { transform: 'translate(-50%,-50%) scale(2.2)', opacity: 0 }], 700).onfinish = () => rg.remove(); });
+    charge(1100); flip(1850);
+    return;
+  }
+  // 幸运转盘：真的转一圈，停在结果上，再弹出结果卡
+  const wrap = stage.querySelector('.wheel-wrap'), rot = stage.querySelector('.wh-rot'), ptr = stage.querySelector('.wh-ptr'), wr = wrap.getBoundingClientRect();
+  big.style.opacity = '0';
   Snd.card();
-  big.animate([
-    { transform: `translate(${dx}px, ${dy}px) scale(${sc}) rotate(-25deg)`, opacity: 0.4 },
-    { transform: 'translate(0, -4%) scale(1.06) rotate(2deg)', opacity: 1, offset: 0.8 },
-    { transform: 'none', opacity: 1 },
-  ], { duration: 1000, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'backwards' });
-  const key = cardKey;
-  setTimeout(() => { if (cardKey === key) Snd.flip(); }, 1750);
-  inner.animate([{ transform: 'rotateY(180deg)' }, { transform: 'rotateY(90deg) scale(1.08)', offset: 0.5 }, { transform: 'rotateY(0)' }], { duration: 1300, delay: 1750, easing: 'cubic-bezier(.45,0,.3,1)', fill: 'forwards' });
-  const f = card.fx, good = (f.t === 'money' && f.amt > 0) || (f.t === 'each' && f.amt > 0) || f.t === 'goojf', bad = (f.t === 'money' && f.amt < 0) || (f.t === 'each' && f.amt < 0) || f.t === 'jail' || f.t === 'repairs' || f.t === 'proptax';
-  setTimeout(() => { if (cardKey === key) { Snd.tone(110, 0.5, 'sawtooth', 0.05); big.classList.add('charge'); } }, 1050);
-  setTimeout(() => {
-    if (cardKey !== key) return;
-    big.classList.remove('charge'); big.classList.add(good ? 'good' : bad ? 'bad' : 'plain'); stage.classList.add(good ? 'good' : bad ? 'bad' : 'plain');
-    good ? Snd.win() : bad ? (Snd.bad(), Snd.noise(0.4, 0, 0.4, 200)) : Snd.plus();
-    const r = big.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-    for (let i = 0; i < 26; i++) {
-      const d = document.createElement('div'); d.className = 'coin'; d.textContent = good ? (i % 3 ? '🪙' : '✨') : bad ? (i % 3 ? '💥' : '💢') : '✨'; d.style.left = cx + 'px'; d.style.top = cy + 'px'; $('#floats').appendChild(d);
-      const ang = Math.random() * Math.PI * 2, rr = 180 + Math.random() * 260;
-      d.animate([{ transform: 'translate(-50%,-50%) scale(.3)', opacity: 1 }, { transform: `translate(calc(-50% + ${Math.cos(ang) * rr}px), calc(-50% + ${Math.sin(ang) * rr + 80}px)) scale(1.4) rotate(${Math.random() * 540}deg)`, opacity: 0 }], { duration: 900 + Math.random() * 600, easing: 'cubic-bezier(.1,.7,.3,1)' }).onfinish = () => d.remove();
-    }
-  }, 2500);
-  setTimeout(() => { if (cardKey === key) foot.classList.add('show'); }, 3000);
+  wrap.animate([{ transform: `translate(${cr.left + cr.width / 2 - (wr.left + wr.width / 2)}px, ${cr.top + cr.height / 2 - (wr.top + wr.height / 2)}px) scale(${Math.max(0.06, cr.width / wr.width)}) rotate(-200deg)`, opacity: 0.4 }, { transform: 'scale(1.05) rotate(10deg)', opacity: 1, offset: 0.8 }, { transform: 'none', opacity: 1 }], { duration: 650, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'backwards' });
+  const n = list.length, seg = 360 / n, target = 360 * 6 + (360 - (pd.id + 0.5) * seg) + (Math.random() - 0.5) * seg * 0.6, DUR = 2700;
+  at(650, () => {
+    const t0 = performance.now(); let last = -1;
+    const step = (t) => {
+      if (!alive()) return;
+      const k = Math.min(1, (t - t0) / DUR), a = target * (1 - Math.pow(1 - k, 4)), idx = Math.floor(a / seg);
+      rot.setAttribute('transform', `rotate(${a.toFixed(2)})`);
+      if (idx !== last) { last = idx; Snd.tone(1700 + Math.random() * 200, 0.025, 'square', 0.035); ptr.animate([{ transform: 'rotate(-16deg)' }, { transform: 'rotate(0)' }], { duration: 140, easing: 'ease-out' }); }
+      if (k < 1) requestAnimationFrame(step);
+      else {
+        const s = stage.querySelector(`.wh-seg[data-k="${pd.id}"]`); if (s) s.classList.add('win');
+        Snd.chord([659, 880, 1046], 0.5, 'triangle', 0.05); wrap.classList.add('done');
+        at(650, () => {
+          wrap.animate([{ transform: 'none', opacity: 1 }, { transform: 'scale(.55) translateY(-30%)', opacity: 0.18 }], { duration: 450, easing: 'ease-in', fill: 'forwards' });
+          big.style.opacity = ''; Snd.swoosh();
+          big.animate([{ transform: 'scale(.1) rotateZ(-30deg)', opacity: 0 }, { transform: 'scale(1.12) rotateZ(4deg)', opacity: 1, offset: 0.7 }, { transform: 'none', opacity: 1 }], { duration: 450, easing: 'cubic-bezier(.2,.9,.3,1.2)' });
+          charge(420); flip(1000);
+        });
+      }
+    };
+    requestAnimationFrame(step);
+  });
 }
 
 // ================= 弹窗 =================
@@ -752,7 +822,7 @@ function renderLocal() {
       <div class="muted" style="margin-top:12px">发送文字（20 字以内，全体玩家可见）</div>
       <div class="say-row"><input id="sayText" maxlength="20" placeholder="说点什么…"><button class="btn primary" id="sayGo">发送</button></div>
       <div class="muted" style="margin-top:12px">发送表情（全体玩家可见）</div>
-      <div class="emo-grid">${EMOTES.map((e) => `<button data-emote="${e}">${e}</button>`).join('')}</div>
+      <div class="emo-grid">${EMOTES.map((e) => `<button data-emote="${e}"><span>${e}</span><small>${(window.EMO_LABEL || {})[e] || ''}</small></button>`).join('')}</div>
       <div class="xfer"><span>💸 转账</span><div class="mk-price"><input id="sendAmt" type="number" min="0" step="1" placeholder="金额" value="${v.amount ? v.amount / 1000 : ''}"><span>M</span></div><button class="btn sm" id="sendGo">转出</button></div>
       <div class="mk-eq" id="sendEq">${v.amount ? '= ' + fmt(v.amount) + ' · ' : ''}您的现金 ${fmt(m.money)}</div>
       <div class="act-row"><button class="btn wide" data-close>关闭</button></div>`;
@@ -778,7 +848,7 @@ function renderLocal() {
       <div class="act-row"><button class="btn wide" data-close>返回</button></div>`;
   } else if (window.renderExtra && renderExtra(localView, box, m)) {
   } else if (localView.type === 'help') {
-    const rows = [['空格 / 回车', '掷骰子 · 结束回合 · 刷卡支付 · 确认卡片'], ['B', '购买踩到的地产'], ['A', '拍卖踩到的地产'], ['1 2 3 4 5', '拍卖时加价（从小到大五档）'], ['T', '打开地产交易所'], ['Y / X', '接受 / 拒绝别人的报价'], ['J', '在监狱里缴保释金'], ['U', '使用出狱许可证'], ['N', '夜间模式（护眼）'], ['M', '静音 / 打开声音'], ['H', '打开这张快捷键表'], ['Esc', '关闭弹窗']];
+    const rows = [['空格 / 回车', '掷骰子 · 结束回合 · 刷卡支付 · 确认卡片'], ['B', '购买踩到的地产'], ['A', '拍卖踩到的地产'], ['1 2 3 4 5', '拍卖时加价（从小到大五档）'], ['T', '打开地产交易所'], ['F', '股票交易'], ['G', '涨跌竞猜'], ['L', '银行贷款'], ['Y / X', '接受 / 拒绝别人的报价'], ['J', '在监狱里缴保释金'], ['U', '使用出狱许可证'], ['N', '夜间模式（护眼）'], ['M', '静音 / 打开声音'], ['H', '打开这张快捷键表'], ['Esc', '关闭弹窗']];
     box.innerHTML = `<h3>⌨️ 键盘快捷键</h3><div class="keys">${rows.map(([k, d]) => `<div>${k.split(' ').map((x) => (x === '/' ? '/' : `<kbd>${x}</kbd>`)).join(' ')}</div><div>${d}</div>`).join('')}</div><div class="act-row"><button class="btn wide" data-close>确定</button></div>`;
   } else if (localView.type === 'market') {
     if (box.dataset.v !== 'market') {
@@ -986,7 +1056,9 @@ document.addEventListener('keydown', (e) => {
   if (k === 'h' || k === '?') return localView && localView.type === 'help' ? closeLocal() : openLocal({ type: 'help' });
   const m = me(); if (!m || m.bankrupt) return;
   if (k === 't') return localView && localView.type === 'market' ? closeLocal() : openMarket();
-  if (k === 'f') return localView && localView.type === 'fin' ? closeLocal() : openLocal({ type: 'fin', tab: 'stock', sel: 'WTK' });
+  if (k === 'f') return openFin('stock');
+  if (k === 'g') return openFin('bet');
+  if (k === 'l') return openFin('loan');
   if (localView) return;
   const pd = S.pending, mine = curP().id === myId;
   if (pd && pd.kind === 'auction') { const i = '12345'.indexOf(k); if (i >= 0 && k.length === 1) act('bid', { inc: RULES.bids[i] }); return; }
@@ -1036,21 +1108,16 @@ setInterval(() => {
 // ================= 表情互动 =================
 socket.on('emote', ({ from, to, e, text }) => {
   const a = tokenEls[from], b = tokenEls[to]; if (!a || !b || !S || S.phase === 'lobby') return;
+  const pf = pById(from), pt = pById(to); if (pf && pt) toast(`${pf.name} → ${pt.name}：${text || e}`);
+  if (!text) return emoteFx(e, from, to);
   const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
   const sx = ra.left + ra.width / 2, sy = ra.top + ra.height / 2, dx = rb.left + rb.width / 2 - sx, dy = rb.top + rb.height / 2 - sy;
-  const d = document.createElement('div'); d.className = 'emo-fly' + (text ? ' bubble' : ''); d.textContent = text || e; d.style.left = sx + 'px'; d.style.top = sy + 'px'; $('#floats').appendChild(d);
+  const d = document.createElement('div'); d.className = 'emo-fly bubble'; d.textContent = text; d.style.left = sx + 'px'; d.style.top = sy + 'px'; $('#floats').appendChild(d);
   Snd.swoosh();
-  d.animate([{ transform: 'translate(-50%,-50%) scale(.4)' }, { transform: `translate(calc(-50% + ${dx / 2}px), calc(-50% + ${dy / 2 - 140}px)) scale(2.4) rotate(-15deg)`, offset: 0.5 }, { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1.3)` }], { duration: 850, easing: 'cubic-bezier(.4,0,.6,1)', fill: 'forwards' }).onfinish = () => {
-    d.remove(); if (text) { const bb = document.createElement('div'); bb.className = 'emo-fly bubble stay'; bb.textContent = text; bb.style.left = sx + dx + 'px'; bb.style.top = sy + dy - 34 + 'px'; $('#floats').appendChild(bb); Snd.plus(); bb.animate([{ opacity: 0, transform: 'translate(-50%,-50%) scale(.6)' }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1)', offset: 0.1 }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1)', offset: 0.85 }, { opacity: 0, transform: 'translate(-50%,-80%) scale(1)' }], 3200).onfinish = () => bb.remove(); return; }
-    e === '⚡️' || e === '💣' ? (Snd.noise(0.4, 0, 0.5, 300), document.body.animate([{ filter: 'brightness(1.8)' }, { filter: 'none' }], 260)) : Snd.plus();
-    for (let i = 0; i < 9; i++) {
-      const c = document.createElement('div'); c.className = 'emo-fly'; c.textContent = e; c.style.left = sx + dx + 'px'; c.style.top = sy + dy + 'px'; $('#floats').appendChild(c);
-      const ang = (i / 8) * Math.PI * 2, r = i === 8 ? 0 : 90 + Math.random() * 50;
-      c.animate([{ transform: 'translate(-50%,-50%) scale(1.2)', opacity: 1 }, { transform: `translate(calc(-50% + ${Math.cos(ang) * r}px), calc(-50% + ${Math.sin(ang) * r}px)) scale(${i === 8 ? 5 : 0.9})`, opacity: 0 }], { duration: i === 8 ? 900 : 700, easing: 'ease-out' }).onfinish = () => c.remove();
-    }
-    b.animate([{ filter: 'none' }, { filter: 'brightness(1.7) drop-shadow(0 0 10px #fff)' }, { filter: 'none' }], 450);
+  d.animate([{ transform: 'translate(-50%,-50%) scale(.4)' }, { transform: `translate(calc(-50% + ${dx / 2}px), calc(-50% + ${dy / 2 - 140}px)) scale(1.6) rotate(-6deg)`, offset: 0.5 }, { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1)` }], { duration: 850, easing: 'cubic-bezier(.4,0,.6,1)', fill: 'forwards' }).onfinish = () => {
+    d.remove(); const bb = document.createElement('div'); bb.className = 'emo-fly bubble stay'; bb.textContent = text; bb.style.left = sx + dx + 'px'; bb.style.top = sy + dy - 34 + 'px'; $('#floats').appendChild(bb); Snd.plus();
+    bb.animate([{ opacity: 0, transform: 'translate(-50%,-50%) scale(.6)' }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1)', offset: 0.1 }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1)', offset: 0.85 }, { opacity: 0, transform: 'translate(-50%,-80%) scale(1)' }], 3200).onfinish = () => bb.remove();
   };
-  const pf = pById(from), pt = pById(to); if (pf && pt) toast(`${pf.name} → ${pt.name}：${text || e}`);
 });
 function renderPay() { const m = me(), cur = (m && m.pay) || 'card', rc = (m && (m.recv || m.pay)) || 'card'; document.querySelectorAll('#payPick [data-pay]').forEach((b) => b.classList.toggle('on', b.dataset.pay === cur)); document.querySelectorAll('#recvPick [data-recv]').forEach((b) => b.classList.toggle('on', b.dataset.recv === rc)); }
 
