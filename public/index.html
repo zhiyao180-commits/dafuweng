@@ -14,7 +14,7 @@
   <div class="scene" data-ms="2300"><div class="in-city" id="inCity"></div><h2>环游 38 座国际都市</h2><p>双圈地图 · 机场与港口 · 专属地标</p></div>
   <div class="scene" data-ms="2300"><div class="in-pay"><span>💳</span><span>📱</span><span>🏧</span></div><h2>三种支付方式</h2><p>刷卡 · 手机闪付 · ATM 现金</p></div>
   <div class="scene" data-ms="2100"><div class="in-ppl" id="inPpl"></div><h2>2 – 8 人实时联机</h2><p>拍卖 · 交易 · 表情互动 · 进程加速器</p></div>
-  <div class="scene" data-ms="2600"><div class="in-crown">👑</div><h2>总资产率先达到 <b>100B</b> 者成为首富</h2><p>首富胜出后 · 其余玩家继续对战 · 依次决出名次</p></div>
+  <div class="scene" data-ms="2600"><div class="in-crown">👑</div><h2>总资产率先达到 <b>100B</b> 者成为首富</h2><p>首富胜出后 · 其余玩家继续对局 · 依次决出名次</p></div>
   <button id="introSkip" class="btn sm">跳过片头</button>
 </div>
 <div class="lobby-bg" id="lobbyBg"></div>
@@ -40,7 +40,7 @@
     </div>
 
     <div id="room" hidden>
-      <div class="room-top"><div class="room-code">房间号 <b id="roomCode"></b></div><button class="btn sm" id="copyCode">🔗 复制邀请</button></div>
+      <div class="room-top"><div class="room-code">房间号 <b id="roomCode"></b></div><button class="btn sm" id="copyCode">🔗 复制邀请链接</button></div>
       <div class="stage3d"><div class="spot"></div><div class="ped"><div class="ped-pawn" id="myPawn"></div><div class="ped-disc"></div></div><div class="stage-name" id="myName"></div></div>
       <div class="size-line"><span id="sizeText"></span><div class="seg small" id="sizeEdit"></div></div>
       <div id="lobbyPlayers" class="seats"></div>
@@ -48,7 +48,7 @@
         <div><span class="lbl">选择颜色</span><div id="colorPick" class="pick color-pick"></div></div>
         <div><span class="lbl">选择棋子</span><div id="iconPick" class="pick pawn-pick"></div></div>
       </div>
-      <details class="goal"><summary>🎯 对局目标与规则要点</summary><p>每人起始 300M。<b>总资产</b>（现金 + 地产 + 房屋 + 股票 − 贷款）率先达到 <b>100B</b> 者成为首富并胜出，其余玩家继续对战，依次决出名次。破产者出局，其地产转为半价"法拍房"。每 10 分钟通货膨胀一次。开局后朋友仍可输入房间号申请加入，房主批准即可。</p></details>
+      <details class="goal"><summary>🎯 对局目标与规则要点</summary><p>每位玩家初始资金 300M。<b>总资产</b>（现金 + 地产 + 房屋 + 股票 − 贷款）率先达到 <b>100B</b> 者成为首富并胜出，其余玩家继续对战，依次决出名次。破产者出局，其名下地产转为按半价出售的"法拍房"。每 10 分钟发生一次通货膨胀。对局开始后，其他玩家仍可输入房间号申请加入，经房主批准后即可加入。</p></details>
       <button class="btn primary big" id="startBtn">开始游戏</button>
       <p class="hint" id="waitHost" hidden>等待房主开始对局…</p>
     </div>
@@ -113,7 +113,7 @@
         <button id="btnHelp" title="快捷键 (H)">⌨️</button>
         <button id="btnMute" title="静音 (M)">🔊</button>
         <button id="btnEco" title="省电模式">🍃</button>
-        <button id="btnTheme" title="夜间模式 (N)">🌙</button>
+        <button id="btnTheme" title="深色模式 (N)">🌙</button>
       </div>
     </div>
     <div id="players" class="panel players"></div>

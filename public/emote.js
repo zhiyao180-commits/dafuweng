@@ -111,7 +111,7 @@
         const d = mk('👏', x, y); d.style.fontSize = '30px'; run(d, [{ transform: T(0, 0, 0.3, -30), opacity: 0 }, { transform: T(0, 0, 1.4, 10), opacity: 1, offset: 0.3 }, { transform: T(0, 0, 1, 0), opacity: 1, offset: 0.7 }, { transform: T(0, -20, 0.8), opacity: 0 }], 900);
         ring(x, y, '#F5B700', { size: 70, dur: 450, w: 3 });
       });
-      later(1050, () => { caption(c.tx, c.ty - 40, '漂亮！', '#E2A100', { size: 26 }); Snd.win(); });
+      later(1050, () => { caption(c.tx, c.ty - 40, '精彩', '#E2A100', { size: 26 }); Snd.win(); });
     },
     '🎉': async (c) => {
       await fly('🎉', c, { spin: -40 });
@@ -150,7 +150,7 @@
       const r = mk('', c.tx, c.ty, 'ef-rays gold'); run(r, [{ transform: 'translate(-50%,-50%) scale(.2) rotate(0)', opacity: 0 }, { transform: 'translate(-50%,-50%) scale(1.1) rotate(80deg)', opacity: 1, offset: 0.4 }, { transform: 'translate(-50%,-50%) scale(1.2) rotate(160deg)', opacity: 0 }], 2000);
       land('👑', c, [{ transform: T(0, -120, 2.4, -10), opacity: 0 }, { transform: T(0, -34, 1.9, 0), opacity: 1, offset: 0.35 }, { transform: T(0, -26, 1.7, 0), offset: 0.45 }, { transform: T(0, -30, 1.8, 0), opacity: 1, offset: 0.88 }, { transform: T(0, -30, 1.8), opacity: 0 }], 2000);
       c.b && c.b.animate([{ filter: 'none' }, { filter: 'drop-shadow(0 0 14px #FFC300) brightness(1.25)', offset: 0.4 }, { filter: 'drop-shadow(0 0 14px #FFC300) brightness(1.25)', offset: 0.8 }, { filter: 'none' }], 2000);
-      later(700, () => { burst('✨', c.tx, c.ty - 30, 12, { r: [60, 120], size: [12, 22] }); caption(c.tx, c.ty - 80, '王者', '#C98A00', { size: 24 }); });
+      later(700, () => { burst('✨', c.tx, c.ty - 30, 12, { r: [60, 120], size: [12, 22] }); caption(c.tx, c.ty - 80, '王者风范', '#C98A00', { size: 24 }); });
     },
     '⚡️': async (c) => {
       Snd.sweep(300, 1400, 0.25, 'sawtooth', 0.03);
@@ -213,7 +213,7 @@
       [0, 120, 240, 360].forEach((t) => ring(c.tx, c.ty, '#5B4BD6', { size: 240, w: 3, delay: t, dur: 600 }));
       const d = mk('', 0, 0, 'ef-flash', { background: 'radial-gradient(circle at ' + c.tx + 'px ' + c.ty + 'px, transparent 0, transparent 120px, rgba(20,10,60,.45) 420px)' }); run(d, [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 0 }], 1200);
       c.b && c.b.animate([{ filter: 'none' }, { filter: 'grayscale(1) contrast(1.4)', offset: 0.2 }, { filter: 'grayscale(1) contrast(1.4)', offset: 0.7 }, { filter: 'none' }], 1200);
-      caption(c.tx, c.ty - 60, '啊——！', '#5B4BD6', { size: 26, delay: 150 });
+      caption(c.tx, c.ty - 60, '震惊', '#5B4BD6', { size: 26, delay: 150 });
     },
     '🤡': async (c) => {
       await fly('🤡', c, { spin: 720, trail: () => ['🔴', '🟠', '🟡', '🟢', '🔵', '🟣'][Math.floor(Math.random() * 6)], every: 45, dur: 900 });
@@ -243,7 +243,7 @@
         const prize = ['💎', '🍀', '🌟', '🏆', '💵'][Math.floor(Math.random() * 5)];
         land(prize, c, [{ transform: T(0, 0, 0.3), opacity: 0 }, { transform: T(0, -50, 2.4, 0), opacity: 1, offset: 0.25 }, { transform: T(0, -46, 2.1), opacity: 1, offset: 0.85 }, { transform: T(0, -60, 2.1), opacity: 0 }], 1500);
         burst(['⭐', '✨', '🎀'], c.tx, c.ty, 16, { r: [70, 150], size: [14, 24] }); ring(c.tx, c.ty, '#E2A100', { size: 200 });
-        caption(c.tx, c.ty - 100, '惊喜！', '#E2A100', { size: 24 });
+        caption(c.tx, c.ty - 100, '惊喜', '#E2A100', { size: 24 });
       };
     },
     '💎': async (c) => {
@@ -260,7 +260,7 @@
       land('⏰', c, [...Array(16)].map((_, i) => ({ transform: T(i % 2 ? 3 : -3, 0, 2, i === 15 ? 0 : (i % 2 ? 16 : -16)), opacity: i === 15 ? 0 : 1 })), 1400);
       [0, 200, 400, 600].forEach((t) => ring(c.tx, c.ty, '#E5383B', { size: 130, w: 3, delay: t, dur: 500 }));
       shake(c.b, 5, 900);
-      caption(c.tx, c.ty - 56, '快点！', '#E5383B', { size: 26, delay: 150 });
+      caption(c.tx, c.ty - 56, '请尽快', '#E5383B', { size: 26, delay: 150 });
       later(500, () => caption(c.tx + 46, c.ty - 30, '⏱', '#E5383B', { size: 20 }));
     },
     '💤': async (c) => {
@@ -271,7 +271,7 @@
       land('😴', c, [{ transform: T(0, 0, 0.5), opacity: 0 }, { transform: T(0, -6, 1.5), opacity: 1, offset: 0.2 }, { transform: T(0, 0, 1.5), opacity: 1, offset: 0.85 }, { transform: T(0, 0, 1.5), opacity: 0 }], 2200);
     },
   };
-  const LABEL = { '👍': '点赞', '😂': '笑哭', '😭': '大哭', '😡': '生气', '❤️': '爱心', '🌹': '献花', '👏': '鼓掌', '🎉': '庆祝', '🙏': '拜托', '🤝': '合作', '💰': '撒钱', '👑': '王者', '⚡️': '雷劈', '🔥': '火力', '💣': '炸弹', '💩': '便便', '🥶': '冻住', '😱': '惊吓', '🤡': '小丑', '🚀': '起飞', '🎁': '礼物', '💎': '钻石', '⏰': '催促', '💤': '睡着' };
+  const LABEL = { '👍': '赞同', '😂': '大笑', '😭': '哭泣', '😡': '愤怒', '❤️': '爱心', '🌹': '献花', '👏': '鼓掌', '🎉': '庆祝', '🙏': '请求', '🤝': '合作', '💰': '派发红包', '👑': '皇冠', '⚡️': '闪电', '🔥': '火焰', '💣': '炸弹', '💩': '便便', '🥶': '寒冷', '😱': '惊恐', '🤡': '小丑', '🚀': '火箭', '🎁': '礼物', '💎': '钻石', '⏰': '催促', '💤': '休息' };
   window.EMO_LABEL = LABEL;
   window.emoteFx = (e, from, to) => {
     const a = tokenEls[from], b = tokenEls[to]; if (!a || !b) return;

@@ -16,12 +16,12 @@
   const amt = (id) => Math.max(0, Math.round((+($('#' + id) || {}).value || 0) * 1000));
 
   const GUIDE = {
-    stock: ['股票：波动大，可能短时间大涨或大跌', ['在左侧选择一只股票，右侧会显示分时走势和最新成交价', '输入投入金额（单位 M，例如输入 50 即 50M），点「买入」建仓', '价格上涨后点「卖出」或「全部卖出」平仓，赚取差价；下跌则亏损']],
-    bet: ['涨跌竞猜：10 秒定输赢', ['在左侧选择一只股票，记下当前价格', '输入押注金额，判断 10 秒后价格会更高还是更低，点「看涨」或「看跌」', '猜中返还押注的 1.9 倍，猜错损失全部押注；同一时间只能有一笔竞猜']],
-    loan: ['银行贷款：急需资金时使用', ['输入金额点「申请贷款」，资金立即到账', '贷款每分钟按 3% 复利增长，请尽早偿还', '可随时「偿还」部分或「全部还清」；未还的贷款会从总资产中扣除']],
+    stock: ['股票：波动较大，价格可能在短时间内大幅涨跌', ['在左侧选择股票，右侧显示分时走势与最新成交价', '输入交易金额（单位 M，例如 50 即 50M），点按「买入」开仓', '点按「卖出」或「全部卖出」平仓；价格上涨则获利，下跌则亏损']],
+    bet: ['涨跌竞猜：10 秒结算', ['在左侧选择标的，下单时的价格即为开仓价', '输入投注金额，预判 10 秒后的价格方向，点按「看涨」或「看跌」', '预测正确返还本金的 1.9 倍，预测错误则损失全部本金；同一时间仅可持有一笔竞猜']],
+    loan: ['银行贷款：用于短期资金周转', ['输入金额并点按「申请贷款」，资金即时到账', '贷款按每分钟 3% 复利计息，请及时偿还', '可随时部分偿还或全部还清；未偿还的贷款将从总资产中扣除']],
   };
-  const TITLE = { stock: ['📈', '股票交易', '行情每 2 秒更新 · 红涨绿跌 · 手续费 0.3%'], bet: ['🎯', '涨跌竞猜', '10 秒定输赢 · 猜中返还 1.9 倍 · 红涨绿跌'], loan: ['🏦', '银行贷款', '即时到账 · 每分钟复利 3% · 额度为总资产一半'] };
-  const guideHTML = (tab) => { const g = GUIDE[tab], open = localStorage.getItem('dfw_guide_' + tab) !== '0'; return `<details class="fin-guide" data-guide="${tab}" ${open ? 'open' : ''}><summary>📘 怎么参与 · ${g[0]}</summary><ol>${g[1].map((x) => `<li>${x}</li>`).join('')}</ol><p>所有交易都使用现金；股票持仓按实时价格计入总资产，钱不够付账时系统会自动卖出持仓。</p></details>`; };
+  const TITLE = { stock: ['📈', '股票交易', '行情每 2 秒更新 · 红涨绿跌 · 手续费 0.3%'], bet: ['🎯', '涨跌竞猜', '10 秒结算 · 命中返还 1.9 倍 · 红涨绿跌'], loan: ['🏦', '银行贷款', '即时到账 · 每分钟复利 3% · 额度为总资产的 50%'] };
+  const guideHTML = (tab) => { const g = GUIDE[tab], open = localStorage.getItem('dfw_guide_' + tab) !== '0'; return `<details class="fin-guide" data-guide="${tab}" ${open ? 'open' : ''}><summary>📘 交易说明 · ${g[0]}</summary><ol>${g[1].map((x) => `<li>${x}</li>`).join('')}</ol><p>所有交易均以现金结算；股票持仓按实时价格计入总资产，现金不足以支付款项时，系统将自动卖出持仓。</p></details>`; };
   function finShell(v, box) {
     if (v.tab === 'stock') return stockShell(v, box);
     if (v.tab === 'bet') return betShell(v, box);
@@ -36,7 +36,7 @@
       $('#finLoan').innerHTML = `<div class="loan-card"><div class="muted">当前贷款余额</div><div class="loan-big" id="loanBal"></div><div class="muted" id="loanInfo"></div></div>
         <div class="loan-ops"><div class="mk-price"><input id="loanAmt" type="number" min="0" step="1" placeholder="金额"><span>M</span></div>
         <div class="act-row"><button class="btn primary" id="loanBorrow">申请贷款</button><button class="btn" id="loanRepay">偿还</button><button class="btn" id="loanAll">全部还清</button></div>
-        <div class="muted" style="line-height:1.7;margin-top:8px">· 利率极高：<b>每分钟复利 3%</b>，越早还越划算<br>· 贷款额度 = 总资产的一半（含已贷金额）<br>· 未还贷款会从总资产中扣除；破产时由银行清算</div></div>`;
+        <div class="muted" style="line-height:1.7;margin-top:8px">· 利率：<b>每分钟复利 3%</b>，建议尽早偿还<br>· 贷款额度 = 总资产的 50%（含已借金额）<br>· 未偿还贷款将从总资产中扣除；破产时由银行清算</div></div>`;
       $('#loanBorrow').onclick = () => act('borrow', { amount: amt('loanAmt') });
       $('#loanRepay').onclick = () => act('repay', { amount: amt('loanAmt') });
       $('#loanAll').onclick = () => act('repay', { amount: 1e15 });
@@ -44,8 +44,8 @@
       const d = $('#finDetail');
       d.innerHTML = `<div class="fd-h"><div><b id="fdName"></b><small id="fdKind"></small></div><div class="fd-px"><b id="fdPx"></b><small id="fdChg"></small></div></div>
         <div class="fd-chart" id="fdChart"></div><div class="fd-hold" id="fdHold"></div>
-        ${v.tab === 'bet' ? `<div class="fd-label">押注金额（单位 M）</div>
-          <div class="mk-price"><input id="finAmt" type="number" min="0" step="1" placeholder="押注金额"><span>M</span></div>
+        ${v.tab === 'bet' ? `<div class="fd-label">投注金额（单位 M）</div>
+          <div class="mk-price"><input id="finAmt" type="number" min="0" step="1" placeholder="投注金额"><span>M</span></div>
           <div class="mk-quick">${[10, 50, 100, 500].map((x) => `<button data-finq="${x}">${x}M</button>`).join('')}</div>
           <div class="act-row"><button class="btn bull" id="betUp">📈 看涨 · 做多</button><button class="btn bear" id="betDown">📉 看跌 · 做空</button></div><div class="bet-live" id="betLive"></div>`
         : `<div class="fd-label">交易金额（单位 M）</div><div class="mk-price"><input id="finAmt" type="number" min="0" step="1" placeholder="交易金额"><span>M</span></div>
@@ -65,7 +65,7 @@
     if (v.tab === 'loan') {
       $('#loanBal').textContent = fmt(Math.round(m.loan || 0));
       const nw = m.worth, lim = Math.max(0, Math.round((nw + (m.loan || 0)) * 0.5 - (m.loan || 0)));
-      $('#loanInfo').textContent = `可再贷 ${fmt(lim)} · 每分钟利息约 ${fmt(Math.round((m.loan || 0) * 0.03))}`;
+      $('#loanInfo').textContent = `可借额度 ${fmt(lim)} · 每分钟利息约 ${fmt(Math.round((m.loan || 0) * 0.03))}`;
     } else {
       const list = AS;
       if (!list.some((a) => a.id === v.sel)) v.sel = list[0].id;
@@ -85,7 +85,7 @@
     const el = $('#ticker'); if (!el || !S || !S.market) return;
     const m = me(), rows = AS.map((a) => { const x = mk(a.id), c = chg(x), h = m && m.hold && m.hold[a.id]; return `<div class="tk-row" data-tick="${a.id}"><span class="tk-n">${a.name}${h ? ' <i>持</i>' : ''}</span>${spark(x.hist, 60, 18)}<b>${px(x)}</b><small class="${c >= 0 ? 'up' : 'down'}">${c >= 0 ? '+' : ''}${c.toFixed(1)}%</small></div>`; }).join('');
     const n = window.lastNews && Date.now() - lastNews.t < 12000 ? lastNews : null;
-    el.innerHTML = `<div class="panel-title"><span>📈 股市行情 · 点击交易</span><span>${m && m.loan ? '贷款 ' + fmt(Math.round(m.loan)) : ''}</span></div>${n ? `<div class="tk-news ${n.up ? 'up' : 'down'}">📰 市场快讯：${n.text}</div>` : ''}<div class="tk-list">${rows.replace(n ? `data-tick="${n.id}"` : '\u0000', n ? `data-tick="${n.id}" style="background:rgba(245,183,0,.22)"` : '')}</div>`;
+    el.innerHTML = `<div class="panel-title"><span>📈 股票行情 · 点按交易</span><span>${m && m.loan ? '贷款 ' + fmt(Math.round(m.loan)) : ''}</span></div>${n ? `<div class="tk-news ${n.up ? 'up' : 'down'}">📰 市场快讯：${n.text}</div>` : ''}<div class="tk-list">${rows.replace(n ? `data-tick="${n.id}"` : '\u0000', n ? `data-tick="${n.id}" style="background:rgba(245,183,0,.22)"` : '')}</div>`;
   }
   window.openFin = (tab, sel) => { if (localView && localView.type === 'fin' && localView.tab === tab && !sel) return closeLocal(); openLocal({ type: 'fin', tab, sel: sel || (localView && localView.sel) || 'WTK' }); };
   window.onMarket = () => { finUpdate(); renderTicker(); };
@@ -94,12 +94,12 @@
   // ---------------- 🎯 涨跌竞猜（好用版） ----------------
   const NICEK = (x) => Math.max(1000, Math.round(x / 1000) * 1000);
   function betShell(v, box) {
-    box.innerHTML = `<div class="mk-head"><div class="fin-title"><i class="fin-ico bet">🎯</i><div><h3>涨跌竞猜</h3><div class="muted">猜 10 秒后股价更高还是更低 · 猜中返还 1.9 倍 · 键盘 ↑ 看涨 / ↓ 看跌</div></div></div></div>
+    box.innerHTML = `<div class="mk-head"><div class="fin-title"><i class="fin-ico bet">🎯</i><div><h3>涨跌竞猜</h3><div class="muted">预测 10 秒后的价格方向 · 命中返还 1.9 倍 · 键盘 ↑ 看涨 / ↓ 看跌</div></div></div></div>
       ${guideHTML('bet')}
       <div class="bt-body"><div class="fin-list" id="finList"></div>
         <div class="bt-main"><div class="bt-live" id="btLive"></div>
           <div class="bt-q" id="btQ"></div><div class="fd-chart" id="fdChart"></div><div class="bt-mom" id="btMom"></div>
-          <div class="bt-stake"><div class="fd-label">押注金额（单位 M）</div><div class="mk-price"><input id="finAmt" type="number" min="0" step="1" placeholder="押注金额"><span>M</span></div>
+          <div class="bt-stake"><div class="fd-label">投注金额（单位 M）</div><div class="mk-price"><input id="finAmt" type="number" min="0" step="1" placeholder="投注金额"><span>M</span></div>
             <div class="mk-quick" id="btQuick"></div><div class="bt-est" id="btEst"></div>
             <div class="act-row"><button class="btn bull" id="betUp">📈 看涨 · 做多 <kbd>↑</kbd></button><button class="btn bear" id="betDown">📉 看跌 · 做空 <kbd>↓</kbd></button></div>
             <button class="btn wide bt-again" id="btAgain" hidden></button></div>
@@ -119,17 +119,17 @@
     if (!AS.some((a) => a.id === v.sel)) v.sel = AS[0].id;
     const x = mk(v.sel), a = meta(v.sel), k = amt('finAmt'), cash = Math.max(0, m.money);
     $('#btQuick').innerHTML = [10000, 50000, 100000].map((q) => `<button data-btq="${q / 1000}">${fmt(q)}</button>`).join('') + [[0.05, '5%'], [0.1, '10%'], [0.25, '25%']].map(([f, n]) => `<button data-btq="${NICEK(cash * f) / 1000}" ${cash <= 0 ? 'disabled' : ''}>现金 ${n}</button>`).join('');
-    $('#btEst').innerHTML = k ? `猜中到账 <b class="up">${fmt(Math.round(k * 1.9))}</b>（净赚 ${fmt(Math.round(k * 0.9))}）· 猜错损失 <b class="down">${fmt(k)}</b>${k > cash ? ' · <b class="down">现金不足</b>' : k > cash * 0.25 ? ' · ⚠️ 超过现金的 1/4，风险较大' : ''}` : `可用现金 ${fmt(m.money)}`;
+    $('#btEst').innerHTML = k ? `命中到账 <b class="up">${fmt(Math.round(k * 1.9))}</b>（净收益 ${fmt(Math.round(k * 0.9))}）· 未命中损失 <b class="down">${fmt(k)}</b>${k > cash ? ' · <b class="down">现金不足</b>' : k > cash * 0.25 ? ' · ⚠️ 超过现金的 25%，风险较高' : ''}` : `可用现金 ${fmt(m.money)}`;
     const H = m.betHist || [], last = H[H.length - 1], ag = $('#btAgain');
-    ag.hidden = !last || !!m.bet; if (last) ag.innerHTML = `🔁 再来一次：${last.dir === 'up' ? '看涨' : '看跌'} ${meta(last.id).name} ${fmt(last.stake)}`;
+    ag.hidden = !last || !!m.bet; if (last) ag.innerHTML = `🔁 再次下单：${last.dir === 'up' ? '看涨' : '看跌'} ${meta(last.id).name} ${fmt(last.stake)}`;
     $('#betUp').disabled = $('#betDown').disabled = !!m.bet;
     if (onlyStake) return;
-    $('#finList').innerHTML = AS.map((s2) => { const y = mk(s2.id), h = y.hist, d10 = h.length > 5 ? (y.price / h[h.length - 6] - 1) * 100 : 0; return `<div class="fin-row ${v.sel === s2.id ? 'on' : ''}" data-finsel="${s2.id}"><div><b>${s2.name}</b><small>${s2.id} · 波动 ${(s2.vol * 100).toFixed(1)}%</small></div>${spark(h.slice(-20), 70, 26)}<div class="fr-px"><b>${px(y)}</b><small class="${d10 >= 0 ? 'up' : 'down'}">10 秒 ${d10 >= 0 ? '+' : ''}${d10.toFixed(2)}%</small></div></div>`; }).join('');
+    $('#finList').innerHTML = AS.map((s2) => { const y = mk(s2.id), h = y.hist, d10 = h.length > 5 ? (y.price / h[h.length - 6] - 1) * 100 : 0; return `<div class="fin-row ${v.sel === s2.id ? 'on' : ''}" data-finsel="${s2.id}"><div><b>${s2.name}</b><small>${s2.id} · 波动率 ${(s2.vol * 100).toFixed(1)}%</small></div>${spark(h.slice(-20), 70, 26)}<div class="fr-px"><b>${px(y)}</b><small class="${d10 >= 0 ? 'up' : 'down'}">10 秒 ${d10 >= 0 ? '+' : ''}${d10.toFixed(2)}%</small></div></div>`; }).join('');
     const h = x.hist, d10 = h.length > 5 ? (x.price / h[h.length - 6] - 1) * 100 : 0, d30 = h.length > 15 ? (x.price / h[h.length - 16] - 1) * 100 : 0;
     const last20 = h.slice(-21), ups = last20.slice(1).filter((p2, i) => p2 > last20[i]).length, dns = last20.length - 1 - ups;
     $('#btQ').innerHTML = `<div><b>${a.name}</b><small>${a.id}</small></div><div class="bt-px ${d10 >= 0 ? 'up' : 'down'}"><b>${px(x)}</b><span>近 10 秒 ${d10 >= 0 ? '+' : ''}${d10.toFixed(2)}% · 近 30 秒 ${d30 >= 0 ? '+' : ''}${d30.toFixed(2)}%</span></div>`;
     $('#fdChart').innerHTML = spark(h.slice(-30), 300, 92, true);
-    $('#btMom').innerHTML = `<span>近 20 次报价</span><div class="bt-bar"><i class="up" style="width:${(ups / Math.max(1, ups + dns)) * 100}%"></i><i class="down" style="width:${(dns / Math.max(1, ups + dns)) * 100}%"></i></div><span><b class="up">涨 ${ups}</b> / <b class="down">跌 ${dns}</b></span><small>行情是随机的，以上只供参考</small>`;
+    $('#btMom').innerHTML = `<span>近 20 次报价</span><div class="bt-bar"><i class="up" style="width:${(ups / Math.max(1, ups + dns)) * 100}%"></i><i class="down" style="width:${(dns / Math.max(1, ups + dns)) * 100}%"></i></div><span><b class="up">涨 ${ups}</b> / <b class="down">跌 ${dns}</b></span><small>行情随机生成，以上数据仅供参考</small>`;
     // 进行中的竞猜
     const b = m.bet, lv = $('#btLive');
     if (b) { const left = Math.max(0, (b.endAt - Date.now() - skew) / 1000), y = mk(b.id), now = y ? y.price : b.start, dd = now - b.start, ahead = b.dir === 'up' ? dd > 0 : dd < 0, C = 2 * Math.PI * 15;
@@ -139,14 +139,14 @@
     // 战绩
     const n = H.length, w = H.filter((r) => r.win).length, pnl = H.reduce((s3, r) => s3 + r.pnl, 0);
     let streak = 0; for (let i = n - 1; i >= 0 && H[i].win === (H[n - 1] || {}).win; i--) streak++;
-    $('#btRec').innerHTML = n ? `<div class="bt-rh"><b>我的战绩</b><span>${n} 次 · 命中率 ${Math.round((w / n) * 100)}% · 净盈亏 <b class="${pnl >= 0 ? 'up' : 'down'}">${pnl >= 0 ? '+' : '−'}${fmt(Math.abs(pnl))}</b>${n >= 2 ? ` · ${H[n - 1].win ? '🔥 连胜' : '🧊 连败'} ${streak}` : ''}</span></div><div class="bt-chips">${H.slice(-14).reverse().map((r) => `<span class="${r.win ? 'w' : 'l'}" title="${meta(r.id).name} ${fmt(r.stake)}">${r.dir === 'up' ? '▲' : '▼'} ${r.win ? '+' : '−'}${fmt(Math.abs(r.pnl))}</span>`).join('')}</div>`
-      : '<div class="bt-rh"><b>我的战绩</b><span>还没有竞猜记录</span></div>';
+    $('#btRec').innerHTML = n ? `<div class="bt-rh"><b>我的竞猜记录</b><span>${n} 次 · 命中率 ${Math.round((w / n) * 100)}% · 净盈亏 <b class="${pnl >= 0 ? 'up' : 'down'}">${pnl >= 0 ? '+' : '−'}${fmt(Math.abs(pnl))}</b>${n >= 2 ? ` · ${H[n - 1].win ? '🔥 连胜' : '🧊 连败'} ${streak}` : ''}</span></div><div class="bt-chips">${H.slice(-14).reverse().map((r) => `<span class="${r.win ? 'w' : 'l'}" title="${meta(r.id).name} ${fmt(r.stake)}">${r.dir === 'up' ? '▲' : '▼'} ${r.win ? '+' : '−'}${fmt(Math.abs(r.pnl))}</span>`).join('')}</div>`
+      : '<div class="bt-rh"><b>我的竞猜记录</b><span>暂无竞猜记录</span></div>';
     $('#finFoot').innerHTML = `💰 现金 <b>${fmt(m.money)}</b>　🎯 本局竞猜净盈亏 <b class="${pnl >= 0 ? 'up' : 'down'}">${pnl >= 0 ? '+' : '−'}${fmt(Math.abs(pnl))}</b>　🧾 总资产 <b>${fmt(m.worth)}</b>`;
   }
 
   // ---------------- 🏦 银行贷款（好用版） ----------------
   function loanShell(v, box) {
-    box.innerHTML = `<div class="mk-head"><div class="fin-title"><i class="fin-ico loan">🏦</i><div><h3>银行贷款</h3><div class="muted">即时到账 · 每分钟复利 3% · 额度为总资产的一半</div></div></div></div>
+    box.innerHTML = `<div class="mk-head"><div class="fin-title"><i class="fin-ico loan">🏦</i><div><h3>银行贷款</h3><div class="muted">即时到账 · 每分钟复利 3% · 额度为总资产的 50%</div></div></div></div>
       ${guideHTML('loan')}
       <div class="ln-body"><div class="ln-left"><div class="ln-card" id="lnCard"></div><div class="ln-need" id="lnNeed"></div><div class="ln-proj" id="lnProj"></div></div>
         <div class="ln-right">
@@ -162,42 +162,42 @@
     body.addEventListener('click', (e) => {
       const sd = e.target.closest('[data-lnside]'); if (sd) { v.side = sd.dataset.lnside; inp.value = ''; return loanUpdate(v, me()); }
       const q = e.target.closest('[data-lnq]'); if (q) { inp.value = q.dataset.lnq; return loanUpdate(v, me(), true); }
-      const nd = e.target.closest('[data-lnneed]'); if (nd) return act('borrow', { amount: +nd.dataset.lnneed }, (r) => r.ok && (Snd.plus(), toast('已贷款补足差额，可以去付款了')));
+      const nd = e.target.closest('[data-lnneed]'); if (nd) return act('borrow', { amount: +nd.dataset.lnneed }, (r) => r.ok && (Snd.plus(), toast('贷款已到账，差额已补足，请完成支付')));
       const ak = e.target.closest('[data-lnkeep]'); if (ak) { $('#lnKeep').value = ak.dataset.lnkeep; return; }
       if (e.target.closest('#lnAutoGo')) { const on = !(me().autoRepay && me().autoRepay.on), keep = Math.round((+($('#lnKeep') || {}).value || 0) * 1000); return act('autoRepay', { on, keep }, (r) => r.ok && toast(on ? `已开启自动还款：现金超过 ${fmt(keep)} 的部分自动还贷` : '已关闭自动还款')); }
     });
-    $('#lnGo').onclick = () => { const k = amt('loanAmt'); if (!k) { toast('请先输入金额'); inp.focus(); return; } act(v.side === 'borrow' ? 'borrow' : 'repay', { amount: k }, (r) => { if (r.ok) { Snd.beep(); toast(v.side === 'borrow' ? `已借入 ${fmt(k)}` : '还款成功'); inp.value = ''; } }); };
+    $('#lnGo').onclick = () => { const k = amt('loanAmt'); if (!k) { toast('请输入金额'); inp.focus(); return; } act(v.side === 'borrow' ? 'borrow' : 'repay', { amount: k }, (r) => { if (r.ok) { Snd.beep(); toast(v.side === 'borrow' ? `已借入 ${fmt(k)}` : '还款成功'); inp.value = ''; } }); };
     loanUpdate(v, me());
   }
   function loanUpdate(v, m, onlyOp) {
     if (!m || !$('#lnCard')) return;
     const loan = Math.round(m.loan || 0), nw = m.worth, cap = Math.max(1, Math.round((nw + loan) * 0.5)), lim = Math.max(0, cap - loan), perMin = Math.round(loan * 0.03), cash = Math.max(0, m.money);
     document.querySelectorAll('[data-lnside]').forEach((b) => b.classList.toggle('on', b.dataset.lnside === v.side));
-    const k = amt('loanAmt'), q = v.side === 'borrow' ? [[0.25, '额度 1/4'], [0.5, '额度一半'], [1, '全部额度']].map(([f, n]) => [NICEK(lim * f), n]) : [[0.5, '还一半'], [1, '全部还清']].map(([f, n]) => [Math.min(cash, Math.ceil(loan * f)), n]).concat([[cash, '现金能还多少还多少']]);
+    const k = amt('loanAmt'), q = v.side === 'borrow' ? [[0.25, '额度 25%'], [0.5, '额度 50%'], [1, '全部额度']].map(([f, n]) => [NICEK(lim * f), n]) : [[0.5, '偿还 50%'], [1, '全部还清']].map(([f, n]) => [Math.min(cash, Math.ceil(loan * f)), n]).concat([[cash, '以全部现金偿还']]);
     $('#lnQuick').innerHTML = q.map(([val, n]) => `<button data-lnq="${Math.floor(val / 1000)}" ${val <= 0 ? 'disabled' : ''}>${n} ${fmt(Math.floor(val / 1000) * 1000)}</button>`).join('');
-    $('#lnEst').innerHTML = v.side === 'borrow' ? (k ? `借入后贷款 ${fmt(loan + k)}，每分钟利息约 <b class="down">${fmt(Math.round((loan + k) * 0.03))}</b>${k > lim ? ' · <b class="down">超出可贷额度</b>' : ''}` : `可再贷 <b>${fmt(lim)}</b>`) : (k ? `还款后剩余贷款 ${fmt(Math.max(0, loan - Math.min(k, cash)))}，每分钟少付利息约 ${fmt(Math.round(Math.min(k, cash, loan) * 0.03))}` : loan ? `当前贷款 ${fmt(loan)} · 现金 ${fmt(m.money)}` : '您目前没有贷款');
+    $('#lnEst').innerHTML = v.side === 'borrow' ? (k ? `借入后贷款余额 ${fmt(loan + k)}，每分钟利息约 <b class="down">${fmt(Math.round((loan + k) * 0.03))}</b>${k > lim ? ' · <b class="down">超出可借额度</b>' : ''}` : `可借额度 <b>${fmt(lim)}</b>`) : (k ? `还款后剩余贷款 ${fmt(Math.max(0, loan - Math.min(k, cash)))}，每分钟利息减少约 ${fmt(Math.round(Math.min(k, cash, loan) * 0.03))}` : loan ? `当前贷款 ${fmt(loan)} · 现金 ${fmt(m.money)}` : '您当前没有贷款');
     const go = $('#lnGo'); go.className = 'btn big wide ' + (v.side === 'borrow' ? 'ln-b' : 'ln-r'); go.textContent = v.side === 'borrow' ? '申请贷款' : '确认还款'; go.disabled = v.side === 'repay' && !loan;
     if (onlyOp) return;
-    const ratio = nw > 0 ? loan / (nw + loan) : loan ? 1 : 0, risk = ratio < 0.2 ? ['安全', 'ok'] : ratio < 0.4 ? ['注意', 'mid'] : ['危险', 'bad'];
+    const ratio = nw > 0 ? loan / (nw + loan) : loan ? 1 : 0, risk = ratio < 0.2 ? ['低风险', 'ok'] : ratio < 0.4 ? ['中风险', 'mid'] : ['高风险', 'bad'];
     $('#lnCard').innerHTML = `<div class="muted">当前贷款余额</div><div class="loan-big">${fmt(loan)}</div>
-      <div class="ln-bar"><i style="width:${Math.min(100, (loan / cap) * 100)}%"></i></div><div class="ln-cap">已用额度 ${fmt(loan)} / ${fmt(cap)} · 可再贷 <b>${fmt(lim)}</b></div>
+      <div class="ln-bar"><i style="width:${Math.min(100, (loan / cap) * 100)}%"></i></div><div class="ln-cap">已用额度 ${fmt(loan)} / ${fmt(cap)} · 可借额度 <b>${fmt(lim)}</b></div>
       <div class="ln-kv"><span>每分钟利息<b>${loan ? '+' + fmt(perMin) : '0'}</b></span><span>负债率<b class="r-${risk[1]}">${Math.round(ratio * 100)}% · ${risk[0]}</b></span></div>`;
     // 欠款时一键补足
     const pd = S.pending, owe = pd && pd.kind === 'pay' && pd.payer === myId ? pd.amount - m.money : m.money < 0 ? -m.money : 0;
-    $('#lnNeed').innerHTML = owe > 0 ? `<div class="ln-owe">⚠️ 您需要支付 <b>${fmt(pd && pd.payer === myId ? pd.amount : -m.money)}</b>，现金还差 <b>${fmt(owe)}</b>${owe <= lim ? `<button class="btn primary" data-lnneed="${NICEK(owe + 999)}">一键贷款补足 ${fmt(NICEK(owe + 999))}</button>` : `<small>差额超过可贷额度 ${fmt(lim)}，请先卖房、抵押或卖股票</small>`}</div>` : '';
+    $('#lnNeed').innerHTML = owe > 0 ? `<div class="ln-owe">⚠️ 您需支付 <b>${fmt(pd && pd.payer === myId ? pd.amount : -m.money)}</b>，现金尚缺 <b>${fmt(owe)}</b>${owe <= lim ? `<button class="btn primary" data-lnneed="${NICEK(owe + 999)}">贷款补足 ${fmt(NICEK(owe + 999))}</button>` : `<small>差额超过可借额度 ${fmt(lim)}，请先出售房屋、抵押地产或卖出股票</small>`}</div>` : '';
     // 不还的话会涨到多少
-    $('#lnProj').innerHTML = loan ? `<div class="fd-label">如果一直不还</div><table>${[5, 10, 20, 30].map((t) => { const f = loan * Math.pow(1.03, t); return `<tr><td>${t} 分钟后</td><td><b>${fmt(Math.round(f))}</b></td><td class="down">利息 +${fmt(Math.round(f - loan))}</td></tr>`; }).join('')}</table>` : `<div class="ln-tip">💡 贷款适合"马上就能回本"的用途：比如凑钱集齐同色组盖房，房屋每秒收益通常几分钟就能覆盖利息。不要借钱去竞猜。</div>`;
+    $('#lnProj').innerHTML = loan ? `<div class="fd-label">若不偿还</div><table>${[5, 10, 20, 30].map((t) => { const f = loan * Math.pow(1.03, t); return `<tr><td>${t} 分钟后</td><td><b>${fmt(Math.round(f))}</b></td><td class="down">利息 +${fmt(Math.round(f - loan))}</td></tr>`; }).join('')}</table>` : `<div class="ln-tip">💡 贷款适用于可快速收回成本的用途，例如集齐同色组并建造房屋，房屋每秒收益通常可在数分钟内覆盖利息。不建议借款参与竞猜。</div>`;
     // 自动还款
     const ar = m.autoRepay || {}, keepNow = ar.keep || NICEK(Math.max(100000, cash));
     const ka = $('#lnKeep'), keepVal = ka && document.activeElement === ka ? ka.value : keepNow / 1000;
     const la = $('#lnAuto'), lk = JSON.stringify([!!ar.on, ar.keep || 0, !!loan]);
     if (la._k !== lk) la._k = lk, la.innerHTML = `<div class="ln-ah"><b>🔁 自动还款</b><button class="sw ${ar.on ? 'on' : ''}" id="lnAutoGo" title="开 / 关"><i></i></button></div>
-      <div class="muted">现金超过保留额时，多出来的部分每秒自动拿去还贷，不用一直盯着利息</div>
+      <div class="muted">现金超过保留金额时，超出部分将每秒自动用于偿还贷款</div>
       <div class="ln-keep"><span>保留现金</span><div class="mk-price"><input id="lnKeep" type="number" min="0" step="1" value="${keepVal}"><span>M</span></div></div>
       <div class="mk-quick">${[100000, 300000, 1000000].map((x) => `<button data-lnkeep="${x / 1000}">${fmt(x)}</button>`).join('')}</div>
-      ${ar.on ? `<div class="ln-on">✅ 已开启：现金超过 ${fmt(ar.keep)} 的部分会自动还贷${loan ? '' : '（目前没有贷款）'}</div>` : ''}`;
+      ${ar.on ? `<div class="ln-on">✅ 已开启：现金超过 ${fmt(ar.keep)} 的部分将自动用于还款${loan ? '' : '（当前无贷款）'}</div>` : ''}`;
     const s4 = m.st || {};
-    $('#lnStat').innerHTML = `<span>本局累计借款<b>${fmt(s4.loanTaken || 0)}</b></span><span>已还<b>${fmt(s4.loanRepaid || 0)}</b></span><span>已付利息<b class="down">${fmt(Math.round(s4.interest || 0))}</b></span>`;
+    $('#lnStat').innerHTML = `<span>本局累计借款<b>${fmt(s4.loanTaken || 0)}</b></span><span>已偿还<b>${fmt(s4.loanRepaid || 0)}</b></span><span>已付利息<b class="down">${fmt(Math.round(s4.interest || 0))}</b></span>`;
     $('#finFoot').innerHTML = `💰 现金 <b>${fmt(m.money)}</b>　🏦 贷款 <b>${fmt(loan)}</b>　🧾 总资产 <b>${fmt(m.worth)}</b>（已扣除贷款）`;
   }
 
@@ -255,7 +255,7 @@
       const q = e.target.closest('[data-sxq]'); if (q) { amtIn.value = q.dataset.sxq; return stockUpdate(v, me(), true); }
     });
     $('#sxGo').onclick = () => {
-      const k = Math.round((+amtIn.value || 0) * 1000); if (!k) { toast('请先输入金额'); amtIn.focus(); return; }
+      const k = Math.round((+amtIn.value || 0) * 1000); if (!k) { toast('请输入金额'); amtIn.focus(); return; }
       act('trade', { id: v.sel, side: v.side, amount: k }, (r) => { if (r.ok) { Snd.beep(); toast(v.side === 'buy' ? `已买入 ${meta(v.sel).name} ${fmt(k)}` : `已卖出 ${meta(v.sel).name}`); amtIn.value = ''; } });
     };
     // 十字光标：显示鼠标所在那根 K 线的 开/高/低/收
@@ -281,7 +281,7 @@
     document.querySelectorAll('[data-sxside]').forEach((b) => b.classList.toggle('on', b.dataset.sxside === v.side));
     const base = v.side === 'buy' ? Math.max(0, m.money) : val;
     $('#sxQuick').innerHTML = [[0.25, '1/4'], [0.5, '1/2'], [1, v.side === 'buy' ? '全部现金' : '全部持仓']].map(([f, n]) => `<button data-sxq="${Math.floor((base * f) / 1000)}" ${base <= 0 ? 'disabled' : ''}>${n} ${fmt(Math.floor(base * f))}</button>`).join('');
-    $('#sxEst').innerHTML = k ? (v.side === 'buy' ? `约买入 ${((k * (1 - fee)) / x.price).toFixed(2)} 份 · 手续费 ${fmt(Math.round(k * fee))}${k > m.money ? ' · <b class="down">现金不足</b>' : ''}` : `约卖出 ${(Math.min(k, val) / x.price).toFixed(2)} 份 · 到账 ${fmt(Math.round(Math.min(k, val) * (1 - fee)))}${k > val ? ' · 超出部分按全部持仓卖出' : ''}`) : `可用现金 ${fmt(m.money)} · 持仓市值 ${fmt(Math.round(val))}`;
+    $('#sxEst').innerHTML = k ? (v.side === 'buy' ? `预计买入 ${((k * (1 - fee)) / x.price).toFixed(2)} 份 · 手续费 ${fmt(Math.round(k * fee))}${k > m.money ? ' · <b class="down">现金不足</b>' : ''}` : `预计卖出 ${(Math.min(k, val) / x.price).toFixed(2)} 份 · 到账 ${fmt(Math.round(Math.min(k, val) * (1 - fee)))}${k > val ? ' · 超出持仓部分将按全部持仓卖出' : ''}`) : `可用现金 ${fmt(m.money)} · 持仓市值 ${fmt(Math.round(val))}`;
     const go = $('#sxGo'); go.className = 'btn big wide ' + (v.side === 'buy' ? 'sx-buy' : 'sx-sell'); go.textContent = `${v.side === 'buy' ? '买入' : '卖出'} ${a.name}`;
     if (onlyOrder) return;
     // 指数
@@ -298,7 +298,7 @@
     // 持仓
     const real = (m.st && m.st.stockReal) || 0, tv = AS.reduce((s3, s2) => s3 + ((m.hold || {})[s2.id] || 0) * mk(s2.id).price, 0), tc = AS.reduce((s3, s2) => s3 + (((m.cost || {})[s2.id]) || 0), 0);
     $('#sxPos').innerHTML = hold ? `<div><small>持仓市值</small><b>${fmt(Math.round(val))}</b></div><div><small>持仓成本</small><b>${fmt(Math.round(cost))}</b></div><div><small>浮动盈亏</small><b class="${pl >= 0 ? 'up' : 'down'}">${pl >= 0 ? '+' : '−'}${fmt(Math.abs(Math.round(pl)))}</b></div><div><small>收益率</small><b class="${pl >= 0 ? 'up' : 'down'}">${sgn(cost ? (pl / cost) * 100 : 0)}%</b></div>`
-      : `<div class="sx-empty">还没有持有 ${a.name}。在下方输入金额买入，价格上涨后卖出即可赚取差价。</div>`;
+      : `<div class="sx-empty">您尚未持有 ${a.name}。可在下方输入金额买入，价格上涨后卖出即可获得差价收益。</div>`;
     $('#finFoot').innerHTML = `💰 现金 <b>${fmt(m.money)}</b>　📊 股票总市值 <b>${fmt(Math.round(tv))}</b>　📈 总浮动盈亏 <b class="${tv - tc >= 0 ? 'up' : 'down'}">${tv - tc >= 0 ? '+' : '−'}${fmt(Math.abs(Math.round(tv - tc)))}</b>　✅ 已实现盈亏 <b class="${real >= 0 ? 'up' : 'down'}">${real >= 0 ? '+' : '−'}${fmt(Math.abs(Math.round(real)))}</b>`;
   }
 
@@ -313,7 +313,7 @@
     el.className = 'show ' + (b.dir === 'up' ? 'long' : 'short');
     el.innerHTML = `<svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" class="bg"/><circle cx="18" cy="18" r="15" class="fg" style="stroke-dasharray:${C};stroke-dashoffset:${off}"/></svg><span class="bp-s">${Math.ceil(left)}</span>
       <div class="bp-t"><b>${b.dir === 'up' ? '看涨 · 做多' : '看跌 · 做空'}</b><small>${meta(b.id).name} · 本金 ${fmt(b.stake)}</small></div>
-      <div class="bp-px"><b class="${d >= 0 ? 'up' : 'down'}">${px({ price: now })}</b><small class="${ahead ? 'ok' : d === 0 ? '' : 'no'}">${d === 0 ? '持平' : ahead ? '暂时领先' : '暂时落后'}</small></div>`;
+      <div class="bp-px"><b class="${d >= 0 ? 'up' : 'down'}">${px({ price: now })}</b><small class="${ahead ? 'ok' : d === 0 ? '' : 'no'}">${d === 0 ? '持平' : ahead ? '当前盈利' : '当前亏损'}</small></div>`;
   }, 500);
 
   window.showBetResult = (f) => {
@@ -333,16 +333,16 @@
     o.innerHTML = `${win ? '<div class="br-rays"></div>' : ''}<div class="br-card">
       <div class="br-badge"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="34" class="br-c"/>${win ? '<path d="M24 41l11 11 22-24" class="br-m"/>' : '<path d="M28 28l24 24M52 28L28 52" class="br-m"/>'}</svg></div>
       <div class="br-kick">涨跌竞猜 · 10 秒结算报告</div>
-      <h2>${win ? '恭喜 · 预测命中' : '很遗憾 · 预测未中'}</h2>
+      <h2>${win ? '恭喜 · 预测命中' : '很遗憾 · 预测未命中'}</h2>
       <div class="br-sub">${sub}</div>
       <div class="br-chart">${chart}</div>
       <div class="br-grid">
         <div><small>标的</small><b>${a.name}</b></div><div><small>方向</small><b>${long ? '看涨 · 做多' : '看跌 · 做空'}</b></div>
         <div><small>开仓价</small><b>${px({ price: f.start })}</b></div><div><small>结算价</small><b class="${f.end >= f.start ? 'up' : 'down'}">${px({ price: f.end })}</b></div>
-        <div><small>区间涨跌幅</small><b class="${pct >= 0 ? 'up' : 'down'}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</b></div><div><small>押注本金</small><b>${fmt(f.stake)}</b></div>
+        <div><small>区间涨跌幅</small><b class="${pct >= 0 ? 'up' : 'down'}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</b></div><div><small>投注本金</small><b>${fmt(f.stake)}</b></div>
       </div>
       <div class="br-pnl"><small>本笔盈亏</small><b id="brPnl">${pnl > 0 ? '+' : '−'}${fmt(0)}</b><span>${win ? `收益率 +90% · 结算入账 ${fmt(f.payout)}（本金 ${fmt(f.stake)} + 收益 ${fmt(pnl)}）` : '收益率 −100% · 本金已全部亏损'}</span></div>
-      <div class="br-foot">${win ? '资金已实时划入您的现金账户' : '市场有风险，投资需谨慎'}　·　点击任意处关闭</div></div>`;
+      <div class="br-foot">${win ? '资金已实时划入您的现金账户' : '市场有风险，投资需谨慎'}　·　点按任意位置关闭</div></div>`;
     document.body.appendChild(o);
     const close = () => { if (!o.isConnected) return; o.classList.add('out'); setTimeout(() => o.remove(), 350); };
     o.onclick = close; setTimeout(close, 5200);
@@ -367,16 +367,16 @@
     if (kind === 'players') return `<h3>👥 玩家详情</h3><div class="xp-table">${S.players.map((p) => {
       const props = Object.keys(S.props).filter((k) => S.props[k].owner === p.id), houses = props.reduce((n, k) => n + S.props[k].houses, 0), t = S.tasks[p.id];
       return `<div class="xp-row ${p.won ? 'won' : p.bankrupt ? 'dead' : ''}">${avatar(p)}<div class="xp-who"><b>${esc(p.name)}</b>${p.host ? ' <span class="badge">房主</span>' : ''}${p.won ? ' <span class="badge crown">👑 成为富翁</span>' : p.bankrupt ? ' <span class="badge jail">破产</span>' : ''}${!p.connected ? ' <span class="badge off">离线</span>' : ''}<small>${t ? (t.done ? '✅ ' : '🎯 ') + t.text : ''}</small></div>
-        <div class="xp-nums"><span>现金<b>${fmt(p.money)}</b></span><span>总资产<b>${fmt(p.won ? p.wonWorth : p.worth)}</b></span><span>地产<b>${props.length} 块 · ${houses} 栋</b></span><span>金融<b>${fmt(p.hv || 0)}</b></span><span>贷款<b>${fmt(Math.round(p.loan || 0))}</b></span>${p.w ? `<span>钱包<b>💳${fmt(p.w.card)} 📱${fmt(p.w.phone)} 💵${fmt(p.w.cash)}</b></span>` : ''}</div>
+        <div class="xp-nums"><span>现金<b>${fmt(p.money)}</b></span><span>总资产<b>${fmt(p.won ? p.wonWorth : p.worth)}</b></span><span>地产<b>${props.length} 块 · ${houses} 栋</b></span><span>股票<b>${fmt(p.hv || 0)}</b></span><span>贷款<b>${fmt(Math.round(p.loan || 0))}</b></span>${p.w ? `<span>钱包<b>💳${fmt(p.w.card)} 📱${fmt(p.w.phone)} 💵${fmt(p.w.cash)}</b></span>` : ''}</div>
         ${p.id !== myId && !p.bankrupt ? `<div class="xp-ops"><button class="btn sm" data-xpsend="${p.id}">💬 互动</button>${m && m.host ? `<button class="btn sm danger" data-kick="${p.id}">移出</button>` : ''}</div>` : ''}</div>`;
     }).join('')}</div>`;
     if (kind === 'assets') {
       const list = Object.keys(S.props).map(Number).filter((i) => S.props[i].owner === myId);
-      return `<h3>🏠 我的地产</h3><div class="xp-table">${list.map((i) => { const sq = BOARD[i], st = S.props[i]; return `<div class="xp-row" data-deed="${i}" style="cursor:pointer"><i class="xp-dot" style="background:${sqColor(i)}"></i><div class="xp-who"><b>${sq.name}</b><small>${sq.en || ''}${st.mortgaged ? ' · 已抵押' : ''}</small></div><div class="xp-nums"><span>现价<b>${fmt(priceOf(i))}</b></span><span>房屋<b>${st.houses === 5 ? '酒店' : st.houses + ' 栋'}</b></span>${sq.type === 'prop' ? `<span>每秒收益<b>+${fmt(Math.round(incomePerSec(i, st.houses) * INF()))}</b></span>` : ''}</div></div>`; }).join('') || '<div class="mk-empty">暂无地产</div>'}</div>`;
+      return `<h3>🏠 持有地产</h3><div class="xp-table">${list.map((i) => { const sq = BOARD[i], st = S.props[i]; return `<div class="xp-row" data-deed="${i}" style="cursor:pointer"><i class="xp-dot" style="background:${sqColor(i)}"></i><div class="xp-who"><b>${sq.name}</b><small>${sq.en || ''}${st.mortgaged ? ' · 已抵押' : ''}</small></div><div class="xp-nums"><span>现价<b>${fmt(priceOf(i))}</b></span><span>房屋<b>${st.houses === 5 ? '酒店' : st.houses + ' 栋'}</b></span>${sq.type === 'prop' ? `<span>每秒收益<b>+${fmt(Math.round(incomePerSec(i, st.houses) * INF()))}</b></span>` : ''}</div></div>`; }).join('') || '<div class="mk-empty">暂无地产</div>'}</div>`;
     }
     if (kind === 'log') return `<h3>🧾 对局记录</h3><div class="xp-log">${S.log.slice().reverse().map((l) => `<div><small>${new Date(l.t).toLocaleTimeString('zh-CN', { hour12: false })}</small>${esc(l.msg)}</div>`).join('')}</div>`;
-    return `<h3>⏱ 对局信息</h3><div class="xp-info"><div>已进行 <b>${$('#elapsed').textContent}</b></div><div>通胀阶段 <b>第 ${S.stage + 1} 阶段</b></div><div>地价 / 房价指数 <b>×${Math.round((S.pinfl || 1) * 100) / 100}（每分钟 +1%）</b></div><div>租金 / 工资 / 收益 <b>×${Math.round(S.infl * 100) / 100}</b></div><div>建材紧缺系数 <b>×${Math.round((S.scarcity || 1) * 100) / 100}</b></div><div>当前地产税率 <b>${Math.round((S.taxRate || 0.04) * 1000) / 10}%（经过起点时缴纳）</b></div><div>首富目标 <b>总资产 ${fmt(RULES.winCash)}</b></div><div>已胜出 <b>${S.rich.length} 人</b></div><div>银行剩余 <b>${S.housesLeft} 栋房屋 · ${S.hotelsLeft} 座酒店</b></div></div>
-      <div class="muted" style="line-height:1.8;margin-top:10px">· 每 10 分钟通胀一次：地价、房价 ×1.7；租金、工资、卡牌奖惩 ×1.5；地价、房价每分钟另外上涨 1%<br>· 同一块地越往上盖越贵（第 2 栋 ×1.3、第 3 栋 ×1.7、第 4 栋 ×2.2、酒店 ×3），全场盖的房越多，建材越紧缺（最高再 ×2）<br>· 经过起点 / 环球中心：领取工资，同时按地产现值缴纳地产税（第 1 阶段 4%，每次通胀 +1.5%，最高 16%）<br>· 抵达前也可在地产交易所以 3 倍价格远程购买银行持有的地产</div>`;
+    return `<h3>⏱ 对局信息</h3><div class="xp-info"><div>已用时 <b>${$('#elapsed').textContent}</b></div><div>通胀阶段 <b>第 ${S.stage + 1} 阶段</b></div><div>地价 / 房价指数 <b>×${Math.round((S.pinfl || 1) * 100) / 100}（每分钟 +1%）</b></div><div>租金 / 工资 / 收益 <b>×${Math.round(S.infl * 100) / 100}</b></div><div>建材紧缺系数 <b>×${Math.round((S.scarcity || 1) * 100) / 100}</b></div><div>当前地产税率 <b>${Math.round((S.taxRate || 0.04) * 1000) / 10}%（经过起点时缴纳）</b></div><div>首富目标 <b>总资产 ${fmt(RULES.winCash)}</b></div><div>已胜出 <b>${S.rich.length} 人</b></div><div>银行剩余 <b>${S.housesLeft} 栋房屋 · ${S.hotelsLeft} 座酒店</b></div></div>
+      <div class="muted" style="line-height:1.8;margin-top:10px">· 每 10 分钟发生一次通货膨胀：地价、房价 ×1.7；租金、工资、卡牌奖惩 ×1.5；此外地价、房价每分钟上涨 1%<br>· 同一地产的建造成本逐级递增（第 2 栋 ×1.3、第 3 栋 ×1.7、第 4 栋 ×2.2、酒店 ×3）；全场房屋总数越多，建材越紧缺（最高额外 ×2）<br>· 经过起点 / 环球中心：领取工资，同时按地产现值缴纳地产税（第 1 阶段 4%，每次通胀 +1.5%，最高 16%）<br>· 亦可在地产交易所以 3 倍价格远程购买银行持有的地产</div>`;
   }
   let expandKind = '';
   function openExpand(kind, from) {
@@ -394,47 +394,47 @@
   const pn = (id) => { const p = pById(id); return p ? esc(p.name) : '?'; };
   function tips(x) {
     const s = x.st || {}, out = [];
-    if (x.won) out.push(`✅ 第 ${hms(x.wonAt)} 达成 ${fmt(S.recap.goal)} 目标，以第 ${x.won} 名胜出`);
-    if (x.out) out.push(`❌ 第 ${hms(x.outAt)} 出局：${esc(x.outWhy || '')}`);
-    if ((s.rentOut || 0) > (s.rentIn || 0) * 2 && s.rentOut > 0) out.push(`⚠️ 交出的租金（${fmt(s.rentOut)}）是收到的 ${s.rentIn ? (s.rentOut / s.rentIn).toFixed(1) + ' 倍' : '很多倍'}，下次优先集齐同色组并建房`);
-    if (!s.builds) out.push('⚠️ 整局没有建房：房屋的每秒收益是后期最主要的收入来源');
-    else if ((s.houseIncome || 0) > (s.buildSpent || 0)) out.push(`👍 建房投入 ${fmt(s.buildSpent)}，靠每秒收益赚回 ${fmt(s.houseIncome)}，已经回本`);
-    if ((s.interest || 0) > 0) out.push(`⚠️ 贷款利息共支付约 ${fmt(s.interest)}，有闲钱时尽早还贷`);
-    if (x.bet < 0) out.push(`⚠️ 涨跌竞猜净亏 ${fmt(-x.bet)}（${s.bets || 0} 次，命中 ${s.betWins || 0} 次）`);
-    else if (x.bet > 0) out.push(`👍 涨跌竞猜净赚 ${fmt(x.bet)}（${s.bets || 0} 次，命中 ${s.betWins || 0} 次）`);
-    if (x.stock < 0) out.push(`⚠️ 股票净亏 ${fmt(-x.stock)}`); else if (x.stock > 0) out.push(`👍 股票净赚 ${fmt(x.stock)}`);
-    if ((s.tax || 0) > (s.salary || 0) && s.tax > 0) out.push(`⚠️ 交税 ${fmt(s.tax)} 超过领到的工资 ${fmt(s.salary || 0)}，后期地产税很重，注意现金储备`);
-    if ((s.jail || 0) >= 3) out.push(`⚠️ 入狱 ${s.jail} 次，耽误了不少回合`);
-    if (!out.length) out.push('👍 表现平稳，没有明显失误');
+    if (x.won) out.push(`✅ 于 ${hms(x.wonAt)} 达成 ${fmt(S.recap.goal)} 目标，以第 ${x.won} 名胜出`);
+    if (x.out) out.push(`❌ 于 ${hms(x.outAt)} 出局：${esc(x.outWhy || '')}`);
+    if ((s.rentOut || 0) > (s.rentIn || 0) * 2 && s.rentOut > 0) out.push(`⚠️ 租金支出（${fmt(s.rentOut)}）为租金收入的 ${s.rentIn ? (s.rentOut / s.rentIn).toFixed(1) + ' 倍' : '数倍'}，建议优先集齐同色组并建造房屋`);
+    if (!s.builds) out.push('⚠️ 本局未建造房屋：房屋每秒收益是中后期最主要的收入来源');
+    else if ((s.houseIncome || 0) > (s.buildSpent || 0)) out.push(`👍 建房投入 ${fmt(s.buildSpent)}，每秒收益累计 ${fmt(s.houseIncome)}，已收回成本`);
+    if ((s.interest || 0) > 0) out.push(`⚠️ 累计支付贷款利息约 ${fmt(s.interest)}，建议在现金充裕时尽早还款`);
+    if (x.bet < 0) out.push(`⚠️ 涨跌竞猜净亏损 ${fmt(-x.bet)}（${s.bets || 0} 次，命中 ${s.betWins || 0} 次）`);
+    else if (x.bet > 0) out.push(`👍 涨跌竞猜净收益 ${fmt(x.bet)}（${s.bets || 0} 次，命中 ${s.betWins || 0} 次）`);
+    if (x.stock < 0) out.push(`⚠️ 股票净亏损 ${fmt(-x.stock)}`); else if (x.stock > 0) out.push(`👍 股票净收益 ${fmt(x.stock)}`);
+    if ((s.tax || 0) > (s.salary || 0) && s.tax > 0) out.push(`⚠️ 税费支出 ${fmt(s.tax)} 超过工资收入 ${fmt(s.salary || 0)}，中后期地产税负担较重，请注意现金储备`);
+    if ((s.jail || 0) >= 3) out.push(`⚠️ 入狱 ${s.jail} 次，损失了较多行动回合`);
+    if (!out.length) out.push('👍 表现稳健，未发现明显失误');
     return out;
   }
   function recapHTML() {
     const R = S.recap; if (!R) return '<div class="mk-empty">暂无复盘数据</div>';
-    const head = `<div class="rc-head"><div><h3>📋 对局复盘清单</h3><div class="muted">时长 ${hms(R.dur)} · ${R.players.length} 位玩家 · 共 ${R.rounds} 个回合 · 通胀到第 ${R.stage + 1} 阶段 · ${esc(R.why || '')}</div></div><button class="btn sm" id="rcCopy">📄 复制文字版</button></div>`;
-    const rank = `<div class="rc-sec"><h4>🏆 最终名次</h4><div class="rc-rank">${R.players.map((x) => `<div class="rc-r ${x.won ? 'won' : x.out ? 'out' : ''}"><b>${x.rank}</b>${avatar(x)}<span class="nm">${esc(x.name)}</span><span>${x.won ? `👑 ${hms(x.wonAt)} 达成目标` : x.out ? `💥 ${hms(x.outAt)} 出局` : '坚持到最后'}</span><span>${x.won ? '达成时' : x.out ? '出局' : '结束时'} <b>${x.out ? '0' : fmt(x.worth)}</b></span><span class="muted">最高 ${fmt(x.peak[0])}（${hms(x.peak[1])}）</span></div>`).join('')}</div></div>`;
+    const head = `<div class="rc-head"><div><h3>📋 对局复盘</h3><div class="muted">时长 ${hms(R.dur)} · ${R.players.length} 位玩家 · 共 ${R.rounds} 个回合 · 通胀到第 ${R.stage + 1} 阶段 · ${esc(R.why || '')}</div></div><button class="btn sm" id="rcCopy">📄 复制文本</button></div>`;
+    const rank = `<div class="rc-sec"><h4>🏆 最终名次</h4><div class="rc-rank">${R.players.map((x) => `<div class="rc-r ${x.won ? 'won' : x.out ? 'out' : ''}"><b>${x.rank}</b>${avatar(x)}<span class="nm">${esc(x.name)}</span><span>${x.won ? `👑 ${hms(x.wonAt)} 达成目标` : x.out ? `💥 ${hms(x.outAt)} 出局` : '坚持至终局'}</span><span>${x.won ? '达成时' : x.out ? '出局' : '结束时'} <b>${x.out ? '0' : fmt(x.worth)}</b></span><span class="muted">最高 ${fmt(x.peak[0])}（${hms(x.peak[1])}）</span></div>`).join('')}</div></div>`;
     const chart = window.worthChart ? `<div class="rc-sec"><h4>📊 总资产走势</h4><div class="wc-wrap">${worthChart(R.players.map((x) => ({ name: x.name, color: x.color, wh: x.wh || [] })))}</div></div>` : '';
     const aw = R.awards.length ? `<div class="rc-sec"><h4>🏅 本局奖项</h4><div class="rc-aw">${R.awards.map((a) => `<div class="${a.good ? '' : 'bad'}"><b>${a.title}</b><span>${pn(a.pid)}</span><small>${/^(块地|次)/.test(a.unit) ? a.v + ' ' + a.unit : a.unit + ' ' + fmt(Math.round(a.v))}</small></div>`).join('')}</div></div>` : '';
-    const cards = `<div class="rc-sec"><h4>🧾 每位玩家的清单</h4><div class="rc-cards">${R.players.map((x) => { const s = x.st || {}; return `<div class="rc-card" style="--pc:${x.color}"><div class="rc-ch">${avatar(x)}<b>${esc(x.name)}</b><span>第 ${x.rank} 名</span></div>
+    const cards = `<div class="rc-sec"><h4>🧾 玩家明细</h4><div class="rc-cards">${R.players.map((x) => { const s = x.st || {}; return `<div class="rc-card" style="--pc:${x.color}"><div class="rc-ch">${avatar(x)}<b>${esc(x.name)}</b><span>第 ${x.rank} 名</span></div>
       <ul>
-        <li><i>🗺 地产</i>买地 ${s.buys || 0} 块、拍得 ${s.auctionsWon || 0} 块，共花 ${fmt(s.landSpent || 0)}；建房 ${s.builds || 0} 次，花 ${fmt(s.buildSpent || 0)}${s.hotels ? `（酒店 ${s.hotels} 座）` : ''}</li>
+        <li><i>🗺 地产</i>购地 ${s.buys || 0} 块、拍得 ${s.auctionsWon || 0} 块，共支出 ${fmt(s.landSpent || 0)}；建房 ${s.builds || 0} 次，支出 ${fmt(s.buildSpent || 0)}${s.hotels ? `（酒店 ${s.hotels} 座）` : ''}</li>
         <li><i>💰 收入</i>工资 ${fmt(s.salary || 0)} · 租金 ${fmt(s.rentIn || 0)}（${s.rentN || 0} 次）· 房屋每秒收益 ${fmt(s.houseIncome || 0)}${s.bonus ? ' · 分红 ' + fmt(s.bonus) : ''}${s.taskReward ? ' · 任务 ' + fmt(s.taskReward) : ''}</li>
         <li><i>💸 支出</i>租金 ${fmt(s.rentOut || 0)} · 税 ${fmt(s.tax || 0)}${s.jailFine ? ' · 保释金 ' + fmt(s.jailFine) : ''}${s.interest ? ' · 贷款利息 ' + fmt(s.interest) : ''}</li>
         <li><i>📈 金融</i>股票 ${sg(x.stock)} · 竞猜 ${s.bets || 0} 次命中 ${s.betWins || 0} 次 ${sg(x.bet)}${s.loanTaken ? ` · 贷款 ${fmt(s.loanTaken)}` : ''}</li>
-        <li><i>🍀 运气</i>机会/命运/转盘 ${s.cards || 0} 张，净 ${sg(s.luck || 0)} · 双数 ${s.doubles || 0} 次 · 入狱 ${s.jail || 0} 次 · 经过起点 ${s.laps || 0} 次</li>
+        <li><i>🍀 运气</i>机会/命运/转盘 ${s.cards || 0} 张，净 ${sg(s.luck || 0)} · 相同点数 ${s.doubles || 0} 次 · 入狱 ${s.jail || 0} 次 · 经过起点 ${s.laps || 0} 次</li>
         ${s.maxIn ? `<li><i>⬆️ 最大进账</i>${fmt(s.maxIn[0])}（${esc(s.maxIn[1])}）</li>` : ''}${s.maxOut ? `<li><i>⬇️ 最大支出</i>${fmt(s.maxOut[0])}（${esc(s.maxOut[1])}）</li>` : ''}
       </ul><div class="rc-tips">${tips(x).map((t) => `<div>${t}</div>`).join('')}</div></div>`; }).join('')}</div></div>`;
-    const rents = R.rents.length ? `<div class="rc-sec"><h4>🔥 本局最贵的租金</h4><ol class="rc-list">${R.rents.map((r) => `<li>${hms(r.t)}　${pn(r.from)} → ${pn(r.to)}　<b>${fmt(r.amt)}</b>（${esc(r.city)}）</li>`).join('')}</ol></div>` : '';
+    const rents = R.rents.length ? `<div class="rc-sec"><h4>🔥 本局最高租金</h4><ol class="rc-list">${R.rents.map((r) => `<li>${hms(r.t)}　${pn(r.from)} → ${pn(r.to)}　<b>${fmt(r.amt)}</b>（${esc(r.city)}）</li>`).join('')}</ol></div>` : '';
     const tl = `<div class="rc-sec"><h4>🕒 关键时刻</h4><div class="rc-tl">${R.moments.map((m) => `<div><small>${hms(m.t)}</small><span>${esc(m.text)}</span></div>`).join('')}</div></div>`;
     return head + `<div class="rc-body">${rank}${chart}${aw}${cards}${rents}${tl}</div><div class="act-row"><button class="btn wide" data-close>关闭</button></div>`;
   }
   function recapText() {
     const R = S.recap; if (!R) return '';
-    const L = [`【大富翁 · 世界银行】对局复盘清单`, `时长 ${hms(R.dur)}｜${R.players.length} 位玩家｜${R.rounds} 个回合｜通胀第 ${R.stage + 1} 阶段｜${R.why || ''}`, '', '一、最终名次'];
+    const L = [`【大富翁 · 世界银行】对局复盘`, `时长 ${hms(R.dur)}｜${R.players.length} 位玩家｜${R.rounds} 个回合｜通胀第 ${R.stage + 1} 阶段｜${R.why || ''}`, '', '一、最终名次'];
     R.players.forEach((x) => L.push(`${x.rank}. ${x.name}　${x.won ? `👑 ${hms(x.wonAt)} 达成目标（${fmt(x.worth)}）` : x.out ? `💥 ${hms(x.outAt)} 出局（${x.outWhy || ''}）` : `结束时总资产 ${fmt(x.worth)}`}　最高 ${fmt(x.peak[0])}`));
     if (R.awards.length) { L.push('', '二、本局奖项'); R.awards.forEach((a) => L.push(`${a.title}：${(pById(a.pid) || {}).name || '?'}（${/^(块地|次)/.test(a.unit) ? a.v + ' ' + a.unit : a.unit + ' ' + fmt(Math.round(a.v))}）`)); }
-    L.push('', '三、每位玩家');
-    R.players.forEach((x) => { const s = x.st || {}; L.push(`■ ${x.name}（第 ${x.rank} 名）`, `  地产：买地 ${s.buys || 0}、拍得 ${s.auctionsWon || 0}，花 ${fmt(s.landSpent || 0)}；建房 ${s.builds || 0} 次，花 ${fmt(s.buildSpent || 0)}`, `  收入：工资 ${fmt(s.salary || 0)}，租金 ${fmt(s.rentIn || 0)}，房屋收益 ${fmt(s.houseIncome || 0)}`, `  支出：租金 ${fmt(s.rentOut || 0)}，税 ${fmt(s.tax || 0)}，利息 ${fmt(s.interest || 0)}`, `  金融：股票 ${sg(x.stock)}，竞猜 ${sg(x.bet)}`); tips(x).forEach((t) => L.push('  ' + t)); });
-    if (R.rents.length) { L.push('', '四、最贵的租金'); R.rents.forEach((r, i) => L.push(`${i + 1}. ${hms(r.t)} ${(pById(r.from) || {}).name} → ${(pById(r.to) || {}).name} ${fmt(r.amt)}（${r.city}）`)); }
+    L.push('', '三、玩家明细');
+    R.players.forEach((x) => { const s = x.st || {}; L.push(`■ ${x.name}（第 ${x.rank} 名）`, `  地产：购地 ${s.buys || 0}、拍得 ${s.auctionsWon || 0}，支出 ${fmt(s.landSpent || 0)}；建房 ${s.builds || 0} 次，支出 ${fmt(s.buildSpent || 0)}`, `  收入：工资 ${fmt(s.salary || 0)}，租金 ${fmt(s.rentIn || 0)}，房屋收益 ${fmt(s.houseIncome || 0)}`, `  支出：租金 ${fmt(s.rentOut || 0)}，税 ${fmt(s.tax || 0)}，利息 ${fmt(s.interest || 0)}`, `  金融：股票 ${sg(x.stock)}，竞猜 ${sg(x.bet)}`); tips(x).forEach((t) => L.push('  ' + t)); });
+    if (R.rents.length) { L.push('', '四、最高租金'); R.rents.forEach((r, i) => L.push(`${i + 1}. ${hms(r.t)} ${(pById(r.from) || {}).name} → ${(pById(r.to) || {}).name} ${fmt(r.amt)}（${r.city}）`)); }
     L.push('', '五、关键时刻'); R.moments.forEach((m) => L.push(`${hms(m.t)}　${m.text}`));
     return L.join('\n');
   }
@@ -447,7 +447,7 @@
     if (v.type === 'expand') { box.classList.add('market'); box.dataset.v = 'expand'; refreshExpand(); return true; }
     if (v.type === 'recap') {
       box.classList.add('market'); if (box.dataset.v === 'recap') return true; box.dataset.v = 'recap'; box.innerHTML = recapHTML();
-      const cp = box.querySelector('#rcCopy'); if (cp) cp.onclick = () => { const t = recapText(); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('复盘清单已复制，可以直接粘贴发给朋友'), () => { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('复盘清单已复制'); }); };
+      const cp = box.querySelector('#rcCopy'); if (cp) cp.onclick = () => { const t = recapText(); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('复盘内容已复制'), () => { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('复盘内容已复制'); }); };
       return true;
     }
     return false;
@@ -456,7 +456,7 @@
     renderTicker();
     if (localView && localView.type === 'fin') finUpdate();
     for (const [sel, kind] of [['#players', 'players'], ['#assets', 'assets'], ['.log-panel', 'log'], ['#clock', 'clock']]) {
-      const el = $(sel); if (el && !el.querySelector(':scope > .xp-btn')) { const b = document.createElement('button'); b.className = 'xp-btn'; b.dataset.expand = kind; b.title = '放大查看详情'; b.textContent = '⤢'; el.appendChild(b); }
+      const el = $(sel); if (el && !el.querySelector(':scope > .xp-btn')) { const b = document.createElement('button'); b.className = 'xp-btn'; b.dataset.expand = kind; b.title = '展开详情'; b.textContent = '⤢'; el.appendChild(b); }
     }
   };
   document.addEventListener('toggle', (e) => { const g = e.target.closest && e.target.closest('[data-guide]'); if (g) localStorage.setItem('dfw_guide_' + g.dataset.guide, g.open ? '1' : '0'); }, true);

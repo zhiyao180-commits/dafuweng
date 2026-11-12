@@ -76,7 +76,7 @@ setInterval(() => {
     if (g.phase === 'play' && (g.mt = (g.mt || 0) + 1) % 2 === 0) { const ch = g.tickMarket(2); if (ch || g.fx.length) broadcast(g); else io.to(g.code).emit('market', { market: g.market, loans: Object.fromEntries(g.players.map((p) => [p.id, p.loan || 0])) }); }
     if (g.phase !== 'play') continue;
     if (g.expireTrades()) broadcast(g);
-    const oldJ = g.expireJoins(); if (oldJ.length) { for (const [, sk] of io.sockets.sockets) if (oldJ.some((r) => r.token === sk.data.joinToken)) { sk.data.joinToken = null; sk.emit('joinDenied', { msg: '房主 2 分钟内没有处理，申请已过期，可以重新申请' }); } broadcast(g); }
+    const oldJ = g.expireJoins(); if (oldJ.length) { for (const [, sk] of io.sockets.sockets) if (oldJ.some((r) => r.token === sk.data.joinToken)) { sk.data.joinToken = null; sk.emit('joinDenied', { msg: '房主未在 2 分钟内处理，申请已过期，您可重新申请' }); } broadcast(g); }
     const inc = g.tickIncome();
     if (inc) for (const pid of Object.keys(inc)) io.to(g.code + ':' + pid).emit('income', inc[pid]);
     // 每秒都检查是否有人达到目标（地价每分钟上涨、股价波动也会让总资产越过目标）
@@ -96,7 +96,7 @@ io.on('connection', (socket) => {
 
   socket.on('create', ({ name, token, size, password }, cb) => {
     try {
-      if (sha(password || '') !== PASS_HASH) throw new GameError('创建房间的密码不正确（没有密码只能加入房间）');
+      if (sha(password || '') !== PASS_HASH) throw new GameError('创建房间密码错误（未持有密码的玩家仅可加入房间）');
       const g = new Game(newCode());
       const n = Math.floor(Number(size));
       if (n >= 2 && n <= 8) g.maxPlayers = n;
@@ -130,7 +130,7 @@ io.on('connection', (socket) => {
 
   socket.on('act', ({ type, ...args }, cb) => {
     const g = rooms.get(socket.data.code);
-    if (!g) return reply(cb, { ok: false, error: '不在房间中' });
+    if (!g) return reply(cb, { ok: false, error: '您不在该房间中' });
     try {
       const kicked = type === 'kick' && g.phase === 'lobby' ? g.byId(args.id) : null;
       if (type === 'kick' && g.byId(args.id)) io.to(g.code + ':' + args.id).emit('kicked');
@@ -148,7 +148,7 @@ io.on('connection', (socket) => {
     } catch (e) {
       if (!(e instanceof GameError)) console.error(e);
       g.fx = [];
-      reply(cb, { ok: false, error: e instanceof GameError ? e.message : '服务器出错了' });
+      reply(cb, { ok: false, error: e instanceof GameError ? e.message : '服务器错误，请稍后再试' });
     }
     broadcast(g);
   });

@@ -30,7 +30,7 @@
       e.stopPropagation();
       if (!w.state) return closeLocal();
       if (stateModalKey === 'end') { w.modal.hidden = true; return; }
-      setMin(w, true); toast('待处理的消息已收起到底部，点一下就能恢复');
+      setMin(w, true); toast('待处理消息已最小化至底部，点按即可恢复');
     };
     w.win.querySelector('.l-min').onclick = (e) => { e.stopPropagation(); setMin(w, true); };
     const zoom = () => { w.win.classList.toggle('zoom'); };
