@@ -792,7 +792,7 @@ class Game {
   accelerate(p) {
     must(p.token === this.hostToken, '只有房主可以启动进程加速器');
     this.bumpStage('房主启动进程加速器');
-    const reward = Math.round(100000 * this.infl);
+    const reward = Math.round(400000 * this.infl);
     for (const o of this.active()) { const t = D.TASKS[Math.floor(Math.random() * D.TASKS.length)]; this.tasks[o.id] = { ...t, have: 0, reward, done: false }; }
     this.fx.push({ type: 'boost' });
     this.say(`🚀 进程加速器启动！每人领到一个任务，完成奖励 ${fmt(reward)}`);

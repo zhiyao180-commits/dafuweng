@@ -204,9 +204,10 @@
   // 地产价格倍数：起始 300M 只够买 1–2 块地。地价、租金、房价同步放大，回报率不变
   const PM = 5;
   for (const g of Object.values(GROUPS)) g.house *= S * PM;
-  for (const sq of BOARD) { if (sq.price) sq.price *= S * PM; if (sq.rent) sq.rent = sq.rent.map((r) => r * S * PM); if (sq.amount) sq.amount *= S; }
+  for (const sq of BOARD) { if (sq.price) sq.price *= S * PM; if (sq.rent) sq.rent = sq.rent.map((r) => r * S * PM); if (sq.amount) sq.amount *= S * PM; }
   for (const c of [...CHANCE, ...CHEST]) {
-    const big = c.fx.t === 'money' || c.fx.t === 'each' ? 4 : 1; // 奖惩金额放大 4 倍，更刺激
+    // 卡牌奖惩与地价同步放大：现金类 ×20（=4×5），维修费 ×5，赞助 / 地产税 ×20
+    const big = c.fx.t === 'money' || c.fx.t === 'each' || c.fx.t === 'sponsor' || c.fx.t === 'proptax' ? 4 * PM : PM;
     for (const k of ['amt', 'house', 'hotel']) if (c.fx[k]) c.fx[k] *= S * big;
     c.text = c.text.replace(/(\d+(?:\.\d+)?)(M|K)/g, (m, a, u) => fmt(parseFloat(a) * (u === 'M' ? 1000 : 1) * S * big));
   }
@@ -214,7 +215,7 @@
   const RULES = {
     startMoney: 300000,
     goSalary: 60000,
-    jailFine: 10000,
+    jailFine: 50000,
     winCash: 10000000,  // 总资产达到 10B 成为首富（胜出后其余玩家继续）
     turnSecs: 20,       // 每步操作限时
     maxPlayers: 8,
@@ -237,7 +238,7 @@
     { text: '人气王：每位玩家给您 15M', fx: { t: 'each', amt: 15000 } }, { text: '请客：您给每位玩家 10M', fx: { t: 'each', amt: -10000 } },
     { text: '🚔 手气太差：直接入狱', fx: { t: 'jail' } }, { text: '企业赞助：现金最多的玩家送给现金最少的玩家 20M', fx: { t: 'sponsor', amt: 20000 } },
   ];
-  for (const c of WHEEL) if (c.fx.amt) { c.fx.amt *= 3; c.text = c.text.replace(/(\d+)M/, (m, a) => fmt(a * 3000)); }
+  for (const c of WHEEL) if (c.fx.amt) { c.fx.amt *= 12; c.text = c.text.replace(/(\d+)M/, (m, a) => fmt(a * 12000)); }
   // 进程加速器发的任务
   const TASKS = [
     { t: 'build', need: 2, text: '建 2 栋房屋' }, { t: 'buy', need: 1, text: '买下 1 块地（拍卖也算）' }, { t: 'lap', need: 1, text: '经过起点或环球中心 1 次' },
