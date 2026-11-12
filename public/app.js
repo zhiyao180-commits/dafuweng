@@ -505,8 +505,10 @@ async function playFx(f) {
   } else if (f.type === 'xchg') {
     posScreen(`${p.name} 银行兑换`, fmt(f.amount)); Snd.beep(); await payVisual({ ...p, pay: f.from }, 'out', 0.6, () => {}); await payVisual({ ...p, recv: f.to }, 'in', 0.6, () => {}); posDone();
   } else if (f.type === 'news') {
-    const a = GameData.ASSETS.find((x) => x.id === f.id); Snd.alarm();
-    await banner(`📰 市场快讯：${a.name} ${f.pct > 0 ? '暴涨 +' : '暴跌 '}${f.pct}%`, { color: f.pct > 0 ? '#2DA44E' : '#E5383B', ms: 1300 });
+    const a = GameData.ASSETS.find((x) => x.id === f.id);
+    window.lastNews = { id: f.id, text: `${a.name}${f.pct > 0 ? '暴涨 +' : '暴跌 '}${f.pct}%`, up: f.pct > 0, t: Date.now() };
+    Snd.tone(f.pct > 0 ? 1320 : 520, 0.12, 'sine', 0.025);
+    if (window.onMarket) onMarket();
   } else if (f.type === 'betres') {
     if (f.pid === myId) { f.win ? Snd.win() : Snd.bad(); await banner(f.win ? `🎯 竞猜成功！获得 ${fmt(Math.round(f.stake * 1.9))}` : `📉 竞猜失败，损失 ${fmt(f.stake)}`, { color: f.win ? '#2DA44E' : '#E5383B', big: true, ms: 1200 }); }
   } else if (f.type === 'deal') {
@@ -1034,17 +1036,24 @@ function renderAll() {
 function resize() {
   const narrow = innerWidth < 1000, phone = innerWidth < 700;
   document.body.classList.toggle('phone', phone);
-  const availW = narrow ? innerWidth - (phone ? 8 : 24) : innerWidth - 360 - 48, availH = narrow ? 1e9 : innerHeight - 32;
-  let cell = phone ? availW / (BW + 3) : Math.max(38, Math.min(availW / (BW + 3), availH / (BH + 3)));
-  // 电脑横屏：地图下方留出一条信息栏（对局记录 + 持有地产），地图略微缩小
-  const btm = !narrow && availH - 170 >= 38 * (BH + 3);
-  if (btm) cell = Math.max(38, Math.min(availW / (BW + 3), (availH - 170) / (BH + 3)));
-  const bar = $('#bottom'), logP = $('.log-panel'), asP = $('#assets');
-  if (btm) { if (asP.parentElement !== bar) { bar.appendChild(asP); bar.appendChild(logP); } bar.hidden = false; bar.style.height = Math.floor(availH - cell * (BH + 3) - 12) + 'px'; bar.style.width = Math.floor(cell * (BW + 3)) + 'px'; }
+  const r = document.documentElement.style, bar = $('#bottom'), logP = $('.log-panel'), asP = $('#assets');
+  let cw, ch, btm = false;
+  if (narrow) { cw = ch = phone ? (innerWidth - 8) / (BW + 3) : Math.max(38, (innerWidth - 24) / (BW + 3)); }
+  else {
+    // 电脑：右侧栏随屏幕变宽；地图横向铺满剩余宽度（格子可略宽于高），下方留信息栏
+    const sw = Math.round(Math.min(440, Math.max(340, innerWidth * 0.22)));
+    r.setProperty('--sw', sw + 'px');
+    const availW = innerWidth - sw - 48, availH = innerHeight - 32;
+    const bh0 = Math.round(Math.min(210, Math.max(140, availH * 0.19)));
+    btm = (availH - bh0 - 12) / (BH + 3) >= 38;
+    ch = Math.max(38, ((btm ? availH - bh0 - 12 : availH)) / (BH + 3));
+    cw = Math.max(38, Math.min(availW / (BW + 3), ch * 1.5));
+    if (!btm) { ch = Math.min(ch, availH / (BH + 3)); }
+  }
+  if (btm) { if (asP.parentElement !== bar) { bar.appendChild(asP); bar.appendChild(logP); } bar.hidden = false; bar.style.height = Math.floor(innerHeight - 32 - ch * (BH + 3) - 12) + 'px'; bar.style.width = Math.floor(cw * (BW + 3)) + 'px'; }
   else { if (asP.parentElement !== $('#side')) { $('#side').appendChild(asP); $('#side').appendChild(logP); } bar.hidden = true; }
-  uPx = cell / 7.75;
-  const r = document.documentElement.style;
-  r.setProperty('--bw', Math.floor(cell * (BW + 3)) + 'px'); r.setProperty('--bh', Math.floor(cell * (BH + 3)) + 'px'); r.setProperty('--u', uPx + 'px');
+  uPx = Math.min(cw, ch) / 7.75;
+  r.setProperty('--bw', Math.floor(cw * (BW + 3)) + 'px'); r.setProperty('--bh', Math.floor(ch * (BH + 3)) + 'px'); r.setProperty('--u', uPx + 'px');
   const tk = $('#tokens'); tk.style.display = 'none'; void tk.offsetWidth; tk.style.display = '';
   placeTokens(); drawTrack();
 }

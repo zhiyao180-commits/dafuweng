@@ -15,10 +15,19 @@
   };
   const amt = (id) => Math.max(0, Math.round((+($('#' + id) || {}).value || 0) * 1000));
 
+  const GUIDE = {
+    stock: ['股票：波动大，可能短时间大涨或大跌', ['在左侧选择一只股票，右侧会显示走势图和当前价格', '输入投入金额（单位 M，例如输入 50 即 50M），点「买入」', '价格上涨后点「卖出」（可输入部分金额）或「全部卖出」，即可赚取差价；下跌则亏损']],
+    fund: ['基金：波动小、长期缓慢上涨，适合存放闲置资金', ['在左侧选择一只基金', '输入金额后点「买入」，持有一段时间', '需要用钱时点「卖出」或「全部卖出」，收益一般比股票稳定']],
+    fx: ['外汇：赚取汇率差', ['价格表示 1 单位外币可兑换的世界银行币，例如美元 7.2', '预计某种外币会升值时，输入金额点「买入」，即把资金换成该外币', '汇率上升后「卖出」换回，赚取差价；汇率下降则亏损']],
+    bet: ['涨跌竞猜：10 秒定输赢', ['在左侧选择任意品种，记住当前价格', '输入押注金额，判断 10 秒后价格会更高还是更低，点「看涨」或「看跌」', '猜中返还押注的 1.9 倍，猜错损失全部押注；每人同一时间只能有一笔竞猜']],
+    loan: ['银行贷款：急需资金时使用', ['输入金额点「申请贷款」，资金立即到账', '贷款每分钟按 3% 复利增长，请尽早偿还', '可随时「偿还」部分或「全部还清」；未还的贷款会从总资产中扣除']],
+  };
+  const guideHTML = (tab) => { const g = GUIDE[tab], open = localStorage.getItem('dfw_guide_' + tab) !== '0'; return `<details class="fin-guide" data-guide="${tab}" ${open ? 'open' : ''}><summary>📘 怎么参与 · ${g[0]}</summary><ol>${g[1].map((x) => `<li>${x}</li>`).join('')}</ol><p>所有交易都使用现金，交易手续费 0.3%；金融持仓按实时价格计入总资产，钱不够付账时系统会自动卖出持仓。</p></details>`; };
   function finShell(v, box) {
     const tabs = ['stock', 'fund', 'fx', 'bet', 'loan'];
-    box.innerHTML = `<div class="mk-head"><div><h3>📈 金融中心</h3><div class="muted">行情每 2 秒更新 · 红涨绿跌 · 交易手续费 0.3% · 金融持仓计入总资产</div></div>
+    box.innerHTML = `<div class="mk-head"><div><h3>📈 金融中心</h3><div class="muted">行情每 2 秒更新 · 红色代表上涨，绿色代表下跌</div></div>
       <div class="mk-tabs">${tabs.map((t) => `<button data-fintab="${t}" class="${v.tab === t ? 'on' : ''}">${KIND[t]}</button>`).join('')}</div></div>
+      ${guideHTML(v.tab)}
       <div class="fin-body">${v.tab === 'loan' ? '<div class="fin-loan" id="finLoan"></div>' : `<div class="fin-list" id="finList"></div><div class="fin-detail" id="finDetail"></div>`}</div>
       <div class="fin-foot" id="finFoot"></div>
       <div class="act-row"><button class="btn wide" data-close>关闭<kbd>Esc</kbd></button></div>`;
@@ -34,13 +43,13 @@
       const d = $('#finDetail');
       d.innerHTML = `<div class="fd-h"><div><b id="fdName"></b><small id="fdKind"></small></div><div class="fd-px"><b id="fdPx"></b><small id="fdChg"></small></div></div>
         <div class="fd-chart" id="fdChart"></div><div class="fd-hold" id="fdHold"></div>
-        ${v.tab === 'bet' ? `<div class="muted">押注后 10 秒结算：猜中返还 1.9 倍，猜错全部损失</div>
+        ${v.tab === 'bet' ? `<div class="fd-label">押注金额（单位 M）</div>
           <div class="mk-price"><input id="finAmt" type="number" min="0" step="1" placeholder="押注金额"><span>M</span></div>
           <div class="mk-quick">${[10, 50, 100].map((x) => `<button data-finq="${x}">${x}M</button>`).join('')}</div>
-          <div class="act-row"><button class="btn up" id="betUp">📈 看涨</button><button class="btn down" id="betDown">📉 看跌</button></div><div class="bet-live" id="betLive"></div>`
-        : `<div class="mk-price"><input id="finAmt" type="number" min="0" step="1" placeholder="交易金额"><span>M</span></div>
+          <div class="act-row"><button class="btn bull" id="betUp">📈 看涨（10 秒后更高）</button><button class="btn bear" id="betDown">📉 看跌（10 秒后更低）</button></div><div class="bet-live" id="betLive"></div>`
+        : `<div class="fd-label">交易金额（单位 M）</div><div class="mk-price"><input id="finAmt" type="number" min="0" step="1" placeholder="交易金额"><span>M</span></div>
           <div class="mk-quick">${[10, 50, 100, 500].map((x) => `<button data-finq="${x}">${x}M</button>`).join('')}</div>
-          <div class="act-row"><button class="btn up" id="finBuy">买入</button><button class="btn down" id="finSell">卖出</button><button class="btn" id="finAll">全部卖出</button></div>`}`;
+          <div class="act-row"><button class="btn buy" id="finBuy">买入</button><button class="btn sell" id="finSell">卖出</button><button class="btn sell" id="finAll">全部卖出</button></div>`}`;
       const q = (side) => act('trade', { id: v.sel, side, amount: side === 'all' ? 1e15 : amt('finAmt') }, (r) => r.ok && (Snd.beep(), toast(side === 'buy' ? '买入成功' : '卖出成功')));
       if (v.tab === 'bet') { $('#betUp').onclick = () => act('bet', { id: v.sel, dir: 'up', amount: amt('finAmt') }); $('#betDown').onclick = () => act('bet', { id: v.sel, dir: 'down', amount: amt('finAmt') }); }
       else { $('#finBuy').onclick = () => q('buy'); $('#finSell').onclick = () => q('sell'); $('#finAll').onclick = () => act('trade', { id: v.sel, side: 'sell', amount: 1e15 }); }
@@ -72,7 +81,8 @@
   function renderTicker() {
     const el = $('#ticker'); if (!el || !S || !S.market) return;
     const m = me(), rows = AS.map((a) => { const x = mk(a.id), c = chg(x), h = m && m.hold && m.hold[a.id]; return `<div class="tk-row" data-tick="${a.id}"><span class="tk-n">${a.name}${h ? ' <i>持</i>' : ''}</span>${spark(x.hist, 60, 18)}<b>${px(x)}</b><small class="${c >= 0 ? 'up' : 'down'}">${c >= 0 ? '+' : ''}${c.toFixed(1)}%</small></div>`; }).join('');
-    el.innerHTML = `<div class="panel-title"><span>📈 实时行情 · 点击交易</span><span>${m && m.loan ? '贷款 ' + fmt(Math.round(m.loan)) : ''}</span></div><div class="tk-list">${rows}</div>`;
+    const n = window.lastNews && Date.now() - lastNews.t < 12000 ? lastNews : null;
+    el.innerHTML = `<div class="panel-title"><span>📈 实时行情 · 点击交易</span><span>${m && m.loan ? '贷款 ' + fmt(Math.round(m.loan)) : ''}</span></div>${n ? `<div class="tk-news ${n.up ? 'up' : 'down'}">📰 市场快讯：${n.text}</div>` : ''}<div class="tk-list">${rows.replace(n ? `data-tick="${n.id}"` : '\u0000', n ? `data-tick="${n.id}" style="background:rgba(245,183,0,.22)"` : '')}</div>`;
   }
   window.onMarket = () => { finUpdate(); renderTicker(); };
   setInterval(() => { if (localView && localView.type === 'fin' && localView.tab === 'bet') finUpdate(); }, 1000);
@@ -120,6 +130,7 @@
       const el = $(sel); if (el && !el.querySelector(':scope > .xp-btn')) { const b = document.createElement('button'); b.className = 'xp-btn'; b.dataset.expand = kind; b.title = '放大查看详情'; b.textContent = '⤢'; el.appendChild(b); }
     }
   };
+  document.addEventListener('toggle', (e) => { const g = e.target.closest && e.target.closest('[data-guide]'); if (g) localStorage.setItem('dfw_guide_' + g.dataset.guide, g.open ? '1' : '0'); }, true);
   document.addEventListener('click', (e) => {
     const t = e.target;
     const tab = t.closest('[data-fintab]'); if (tab && localView) { localView.tab = tab.dataset.fintab; return renderLocal(); }
