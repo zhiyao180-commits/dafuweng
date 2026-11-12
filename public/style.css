@@ -1206,3 +1206,19 @@ body:not(.phone) .cell.special:not(.inner).side-l .ctx, body:not(.phone) .cell.s
 .wheel-wrap.done .wh-bulbs circle { animation-duration: .16s; }
 .wh-seg.win { animation: whWin .3s steps(1) 5; } @keyframes whWin { 50% { fill: #fff; } }
 @media (max-width: 700px) { .card-stage .bigback .nm { font-size: 34px; letter-spacing: 6px; } .bigfront .amt { font-size: 34px; } .bigfront .stamp { font-size: 13px; right: 10px; top: 10px; } }
+/* ====== v16.1：右侧栏紧凑化，股市行情始终完整可见 ====== */
+#side { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+#side::-webkit-scrollbar { display: none; }
+#side > * { flex-shrink: 0; }
+#side > .ticker { flex: 1 0 auto; min-height: 0; overflow: visible; }
+#side > .ticker .tk-list { overflow: visible; flex: none; }
+.actions .btn.market.wide { padding: 10px; font-size: 14.5px; border-radius: 12px; }
+.fin-group { margin-top: 7px; padding: 7px 7px 8px; border-radius: 14px; }
+.fg-title { padding: 0 3px 6px; }
+.fg-title span { font-size: 12px; } .fg-title small { font-size: 10.5px; }
+.fg-btn { flex-direction: row; justify-content: center; gap: 4px; padding: 9px 4px; border-radius: 11px; }
+.fg-btn i { font-size: 16px; } .fg-btn b { font-size: 12.5px; }
+.fg-btn.live::after { top: 4px; left: 5px; width: 6px; height: 6px; }
+.act-row.tools-row { margin-top: 7px; flex-wrap: nowrap; } .act-row.tools-row .btn { flex: 1; white-space: nowrap; padding-left: 6px; padding-right: 6px; }
+.btn.sm.boost { width: auto; }
+body.phone #side { overflow: visible; }
