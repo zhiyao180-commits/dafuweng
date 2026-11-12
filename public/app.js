@@ -314,6 +314,30 @@ const cardBg = (p) => `linear-gradient(135deg, ${p.color}, color-mix(in srgb, ${
 function posScreen(label, amount, cls = '') { $('#posLabel').textContent = label; const a = $('#posAmount'); a.className = 'pos-amount'; void a.offsetWidth; a.textContent = amount; a.className = 'pos-amount ' + cls; }
 function pressKey(sym) { const k = [...document.querySelectorAll('.pos-keys i')].find((i) => i.textContent === sym); if (k) { k.classList.add('press'); Snd.key(); setTimeout(() => k.classList.remove('press'), 160); } }
 function posShake() { const p = $('#pos'); p.classList.remove('shake'); void p.offsetWidth; p.classList.add('shake'); }
+let curAmt = 0;
+// 金额越大，喷出的钞票越多：10M 约 13 张，100M 约 25 张，1B 约 38 张，10B 以上 50–70 张
+const cashCount = (a) => Math.round(Math.min(70, 6 + 14 * Math.log10(1 + (a || 0) / 5000)));
+function billEl(x, y) { const d = document.createElement('div'); d.className = 'flybill'; d.innerHTML = '<b>100</b><i></i><b>100</b>'; d.style.left = x + 'px'; d.style.top = y + 'px'; $('#floats').appendChild(d); return d; }
+function sprayCash(r, n) {
+  const x0 = r.left + r.width / 2, y0 = r.top + r.height / 2, H = innerHeight;
+  for (let i = 0; i < n; i++) {
+    const d = billEl(x0, y0), ang = -Math.PI / 2 + (Math.random() - 0.5) * 2.6, v = 700 + Math.random() * 900, vx = Math.cos(ang) * v * 0.9, vy = Math.sin(ang) * v - 200;
+    const dur = 2.2 + Math.random() * 1.2, g = 900, sw = 40 + Math.random() * 60, fr = [];
+    for (let k = 0; k <= 12; k++) {
+      const tt = (k / 12) * dur, drag = 1 - Math.exp(-tt * 1.6), x = (vx / 1.6) * drag + Math.sin(tt * 5 + i) * sw * (tt / dur), y = (vy / 1.6) * drag + 0.5 * g * tt * tt * 0.55;
+      fr.push({ transform: `translate(-50%,-50%) translate(${x}px, ${Math.min(y, H)}px) perspective(500px) rotateX(${tt * (300 + i * 23)}deg) rotateZ(${(i % 2 ? 1 : -1) * tt * 120}deg) scale(${k === 0 ? 0.3 : 1})`, opacity: k > 10 ? (12 - k) / 2 : 1 });
+    }
+    d.animate(fr, { duration: dur * 1000, delay: i * 22, easing: 'linear', fill: 'backwards' }).onfinish = () => d.remove();
+  }
+}
+function suckCash(r, n) {
+  const x1 = r.left + r.width / 2, y1 = r.top + r.height / 2;
+  for (let i = 0; i < n; i++) {
+    const sx = (Math.random() - 0.5) * innerWidth * 0.9, sy = innerHeight * (0.35 + Math.random() * 0.4), d = billEl(x1, y1);
+    d.animate([{ transform: `translate(-50%,-50%) translate(${sx}px, ${sy}px) perspective(500px) rotateX(60deg) rotateZ(${sx / 8}deg)`, opacity: 0 }, { opacity: 1, offset: 0.2 }, { transform: 'translate(-50%,-50%) translate(0,0) perspective(500px) rotateX(0) scale(.35,.1)', opacity: 0.6 }], { duration: 700, delay: i * 45, easing: 'cubic-bezier(.5,0,.7,1)', fill: 'backwards' }).onfinish = () => d.remove();
+  }
+}
+function posGlow() { const p = $('#pos'); p.classList.remove('okglow'); void p.offsetWidth; p.classList.add('okglow'); setTimeout(() => p.classList.remove('okglow'), 1100); }
 async function cardIn(p, T, ins) {
   const c = $('#posCard'); c.innerHTML = cardHTML(p); c.style.background = cardBg(p);
   c.className = 'bank-card in-slot' + (ins ? ' ins' : ''); void c.offsetWidth; c.classList.add('show');
@@ -327,23 +351,21 @@ async function payVisual(p, dir, T, done) {
     await wait(430 * T); pos.classList.add('nfc'); Snd.tone(1800, 0.09, 'sine', 0.08); Snd.tone(2400, 0.16, 'sine', 0.08, 0.1); ph.classList.add('ok'); ph.firstElementChild.textContent = '✓'; done();
     await wait(800 * T); ph.className = 'pphone'; pos.classList.remove('nfc'); await wait(260 * T);
   } else if (m === 'cash') {
-    // 现金：ATM 从台面升起，存入（付款）或吐出（收款）钞票
-    const atm = $('#atm'), box = atm.querySelector('.atm-notes'); box.innerHTML = '';
-    atm.querySelector('.atm-s').innerHTML = `${p.icon} ${esc(p.name)}<br>${dir === 'out' ? '现金存入中…' : '现金支取中…'}`;
-    atm.classList.add('show'); Snd.swoosh(); await wait(520 * T);
-    for (let i = 0; i < 6; i++) {
-      const n = document.createElement('div'); n.className = 'note'; n.innerHTML = '<b>100</b><i></i><b>100</b>'; box.appendChild(n);
-      const far = `translate(${(i - 2.5) * 1.5}px, calc(var(--u) * ${5.5 + i * 0.55}))`, slot = 'translate(0, calc(var(--u) * -2.2))';
-      n.animate(dir === 'out' ? [{ transform: far, opacity: 1 }, { transform: slot, opacity: 0.3 }] : [{ transform: slot, opacity: 0.3 }, { transform: far, opacity: 1 }], { duration: 480 * T, delay: i * 95 * T, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'both' });
-      setTimeout(() => Snd.noise(0.05, 0, 0.2, 2600), i * 95 * T);
-    }
-    await wait(700 * T); atm.querySelector('.atm-s').innerHTML = '交易成功 ✓'; done(); await wait(950 * T);
-    atm.classList.remove('show'); await wait(320 * T); box.innerHTML = '';
-  } else { await cardIn(p, T, dir === 'out'); done(); await wait(620 * T); await cardOut(T); }
+    const atm = $('#atm'), scr = atm.querySelector('.atm-s');
+    scr.innerHTML = `<b>${p.icon} ${esc(p.name)}</b><br>${dir === 'out' ? '现金存入中…' : '正在出钞…'}`;
+    atm.classList.add('show'); Snd.swoosh(); await wait(560 * T);
+    const n = cashCount(curAmt), slot = atm.querySelector('.atm-slot').getBoundingClientRect();
+    if (dir === 'in') { atm.classList.add('spray'); sprayCash(slot, n); }
+    else suckCash(slot, Math.max(6, Math.round(n * 0.5)));
+    for (let i = 0; i < Math.min(n, 24); i++) setTimeout(() => Snd.noise(0.04, 0, 0.16, 2400 + Math.random() * 800), i * 34);
+    await wait((dir === 'in' ? 650 : 900) * T); scr.innerHTML = '交易成功 ✓'; atm.classList.remove('spray'); done(); Snd.plus(); await wait(900 * T);
+    atm.classList.remove('show'); await wait(380 * T);
+  } else { await cardIn(p, T, dir === 'out'); posGlow(); done(); await wait(620 * T); await cardOut(T); }
 }
 function showMini(ids) { $('#posMini').innerHTML = ids.map((id, i) => { const p = pById(id); return p ? `<div class="avatar" style="background:${p.color};animation-delay:${i * 60}ms">${p.icon}</div>` : ''; }).join(''); }
 function posDone() { const led = $('#posLed'); led.className = 'pos-led ok'; const rc = $('#receipt'); rc.innerHTML = `WORLD BANK<br><b>${esc($('#posAmount').textContent)}</b><br>交易成功 ✓<br>· · · · · ·`; rc.classList.add('print'); Snd.noise(0.35, 0, 0.12, 4200); setTimeout(() => rc.classList.remove('print'), 1900); clearTimeout(posDone.t); posDone.t = setTimeout(() => { posScreen('WORLD BANK', 'READY'); led.className = 'pos-led'; $('#posMini').innerHTML = ''; }, 2200); }
 async function posAnim(f) {
+  curAmt = f.amount;
   const T = fxQueue.length > 2 ? 0.4 : 0.75;
   $('#posLed').className = 'pos-led busy';
   const from = f.from && pById(f.from), to = f.to && pById(f.to);
@@ -355,6 +377,7 @@ async function posAnim(f) {
 }
 // 一个人付给多个人（或多个人付给一个人）：合并成一次，多张卡同时到账
 async function posMulti(f) {
+  curAmt = f.each * (f.tos || f.froms).length;
   const T = fxQueue.length > 2 ? 0.45 : 0.8, ids = f.tos || f.froms, n = ids.length, total = f.each * n;
   $('#posLed').className = 'pos-led busy';
   if (f.tos) {

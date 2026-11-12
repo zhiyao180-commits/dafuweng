@@ -216,7 +216,7 @@
     startMoney: 300000,
     goSalary: 60000,
     jailFine: 50000,
-    winCash: 10000000,  // 总资产达到 10B 成为首富（胜出后其余玩家继续）
+    winCash: 100000000, // 总资产达到 100B 成为首富（胜出后其余玩家继续）
     turnSecs: 20,       // 每步操作限时
     maxPlayers: 8,
     houses: 56,

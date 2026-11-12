@@ -840,3 +840,38 @@ body.phone #side { width: 100%; }
 .fin-guide:not([open]) summary::after { content: '展开 ▾'; }
 .fin-guide ol { margin: 0; padding: 0 16px 10px 34px; } .fin-guide p { margin: 0; padding: 0 16px 10px; color: var(--ink2); }
 .fd-label { font-size: 12px; color: var(--ink2); margin: 10px 0 4px; }
+
+/* ====== v12：卡通立体 ATM（圆润机身 + 蓝色侧板 + 圆形底座）与喷钞 ====== */
+.atm { all: unset; position: absolute; left: calc(var(--u) * -1); bottom: calc(var(--u) * .5); width: calc(var(--u) * 21); height: calc(var(--u) * 33); z-index: 12; pointer-events: none; transform: translateY(115%) scale(.9); transition: transform .55s cubic-bezier(.2,1.25,.35,1); }
+.atm.show { transform: translateY(0) scale(1); }
+.atm.spray { animation: atmshake .09s linear 6; }
+@keyframes atmshake { 50% { translate: 2px -1px; } }
+.atm-base { position: absolute; left: -6%; right: -12%; bottom: 0; height: 15%; border-radius: 50%; background: radial-gradient(ellipse at 45% 30%, #5B8DEF, #1E4FB8 60%, #12357F); box-shadow: 0 calc(var(--u) * 1) 0 #0E2A66, 0 calc(var(--u) * 2) calc(var(--u) * 3) rgba(0,0,0,.45); }
+.atm-side { position: absolute; left: 4%; top: 6%; bottom: 7%; width: 26%; border-radius: calc(var(--u) * 4) 0 0 calc(var(--u) * 2.5); background: linear-gradient(90deg, #12357F, #2C62D6 55%, #4F86F0); box-shadow: inset calc(var(--u) * .4) 0 calc(var(--u) * .6) rgba(255,255,255,.25); }
+.atm-body { position: absolute; left: 18%; right: 2%; top: 3%; bottom: 8%; border-radius: calc(var(--u) * 3.4) calc(var(--u) * 3.4) calc(var(--u) * 1.6) calc(var(--u) * 1.6); background: linear-gradient(90deg, #8E97A6 0%, #E8ECF2 18%, #FFFFFF 34%, #D7DCE4 62%, #A9B1BD 88%, #8B93A0 100%); box-shadow: inset 0 calc(var(--u) * .3) 0 #fff, inset calc(var(--u) * -.6) 0 calc(var(--u) * 1) rgba(0,0,0,.18); padding: calc(var(--u) * 1.2) calc(var(--u) * 1.1) 0; }
+.atm-logo { text-align: center; font-size: calc(var(--u) * 3); font-weight: 900; letter-spacing: 1px; color: #fff; -webkit-text-stroke: calc(var(--u) * .12) #2C62D6; text-shadow: 0 calc(var(--u) * .25) 0 #2C62D6, 0 calc(var(--u) * .4) calc(var(--u) * .5) rgba(0,0,0,.25); line-height: 1.1; }
+.atm-hood { margin-top: calc(var(--u) * .7); border-radius: calc(var(--u) * 1.4); padding: calc(var(--u) * .7); background: linear-gradient(180deg, #C9CFD8, #EEF1F5); box-shadow: inset 0 calc(var(--u) * .5) calc(var(--u) * .8) rgba(0,0,0,.25); display: flex; gap: calc(var(--u) * .4); }
+.atm-s { flex: 1; height: calc(var(--u) * 8.5); border-radius: calc(var(--u) * .9); border: calc(var(--u) * .45) solid #2a2d33; background: radial-gradient(circle at 70% 75%, #6FB6FF 0, transparent 35%), linear-gradient(150deg, #1E5FD8, #0B2E7A 70%); color: #fff; font-size: calc(var(--u) * 1.05); font-weight: 700; line-height: 1.5; display: grid; place-items: center; text-align: center; box-shadow: inset 0 0 calc(var(--u) * 1.2) rgba(0,0,0,.5); }
+.atm-s b { font-size: calc(var(--u) * 1.2); }
+.atm-btns { display: flex; flex-direction: column; justify-content: center; gap: calc(var(--u) * .6); } .atm-btns i { width: calc(var(--u) * 1.3); height: calc(var(--u) * .9); border-radius: calc(var(--u) * .3); background: linear-gradient(#f4f6f9, #b8c0cc); box-shadow: 0 1px 0 #7d8591; }
+.atm-deck { display: flex; align-items: center; justify-content: space-between; margin: calc(var(--u) * 1) calc(var(--u) * .3) 0; height: calc(var(--u) * 4.6); padding: 0 calc(var(--u) * .9); border-radius: calc(var(--u) * 1.2); background: linear-gradient(180deg, #DDE2E9, #B7BEC9); box-shadow: 0 calc(var(--u) * .5) 0 #8C94A1, inset 0 2px 0 #fff; transform: perspective(300px) rotateX(18deg); }
+.atm-pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: calc(var(--u) * .22); padding: calc(var(--u) * .45); border-radius: calc(var(--u) * .6); background: #2B2F37; width: calc(var(--u) * 7); }
+.atm-pad i { height: calc(var(--u) * .75); border-radius: calc(var(--u) * .18); background: linear-gradient(#f2f4f7, #b6bdc8); }
+.atm-pad i:nth-child(4) { background: #FFCF3F; } .atm-pad i:nth-child(8) { background: #E5383B; } .atm-pad i:nth-child(12) { background: #2FB344; }
+.atm-card { width: calc(var(--u) * 3.6); height: calc(var(--u) * 2.2); border-radius: calc(var(--u) * .4); background: linear-gradient(135deg, #6FB6FF, #1E5FD8); box-shadow: inset 0 calc(var(--u) * .9) 0 rgba(0,0,0,.35); transform: rotate(-8deg); }
+.atm-mouth { margin: calc(var(--u) * 1.8) calc(var(--u) * .6) 0; height: calc(var(--u) * 3.6); border-radius: calc(var(--u) * 1.2); background: linear-gradient(180deg, #B9C0CB, #E9ECF1); box-shadow: inset 0 calc(var(--u) * .6) calc(var(--u) * .8) rgba(0,0,0,.25); display: grid; place-items: center; }
+.atm-slot { all: unset; display: block; width: 78%; height: calc(var(--u) * .9); border-radius: 99px; background: linear-gradient(#000, #2b2e35); box-shadow: 0 1px 0 #fff, inset 0 2px 4px #000; position: relative; }
+.atm.spray .atm-slot::after { content: ''; position: absolute; inset: -60% -10%; border-radius: 99px; background: radial-gradient(closest-side, rgba(140,255,170,.9), transparent); animation: slotglow .25s ease-in-out infinite alternate; }
+@keyframes slotglow { to { opacity: .3; } }
+.atm-notes { display: none; }
+/* 满屏飞舞的钞票 */
+.flybill { position: fixed; z-index: 215; pointer-events: none; width: 92px; height: 42px; border-radius: 4px; background: linear-gradient(90deg, #cfe3d1, #eef5e8 30%, #dfead9 70%, #bcd6c0); border: 1px solid #5f8c6a; box-shadow: inset 0 0 0 4px #e9f1e2, inset 0 0 0 5px #7fa087, 0 6px 12px rgba(0,0,0,.25); display: flex; align-items: center; justify-content: space-between; padding: 0 8px; font: 900 11px/1 sans-serif; color: #3c6a49; backface-visibility: visible; }
+.flybill i { width: 18px; height: 24px; border-radius: 50%; border: 1px solid #6f8f76; background: radial-gradient(#b9d3bd, #e3eedd); }
+body.phone .flybill { width: 60px; height: 28px; font-size: 8px; } body.phone .flybill i { width: 12px; height: 16px; }
+/* 刷卡：卡面扫光 + 机身成功光圈 */
+.bank-card.in-slot::before { background: linear-gradient(115deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.65) 48%, rgba(255,255,255,0) 62%) 0 0 / 260% 100%; }
+.bank-card.in-slot.show::before { animation: holo .55s linear; }
+.bank-card.in-slot.show { filter: drop-shadow(0 calc(var(--u) * 1) calc(var(--u) * 1) rgba(0,0,0,.35)); }
+.pos.okglow .pos-bg { animation: okglow 1s ease-out; }
+@keyframes okglow { 0% { box-shadow: 0 0 0 0 rgba(52,199,89,.9), 0 calc(var(--u) * 2.3) 0 #1a1a1c; } 100% { box-shadow: 0 0 0 calc(var(--u) * 3) rgba(52,199,89,0), 0 calc(var(--u) * 2.3) 0 #1a1a1c; } }
+.pos.okglow .pos-screen { animation: okscr .6s ease-out; } @keyframes okscr { 30% { filter: brightness(1.25) saturate(1.4); } }
