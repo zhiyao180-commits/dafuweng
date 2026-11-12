@@ -1222,3 +1222,14 @@ body:not(.phone) .cell.special:not(.inner).side-l .ctx, body:not(.phone) .cell.s
 .act-row.tools-row { margin-top: 7px; flex-wrap: nowrap; } .act-row.tools-row .btn { flex: 1; white-space: nowrap; padding-left: 6px; padding-right: 6px; }
 .btn.sm.boost { width: auto; }
 body.phone #side { overflow: visible; }
+/* ====== v16.2：拍卖倒计时秒数、开启音效提示 ====== */
+.au-cd { display: flex; align-items: center; gap: 10px; margin: 14px 0 4px; }
+.au-cd .countdown { flex: 1; margin: 0; height: 6px; }
+#cdSec { min-width: 54px; text-align: right; font-size: 15px; font-variant-numeric: tabular-nums; color: var(--blue); }
+#cdSec.urgent { color: var(--red); animation: cdPulse .5s ease-in-out infinite alternate; }
+#cdBar.urgent { background: var(--red); }
+@keyframes cdPulse { to { transform: scale(1.18); } }
+#soundHint { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 260; border: 0; cursor: pointer; padding: 11px 20px; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, #0A6FE0, #8E5BD6); box-shadow: 0 10px 30px rgba(10,111,224,.4); animation: shBob 1.6s ease-in-out infinite; }
+@keyframes shBob { 50% { transform: translateX(-50%) translateY(-4px); } }
+body.phone #soundHint { bottom: 90px; }

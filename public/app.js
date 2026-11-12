@@ -62,7 +62,40 @@ const Snd = {
   },
   chord(fs, d, type = 'sine', v = 0.05, at = 0) { fs.forEach((f) => this.tone(f, d, type, v, at)); },
 };
-document.addEventListener('pointerdown', () => Snd.init());
+// ---- 音频解锁：手机、平板、Safari 必须在“点击/触摸/按键”里开启声音；iPhone 的静音键也会静掉网页音效，这里切到“播放”模式 ----
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let silentEl = null;
+function silentWavURL() {
+  const n = 4000, b = new ArrayBuffer(44 + n), v = new DataView(b), w = (o, t) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+  return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+}
+function unlockAudio() {
+  Snd.init(); const c = Snd.ctx; if (!c) return;
+  const sessionOk = !isIOS || (navigator.audioSession && navigator.audioSession.type === 'playback') || silentEl;
+  if (c.state === 'running' && sessionOk) return;
+  if (c.state !== 'running') { const r = c.resume(); if (r && r.catch) r.catch(() => {}); }
+  try { const src = c.createBufferSource(); src.buffer = c.createBuffer(1, 1, 22050); src.connect(c.destination); src.start(0); } catch (_) {}
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (_) {}
+  if (isIOS && !navigator.audioSession && !silentEl) { silentEl = new Audio(silentWavURL()); silentEl.loop = true; silentEl.setAttribute('playsinline', ''); const r = silentEl.play(); if (r && r.catch) r.catch(() => { silentEl = null; }); }
+  setTimeout(updateSoundHint, 300);
+}
+['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'click', 'keydown'].forEach((ev) => document.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (silentEl) silentEl.pause(); return; }
+  if (Snd.ctx && Snd.ctx.state !== 'running') { const r = Snd.ctx.resume(); if (r && r.catch) r.catch(() => {}); }
+  if (silentEl) { const r = silentEl.play(); if (r && r.catch) r.catch(() => {}); }
+});
+// 还没开启声音时，屏幕底部提示“点一下开启音效”
+function updateSoundHint() {
+  const need = !Snd.muted && S && S.phase !== 'lobby' && !$('#game').hidden && (!Snd.ctx || Snd.ctx.state !== 'running');
+  let el = $('#soundHint');
+  if (!need) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('button'); el.id = 'soundHint'; el.innerHTML = '🔈 点一下这里开启游戏音效'; document.body.appendChild(el); el.onclick = () => { unlockAudio(); Snd.plus(); }; }
+}
+setInterval(updateSoundHint, 1500);
 
 // ================= 通用 =================
 const me = () => S && S.players.find((p) => p.id === myId);
@@ -971,9 +1004,9 @@ function renderStateModal() {
   } else if (pd && pd.kind === 'auction' && S.auction) {
     key = 'auction';
     const a = S.auction, sq = BOARD[a.pos];
-    h = `<h3>🔨 拍卖 · ${sq.name}</h3><div class="au-meta">${a.by && pById(a.by) ? `<span>发起人 ${avatar(pById(a.by))}<b>${esc(pById(a.by).name)}</b></span>` : ''}<span>${a.seller ? `强制拍卖 · 原主人 <b>${esc(pById(a.seller).name)}</b>（成交款归原主人）` : '银行地产 · 成交款归银行'}</span></div><p class="muted">全体玩家均可出价，8 秒内无人加价即成交。地图上发光的格子就是这块地。</p>
+    h = `<h3>🔨 拍卖 · ${sq.name}</h3><div class="au-meta">${a.by && pById(a.by) ? `<span>发起人 ${avatar(pById(a.by))}<b>${esc(pById(a.by).name)}</b></span>` : ''}<span>${a.seller ? `强制拍卖 · 原主人 <b>${esc(pById(a.seller).name)}</b>（成交款归原主人）` : '银行地产 · 成交款归银行'}</span></div><p class="muted">全体玩家均可出价：开拍 30 秒，每次有人加价后至少再留 15 秒，倒计时结束即成交。地图上发光的格子就是这块地。</p>
       <div class="auction-price" id="auPrice"></div><div class="auction-who" id="auWho"></div>
-      <div class="countdown"><div id="cdBar"></div></div>
+      <div class="au-cd"><div class="countdown"><div id="cdBar"></div></div><b id="cdSec"></b></div>
       ${m && !m.bankrupt ? `<div class="act-row" id="auBtns">${RULES.bids.map((n, i) => `<button class="btn ${i === 2 ? 'primary' : ''}" data-act="bid" data-inc="${n}">+${fmt(n)}<kbd>${i + 1}</kbd></button>`).join('')}</div><p class="muted" style="text-align:center">您的余额 ${fmt(m.money)}</p>` : ''}`;
     h = `<div class="au-wrap"><div class="au-info">${auctionInfo(a.pos)}<div class="au-tips">${auctionTips(a.pos)}</div></div><div class="au-main">${h}</div></div>`;
   } else if (!fxBusy && pd && pd.kind === 'buy' && curP().id === myId) {
@@ -995,7 +1028,12 @@ function renderStateModal() {
 }
 setInterval(() => {
   const bar = $('#cdBar');
-  if (bar && S && S.auction) { const left = S.auction.endsAt - (Date.now() + skew); bar.style.width = Math.max(0, Math.min(100, (left / 8000) * 100)) + '%'; }
+  if (bar && S && S.auction) {
+    const left = S.auction.endsAt - (Date.now() + skew), sec = Math.max(0, Math.ceil(left / 1000)), el = $('#cdSec');
+    bar.style.width = Math.max(0, Math.min(100, (left / (S.auction.total || 15000)) * 100)) + '%';
+    if (el && el.dataset.s !== String(sec)) { el.dataset.s = sec; el.textContent = sec > 0 ? `${sec} 秒` : '成交中'; el.classList.toggle('urgent', sec <= 5); if (sec > 0 && sec <= 3) Snd.tone(1400, 0.06, 'square', 0.05); }
+    bar.classList.toggle('urgent', sec <= 5);
+  }
 }, 200);
 function confetti() {
   const box = $('#confetti');

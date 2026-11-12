@@ -1,5 +1,6 @@
 // 大富翁规则引擎（服务器权威：所有点数、余额都由这里决定）
 const D = require('./public/data.js');
+const AUCTION_START = 30000, AUCTION_EXT = 15000; // 拍卖：开拍 30 秒，有人加价后至少再留 15 秒
 const { BOARD, GROUPS, CHANCE, CHEST, RULES, fmt } = D;
 const N = BOARD.length;
 const JAIL = BOARD.findIndex((s) => s.type === 'jail');
@@ -394,7 +395,7 @@ class Game {
     const pd = this.pending;
     must(pd && pd.kind === 'buy' && p === this.cur, '现在不能拍卖');
     this.pending = { kind: 'auction' };
-    this.auction = { pos: pd.pos, bid: 0, bidder: null, endsAt: Date.now() + 15000, by: p.id };
+    this.auction = { pos: pd.pos, bid: 0, bidder: null, endsAt: Date.now() + AUCTION_START, total: AUCTION_START, by: p.id };
     this.say(`${BOARD[pd.pos].name} 开始拍卖！`);
   }
 
@@ -407,7 +408,7 @@ class Game {
     const amt = a.bid + inc;
     must(p.money >= amt, '余额不足');
     a.bid = amt; a.bidder = p.id;
-    a.endsAt = Math.max(a.endsAt, Date.now() + 8000);
+    if (Date.now() + AUCTION_EXT > a.endsAt) { a.endsAt = Date.now() + AUCTION_EXT; a.total = AUCTION_EXT; } // 有人加价：至少再留 15 秒
     this.fx.push({ type: 'bid', pid: p.id, amount: amt });
   }
 
@@ -791,7 +792,7 @@ class Game {
     pos = Number(pos); must(this.forceTargets(p).includes(pos), '这块地不能强制拍卖');
     const owner = this.byId(this.props[pos].owner);
     this.pending = { kind: 'auction' };
-    this.auction = { pos, bid: 0, bidder: null, endsAt: Date.now() + 15000, seller: owner.id, by: p.id };
+    this.auction = { pos, bid: 0, bidder: null, endsAt: Date.now() + AUCTION_START, total: AUCTION_START, seller: owner.id, by: p.id };
     this.say(`🔨 ${p.name} 对 ${owner.name} 的 ${BOARD[pos].name} 发起强制拍卖！成交价归 ${owner.name}，没人出价则不变`);
   }
   // ---------- 通货膨胀 & 进程加速器 ----------
