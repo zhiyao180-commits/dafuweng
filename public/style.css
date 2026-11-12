@@ -1606,3 +1606,8 @@ body.phone .lg-half { max-height: 260px; }
 .ln-stat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; } .ln-stat span { display: flex; flex-direction: column; padding: 7px 9px; border-radius: 10px; background: rgba(127,127,127,.08); font-size: 11px; color: var(--ink2); } .ln-stat b { font-size: 13.5px; color: var(--ink); font-variant-numeric: tabular-nums; } .ln-stat b.down { color: #E5383B; }
 body.phone .bt-body, body.phone .ln-body { grid-template-columns: 1fr; }
 .lg-ledger .lg-head { padding-right: 24px; }
+/* 声音：静音时按钮变红；底部提示可关闭 */
+.tools button#btnMute.muted { background: #E5383B; color: #fff; }
+#soundHint { display: flex; gap: 6px; padding: 0; background: none; box-shadow: none; }
+#soundHint .sh-go { border: 0; cursor: pointer; padding: 11px 20px; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 700; color: #fff; background: linear-gradient(135deg, #0A6FE0, #8E5BD6); box-shadow: 0 10px 30px rgba(10,111,224,.4); }
+#soundHint .sh-x { border: 0; cursor: pointer; width: 40px; border-radius: 50%; font-size: 14px; background: var(--card); color: var(--ink2); box-shadow: 0 6px 18px rgba(0,0,0,.18); }

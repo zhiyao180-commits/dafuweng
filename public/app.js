@@ -23,7 +23,11 @@ let stateModalKey = '', cardKey = '', dangerOn = false;
 // ================= 音效（WebAudio 合成，无需素材） =================
 const Snd = {
   ctx: null, muted: localStorage.getItem('dfw_mute') === '1',
-  init() { if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) {} } if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+  init() {
+    if (this.ctx && this.ctx.state === 'closed') this.ctx = null; // 电脑睡眠 / 换耳机后上下文可能失效：重建
+    if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) {} }
+    if (this.ctx && this.ctx.state !== 'running') { const r = this.ctx.resume(); if (r && r.catch) r.catch(() => {}); }
+  },
   tone(f, d, type = 'sine', v = 0.12, at = 0) {
     const c = this.ctx; if (!c || this.muted) return;
     const t = c.currentTime + at, o = c.createOscillator(), g = c.createGain();
@@ -81,7 +85,7 @@ function unlockAudio() {
   if (c.state === 'running' && sessionOk) return;
   if (c.state !== 'running') { const r = c.resume(); if (r && r.catch) r.catch(() => {}); }
   try { const src = c.createBufferSource(); src.buffer = c.createBuffer(1, 1, 22050); src.connect(c.destination); src.start(0); } catch (_) {}
-  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (_) {}
+  try { if (isIOS && navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (_) {}
   if (isIOS && !navigator.audioSession && !silentEl) { silentEl = new Audio(silentWavURL()); silentEl.loop = true; silentEl.setAttribute('playsinline', ''); const r = silentEl.play(); if (r && r.catch) r.catch(() => { silentEl = null; }); }
   setTimeout(updateSoundHint, 300);
 }
@@ -93,10 +97,15 @@ document.addEventListener('visibilitychange', () => {
 });
 // 还没开启声音时，屏幕底部提示“点一下开启音效”
 function updateSoundHint() {
-  const need = !Snd.muted && S && S.phase !== 'lobby' && !$('#game').hidden && (!Snd.ctx || Snd.ctx.state !== 'running');
+  const inGame = S && S.phase !== 'lobby' && !$('#game').hidden, mutedHint = inGame && Snd.muted && !window._muteHintClosed;
+  const need = mutedHint || (inGame && !Snd.muted && (!Snd.ctx || Snd.ctx.state !== 'running'));
   let el = $('#soundHint');
   if (!need) { if (el) el.remove(); return; }
-  if (!el) { el = document.createElement('button'); el.id = 'soundHint'; el.innerHTML = '🔈 点一下这里开启游戏音效'; document.body.appendChild(el); el.onclick = () => { unlockAudio(); Snd.plus(); }; }
+  const txt = Snd.muted ? '🔇 游戏声音已关闭 · 点这里打开' : '🔈 点一下这里开启游戏音效';
+  if (!el) { el = document.createElement('div'); el.id = 'soundHint'; document.body.appendChild(el); }
+  if (el._t !== txt) { el._t = txt; el.innerHTML = `<button class="sh-go">${txt}</button>${Snd.muted ? '<button class="sh-x" title="保持静音">✕</button>' : ''}`;
+    el.querySelector('.sh-go').onclick = () => { if (Snd.muted) toggleMute(); else { unlockAudio(); Snd.plus(); } updateSoundHint(); };
+    const x = el.querySelector('.sh-x'); if (x) x.onclick = () => { window._muteHintClosed = true; el.remove(); }; }
 }
 setInterval(updateSoundHint, 1500);
 
@@ -148,8 +157,9 @@ const toggleTheme = () => applyTheme(document.documentElement.dataset.theme === 
 // 省电模式：关闭所有装饰性循环动画和毛玻璃，适合旧电脑或想让电脑更凉快时
 function applyEco() { if (localStorage.getItem('dfw_eco') === null && (window.matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad/.test(navigator.userAgent))) localStorage.setItem('dfw_eco', '1'); const on = localStorage.getItem('dfw_eco') === '1'; document.documentElement.classList.toggle('eco', on); const b = $('#btnEco'); if (b) { b.classList.toggle('on', on); b.title = on ? '省电模式：已开启（点击关闭）' : '省电模式：已关闭（点击开启）'; } }
 function toggleEco() { localStorage.setItem('dfw_eco', localStorage.getItem('dfw_eco') === '1' ? '0' : '1'); applyEco(); toast(localStorage.getItem('dfw_eco') === '1' ? '🍃 省电模式已开启：关闭装饰动画和毛玻璃效果' : '省电模式已关闭'); }
-function toggleMute() { Snd.muted = !Snd.muted; localStorage.setItem('dfw_mute', Snd.muted ? '1' : '0'); $('#btnMute').textContent = Snd.muted ? '🔇' : '🔊'; toast(Snd.muted ? '已静音' : '声音已打开'); }
-$('#btnMute').textContent = Snd.muted ? '🔇' : '🔊';
+function paintMute() { const b = $('#btnMute'); b.textContent = Snd.muted ? '🔇' : '🔊'; b.classList.toggle('muted', Snd.muted); b.title = Snd.muted ? '已静音（点击或按 M 打开声音）' : '声音（点击或按 M 静音）'; }
+function toggleMute() { Snd.muted = !Snd.muted; localStorage.setItem('dfw_mute', Snd.muted ? '1' : '0'); paintMute(); if (!Snd.muted) { Snd.init(); Snd.chord([1046, 1318, 1568], 0.35, 'sine', 0.06); } updateSoundHint(); toast(Snd.muted ? '🔇 已静音（再按一次 M 或点 🔇 打开）' : '🔊 声音已打开，听到「叮」一声就说明正常'); }
+paintMute();
 $('#btnEco').onclick = toggleEco; applyEco(); $('#btnTheme').onclick = toggleTheme; $('#btnMute').onclick = toggleMute; $('#btnHelp').onclick = () => openLocal({ type: 'help' });
 
 // ================= 片头动画 =================
