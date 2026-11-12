@@ -58,7 +58,8 @@ setInterval(() => {
   for (const g of rooms.values()) {
     try {
       if (g.auction) { if (g.tickAuction()) broadcast(g); }
-      else if (g.phase === 'play' && g.deadline && Date.now() > g.deadline) { g.autoPlay(); broadcast(g); }
+      else if (g.phase === 'play' && g.cur && g.cur.auto && !g.auction && Date.now() >= (g.autoAt || 0)) { g.autoAt = Date.now() + 2800; try { g.autoSmart(g.cur); } catch (e) { console.error(e); } broadcast(g); }
+    else if (g.phase === 'play' && g.deadline && Date.now() > g.deadline) { g.autoPlay(); broadcast(g); }
     } catch (e) { console.error(e); g.fx = []; g.touch(); }
   }
 }, 250);
@@ -69,6 +70,8 @@ setInterval(() => {
     if (g.settleBets()) broadcast(g);
     if (g.phase === 'play' && (g.mt = (g.mt || 0) + 1) % 2 === 0) { const ch = g.tickMarket(2); if (ch || g.fx.length) broadcast(g); else io.to(g.code).emit('market', { market: g.market, loans: Object.fromEntries(g.players.map((p) => [p.id, p.loan || 0])) }); }
     if (g.phase !== 'play') continue;
+    if (g.expireTrades()) broadcast(g);
+    const oldJ = g.expireJoins(); if (oldJ.length) { for (const [, sk] of io.sockets.sockets) if (oldJ.some((r) => r.token === sk.data.joinToken)) { sk.data.joinToken = null; sk.emit('joinDenied', { msg: '房主 2 分钟内没有处理，申请已过期，可以重新申请' }); } broadcast(g); }
     const inc = g.tickIncome();
     if (inc) for (const pid of Object.keys(inc)) io.to(g.code + ':' + pid).emit('income', inc[pid]);
     // 每秒都检查是否有人达到目标（地价每分钟上涨、股价波动也会让总资产越过目标）
@@ -104,6 +107,14 @@ io.on('connection', (socket) => {
       const g = rooms.get(String(code || '').toUpperCase().trim());
       if (!g) throw new GameError('房间不存在，请检查房间号');
       let p = g.P(token);
+      if (!p && g.phase === 'play') {
+        // 游戏已开始：向房主发送加入申请，等待批准
+        const r = g.requestJoin(name, token);
+        socket.data.joinCode = g.code; socket.data.joinToken = token;
+        const host = g.P(g.hostToken); if (host) io.to(g.code + ':' + host.id).emit('joinReq', { rid: r.rid, name: r.name });
+        reply(cb, { ok: false, wait: true, code: g.code, name: r.name });
+        broadcast(g); return;
+      }
       if (!p) p = g.addPlayer(name, token);
       bind(g, p);
       reply(cb, { ok: true, code: g.code, id: p.id });
@@ -117,7 +128,15 @@ io.on('connection', (socket) => {
     try {
       const kicked = type === 'kick' && g.phase === 'lobby' ? g.byId(args.id) : null;
       if (type === 'kick' && g.byId(args.id)) io.to(g.code + ':' + args.id).emit('kicked');
-      g.act(socket.data.token, type, args);
+      const res = g.act(socket.data.token, type, args);
+      if (type === 'approve' && res) {
+        const tk = res.player ? res.player.token : res.denied && res.denied.token;
+        for (const [, sk] of io.sockets.sockets) if (sk.data.joinToken === tk && sk.data.joinCode === g.code) {
+          sk.data.joinToken = null;
+          if (res.player) { sk.join(g.code); sk.join(g.code + ':' + res.player.id); sk.data.code = g.code; sk.data.token = tk; sk.emit('joinOk', { code: g.code, id: res.player.id }); }
+          else sk.emit('joinDenied', { msg: '房主拒绝了您的加入申请' });
+        }
+      }
       if (kicked) for (const [, sk] of io.sockets.sockets) if (sk.data.token === kicked.token) { sk.leave(g.code); sk.data.code = null; }
       reply(cb, { ok: true });
     } catch (e) {
@@ -139,7 +158,13 @@ io.on('connection', (socket) => {
     if (msg) { g.say(`💬 ${p.name} 对 ${g.byId(to).name} 说：${msg}`); broadcast(g); }
   });
 
+  socket.on('cancelJoin', () => {
+    const g = rooms.get(socket.data.joinCode); if (!g || !socket.data.joinToken) return;
+    g.joinReqs = (g.joinReqs || []).filter((r) => r.token !== socket.data.joinToken); socket.data.joinToken = null; broadcast(g);
+  });
   socket.on('disconnect', () => {
+    const gj = rooms.get(socket.data.joinCode);
+    if (gj && socket.data.joinToken) { gj.joinReqs = (gj.joinReqs || []).filter((r) => r.token !== socket.data.joinToken); broadcast(gj); }
     const g = rooms.get(socket.data.code);
     if (!g) return;
     const p = g.P(socket.data.token);

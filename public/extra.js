@@ -23,6 +23,7 @@
   const TITLE = { stock: ['📈', '股票交易', '行情每 2 秒更新 · 红涨绿跌 · 手续费 0.3%'], bet: ['🎯', '涨跌竞猜', '10 秒定输赢 · 猜中返还 1.9 倍 · 红涨绿跌'], loan: ['🏦', '银行贷款', '即时到账 · 每分钟复利 3% · 额度为总资产一半'] };
   const guideHTML = (tab) => { const g = GUIDE[tab], open = localStorage.getItem('dfw_guide_' + tab) !== '0'; return `<details class="fin-guide" data-guide="${tab}" ${open ? 'open' : ''}><summary>📘 怎么参与 · ${g[0]}</summary><ol>${g[1].map((x) => `<li>${x}</li>`).join('')}</ol><p>所有交易都使用现金；股票持仓按实时价格计入总资产，钱不够付账时系统会自动卖出持仓。</p></details>`; };
   function finShell(v, box) {
+    if (v.tab === 'stock') return stockShell(v, box);
     const t = TITLE[v.tab];
     box.innerHTML = `<div class="mk-head"><div class="fin-title"><i class="fin-ico ${v.tab}">${t[0]}</i><div><h3>${t[1]}</h3><div class="muted">${t[2]}</div></div></div></div>
       ${guideHTML(v.tab)}
@@ -56,6 +57,7 @@
   function finUpdate() {
     const v = localView; if (!v || v.type !== 'fin' || !S || !S.market) return;
     const m = me(); if (!m) return;
+    if (v.tab === 'stock') return stockUpdate(v, m);
     if (v.tab === 'loan') {
       $('#loanBal').textContent = fmt(Math.round(m.loan || 0));
       const nw = m.worth, lim = Math.max(0, Math.round((nw + (m.loan || 0)) * 0.5 - (m.loan || 0)));
@@ -85,8 +87,110 @@
   window.onMarket = () => { finUpdate(); renderTicker(); };
   setInterval(() => { if (localView && localView.type === 'fin' && localView.tab === 'bet') finUpdate(); }, 1000);
 
+  // ---------------- 股票交易所（专业版）：K 线 + 均线 + 成交量 + 持仓成本与盈亏 ----------------
+  const UP = '#E5383B', DN = '#1E9B4D';
+  const ma = (arr, n) => arr.map((_, i) => (i + 1 < n ? null : arr.slice(i + 1 - n, i + 1).reduce((a, b) => a + b, 0) / n));
+  const pct = (a, b) => (b ? (a / b - 1) * 100 : 0);
+  const sgn = (x, d = 2) => (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(d);
+  const idx = () => { const v = AS.map((a) => { const x = mk(a.id); return x ? x.price / (a.base * (S.infl || 1)) : 1; }); return (v.reduce((a, b) => a + b, 0) / v.length) * 1000; };
+  const idx0 = () => { const v = AS.map((a) => { const x = mk(a.id); return x && x.hist.length ? x.hist[0] / (a.base * (S.infl || 1)) : 1; }); return (v.reduce((a, b) => a + b, 0) / v.length) * 1000; };
+  function kSVG(x, mode, W, H) {
+    const VH = 36, PH = H - VH - 8, k = mode === 'k' && x.k && x.k.length ? x.k : null;
+    const series = k ? k : x.hist.map((v, i, a) => [i ? a[i - 1] : v, v, v, v, 0]);
+    const n = Math.max(series.length, mode === 'k' ? 24 : 2), lo0 = Math.min(...series.map((c) => c[2])), hi0 = Math.max(...series.map((c) => c[1])), pad = (hi0 - lo0 || hi0 * 0.01) * 0.12;
+    const lo = lo0 - pad, hi = hi0 + pad, Y = (v) => (PH - ((v - lo) / (hi - lo)) * PH).toFixed(1), cw = W / n, X = (i) => (i + 0.5) * cw;
+    const vmax = Math.max(1, ...series.map((c) => c[4]));
+    let g = '';
+    for (let i = 0; i <= 3; i++) { const v = lo + ((hi - lo) * i) / 3, y = Y(v); g += `<line x1="0" x2="${W}" y1="${y}" y2="${y}" class="kg"/><text x="${W - 2}" y="${+y - 3}" text-anchor="end" class="kl">${finPx({ price: v })}</text>`; }
+    let body = '';
+    if (k) {
+      k.forEach((c, i) => { const up = c[3] >= c[0], col = up ? UP : DN, x0 = X(i), bw = Math.max(2, cw * 0.62), yo = +Y(c[0]), yc = +Y(c[3]);
+        body += `<line x1="${x0}" x2="${x0}" y1="${Y(c[1])}" y2="${Y(c[2])}" stroke="${col}" stroke-width="1.2"/><rect x="${(x0 - bw / 2).toFixed(1)}" y="${Math.min(yo, yc).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1.2, Math.abs(yc - yo)).toFixed(1)}" fill="${up ? '#fff' : col}" stroke="${col}" stroke-width="1.2" rx=".6"/>`;
+        const vh = (c[4] / vmax) * VH; body += `<rect x="${(x0 - bw / 2).toFixed(1)}" y="${(H - vh).toFixed(1)}" width="${bw.toFixed(1)}" height="${vh.toFixed(1)}" fill="${col}" opacity=".45"/>`; });
+      const cl = k.map((c) => c[3]), line = (arr, col) => { const pts = arr.map((v, i) => (v == null ? null : `${X(i).toFixed(1)},${Y(v)}`)).filter(Boolean); return pts.length > 1 ? `<polyline points="${pts.join(' ')}" fill="none" stroke="${col}" stroke-width="1.4" stroke-linejoin="round"/>` : ''; };
+      body += line(ma(cl, 5), '#F59E0B') + line(ma(cl, 10), '#7C4DFF');
+    } else {
+      const h = x.hist, up = h[h.length - 1] >= h[0], col = up ? UP : DN, pts = h.map((v, i) => `${((i / Math.max(1, h.length - 1)) * W).toFixed(1)},${Y(v)}`).join(' ');
+      body += `<polygon points="0,${PH} ${pts} ${W},${PH}" fill="${col}" opacity=".1"/><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round"/><line x1="0" x2="${W}" y1="${Y(h[0])}" y2="${Y(h[0])}" class="kref"/>`;
+    }
+    const last = series[series.length - 1][3], ly = Y(last), lup = last >= series[0][0];
+    body += `<line x1="0" x2="${W}" y1="${ly}" y2="${ly}" class="klast" stroke="${lup ? UP : DN}"/><rect x="${W - 56}" y="${+ly - 9}" width="56" height="18" rx="5" fill="${lup ? UP : DN}"/><text x="${W - 28}" y="${+ly + 4}" text-anchor="middle" class="ktag">${finPx({ price: last })}</text>`;
+    return `<svg viewBox="0 0 ${W} ${H}" class="ksvg" data-n="${n}" data-cw="${cw}">${g}${body}<line class="kx" x1="0" x2="0" y1="0" y2="${H}" style="display:none"/></svg>`;
+  }
+  function stockShell(v, box) {
+    v.side = v.side || 'buy'; v.mode = v.mode || 'k';
+    box.innerHTML = `<div class="sx-head"><div class="fin-title"><i class="fin-ico stock">📈</i><div><h3>股票交易所</h3><div class="muted">行情每 2 秒更新 · 每根 K 线 10 秒 · 红涨绿跌 · 手续费 0.3%</div></div></div><div class="sx-idx" id="sxIdx"></div></div>
+      ${guideHTML('stock')}
+      <div class="sx-body"><div class="sx-list" id="sxList"></div>
+        <div class="sx-main"><div class="sx-q" id="sxQ"></div>
+          <div class="sx-tabs"><button data-sxmode="line">分时</button><button data-sxmode="k">K 线</button><span class="sx-leg"><i style="background:#F59E0B"></i>MA5 <i style="background:#7C4DFF"></i>MA10</span><span class="sx-tip" id="sxTip"></span></div>
+          <div class="sx-chart" id="sxChart"></div>
+          <div class="sx-pos" id="sxPos"></div>
+          <div class="sx-order"><div class="sx-side"><button data-sxside="buy">买入</button><button data-sxside="sell">卖出</button></div>
+            <div class="mk-price"><input id="sxAmt" type="number" min="0" step="1" placeholder="金额"><span>M</span></div>
+            <div class="mk-quick" id="sxQuick"></div><div class="sx-est" id="sxEst"></div>
+            <button class="btn big wide" id="sxGo"></button></div>
+        </div></div>
+      <div class="fin-foot" id="finFoot"></div><div class="act-row"><button class="btn wide" data-close>关闭<kbd>Esc</kbd></button></div>`;
+    const amtIn = $('#sxAmt'); amtIn.oninput = () => stockUpdate(v, me(), true);
+    amtIn.onkeydown = (e) => { if (e.key === 'Enter') $('#sxGo').click(); };
+    box.querySelector('.sx-body').addEventListener('click', (e) => {
+      const r = e.target.closest('[data-sxsel]'); if (r) { v.sel = r.dataset.sxsel; return stockUpdate(v, me()); }
+      const md = e.target.closest('[data-sxmode]'); if (md) { v.mode = md.dataset.sxmode; return stockUpdate(v, me()); }
+      const sd = e.target.closest('[data-sxside]'); if (sd) { v.side = sd.dataset.sxside; amtIn.value = ''; return stockUpdate(v, me()); }
+      const q = e.target.closest('[data-sxq]'); if (q) { amtIn.value = q.dataset.sxq; return stockUpdate(v, me(), true); }
+    });
+    $('#sxGo').onclick = () => {
+      const k = Math.round((+amtIn.value || 0) * 1000); if (!k) { toast('请先输入金额'); amtIn.focus(); return; }
+      act('trade', { id: v.sel, side: v.side, amount: k }, (r) => { if (r.ok) { Snd.beep(); toast(v.side === 'buy' ? `已买入 ${meta(v.sel).name} ${fmt(k)}` : `已卖出 ${meta(v.sel).name}`); amtIn.value = ''; } });
+    };
+    // 十字光标：显示鼠标所在那根 K 线的 开/高/低/收
+    const ch = $('#sxChart');
+    ch.addEventListener('mousemove', (e) => {
+      const sv = ch.querySelector('svg'), x = mk(v.sel); if (!sv || !x) return;
+      const r = sv.getBoundingClientRect(), W = 600, px = ((e.clientX - r.left) / r.width) * W, cw = +sv.dataset.cw, i = Math.floor(px / cw), line = sv.querySelector('.kx');
+      const k = v.mode === 'k' && x.k ? x.k : null, c = k ? k[i] : null, tip = $('#sxTip');
+      if (!c && !(v.mode !== 'k' && x.hist[Math.round((px / W) * (x.hist.length - 1))])) { line.style.display = 'none'; tip.textContent = ''; return; }
+      line.style.display = ''; line.setAttribute('x1', px); line.setAttribute('x2', px);
+      if (c) tip.innerHTML = `开 ${finPx({ price: c[0] })} 高 ${finPx({ price: c[1] })} 低 ${finPx({ price: c[2] })} 收 <b style="color:${c[3] >= c[0] ? UP : DN}">${finPx({ price: c[3] })}</b> 量 ${c[4]}`;
+      else { const hv = x.hist[Math.round((px / W) * (x.hist.length - 1))]; tip.innerHTML = `价格 <b>${finPx({ price: hv })}</b>`; }
+    });
+    ch.addEventListener('mouseleave', () => { const l = ch.querySelector('.kx'); if (l) l.style.display = 'none'; $('#sxTip').textContent = ''; });
+    stockUpdate(v, me());
+  }
+  function stockUpdate(v, m, onlyOrder) {
+    if (!m || !$('#sxList')) return;
+    if (!AS.some((a) => a.id === v.sel)) v.sel = AS[0].id;
+    const x = mk(v.sel), a = meta(v.sel), hold = (m.hold || {})[v.sel] || 0, val = hold * x.price, cost = ((m.cost || {})[v.sel]) || 0, pl = val - cost;
+    const amtIn = $('#sxAmt'), k = Math.round((+amtIn.value || 0) * 1000), fee = 0.003;
+    // 下单区
+    document.querySelectorAll('[data-sxside]').forEach((b) => b.classList.toggle('on', b.dataset.sxside === v.side));
+    const base = v.side === 'buy' ? Math.max(0, m.money) : val;
+    $('#sxQuick').innerHTML = [[0.25, '1/4'], [0.5, '1/2'], [1, v.side === 'buy' ? '全部现金' : '全部持仓']].map(([f, n]) => `<button data-sxq="${Math.floor((base * f) / 1000)}" ${base <= 0 ? 'disabled' : ''}>${n} ${fmt(Math.floor(base * f))}</button>`).join('');
+    $('#sxEst').innerHTML = k ? (v.side === 'buy' ? `约买入 ${((k * (1 - fee)) / x.price).toFixed(2)} 份 · 手续费 ${fmt(Math.round(k * fee))}${k > m.money ? ' · <b class="down">现金不足</b>' : ''}` : `约卖出 ${(Math.min(k, val) / x.price).toFixed(2)} 份 · 到账 ${fmt(Math.round(Math.min(k, val) * (1 - fee)))}${k > val ? ' · 超出部分按全部持仓卖出' : ''}`) : `可用现金 ${fmt(m.money)} · 持仓市值 ${fmt(Math.round(val))}`;
+    const go = $('#sxGo'); go.className = 'btn big wide ' + (v.side === 'buy' ? 'sx-buy' : 'sx-sell'); go.textContent = `${v.side === 'buy' ? '买入' : '卖出'} ${a.name}`;
+    if (onlyOrder) return;
+    // 指数
+    const I = idx(), I0 = idx0(), ip = pct(I, I0);
+    $('#sxIdx').innerHTML = `<small>世界综合指数</small><b class="${ip >= 0 ? 'up' : 'down'}">${I.toFixed(1)}</b><span class="${ip >= 0 ? 'up' : 'down'}">${sgn(ip)}%</span>`;
+    // 自选列表
+    $('#sxList').innerHTML = AS.map((s2) => { const y = mk(s2.id), c = chg(y), h = (m.hold || {})[s2.id], cv = h ? h * y.price - ((m.cost || {})[s2.id] || 0) : 0; return `<div class="sx-row ${v.sel === s2.id ? 'on' : ''}" data-sxsel="${s2.id}"><div class="sx-n"><b>${s2.name}</b><small>${s2.id}${h ? ` · <span class="${cv >= 0 ? 'up' : 'down'}">持仓 ${cv >= 0 ? '+' : '−'}${fmt(Math.abs(Math.round(cv)))}</span>` : ''}</small></div>${spark(y.hist, 56, 24)}<div class="sx-p"><b>${finPx(y)}</b><small class="${c >= 0 ? 'up' : 'down'}">${sgn(c)}%</small></div></div>`; }).join('');
+    // 报价头
+    const K = x.k || [], cur = K[K.length - 1] || [x.price, x.price, x.price, x.price, 0], open = K.length ? K[0][0] : x.hist[0], hi = Math.max(...x.hist), lo = Math.min(...x.hist), c = pct(x.price, x.hist[0]), d = x.price - x.hist[0], vol = K.reduce((s3, c2) => s3 + c2[4], 0);
+    $('#sxQ').innerHTML = `<div class="sx-qn"><b>${a.name}</b><small>${a.id} · 波动率 ${(a.vol * 100).toFixed(1)}%</small></div><div class="sx-qp ${c >= 0 ? 'up' : 'down'}"><b>${finPx(x)}</b><span>${c >= 0 ? '▲' : '▼'} ${sgn(d)} (${sgn(c)}%)</span></div>
+      <div class="sx-qs"><span>今开 <b>${finPx({ price: open })}</b></span><span>最高 <b class="up">${finPx({ price: hi })}</b></span><span>最低 <b class="down">${finPx({ price: lo })}</b></span><span>成交量 <b>${vol >= 10000 ? (vol / 10000).toFixed(1) + '万' : vol}</b></span><span>本根 K 线 <b class="${cur[3] >= cur[0] ? 'up' : 'down'}">${sgn(pct(cur[3], cur[0]))}%</b></span></div>`;
+    document.querySelectorAll('[data-sxmode]').forEach((b) => b.classList.toggle('on', b.dataset.sxmode === v.mode));
+    $('#sxChart').innerHTML = kSVG(x, v.mode, 600, 210);
+    // 持仓
+    const real = (m.st && m.st.stockReal) || 0, tv = AS.reduce((s3, s2) => s3 + ((m.hold || {})[s2.id] || 0) * mk(s2.id).price, 0), tc = AS.reduce((s3, s2) => s3 + (((m.cost || {})[s2.id]) || 0), 0);
+    $('#sxPos').innerHTML = hold ? `<div><small>持仓市值</small><b>${fmt(Math.round(val))}</b></div><div><small>持仓成本</small><b>${fmt(Math.round(cost))}</b></div><div><small>浮动盈亏</small><b class="${pl >= 0 ? 'up' : 'down'}">${pl >= 0 ? '+' : '−'}${fmt(Math.abs(Math.round(pl)))}</b></div><div><small>收益率</small><b class="${pl >= 0 ? 'up' : 'down'}">${sgn(cost ? (pl / cost) * 100 : 0)}%</b></div>`
+      : `<div class="sx-empty">还没有持有 ${a.name}。在下方输入金额买入，价格上涨后卖出即可赚取差价。</div>`;
+    $('#finFoot').innerHTML = `💰 现金 <b>${fmt(m.money)}</b>　📊 股票总市值 <b>${fmt(Math.round(tv))}</b>　📈 总浮动盈亏 <b class="${tv - tc >= 0 ? 'up' : 'down'}">${tv - tc >= 0 ? '+' : '−'}${fmt(Math.abs(Math.round(tv - tc)))}</b>　✅ 已实现盈亏 <b class="${real >= 0 ? 'up' : 'down'}">${real >= 0 ? '+' : '−'}${fmt(Math.abs(Math.round(real)))}</b>`;
+  }
+
   // ---------------- 涨跌竞猜：进行中的浮动胶囊 + 10 秒结算全屏报告 ----------------
   setInterval(() => {
+    if (document.hidden) return;
     const m = S && S.phase === 'play' && me(), b = m && m.bet; let el = $('#betPill');
     if (!b) { if (el) el.classList.remove('show'); return; }
     if (!el) { el = document.createElement('div'); el.id = 'betPill'; document.body.appendChild(el); }
@@ -96,7 +200,7 @@
     el.innerHTML = `<svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" class="bg"/><circle cx="18" cy="18" r="15" class="fg" style="stroke-dasharray:${C};stroke-dashoffset:${off}"/></svg><span class="bp-s">${Math.ceil(left)}</span>
       <div class="bp-t"><b>${b.dir === 'up' ? '看涨 · 做多' : '看跌 · 做空'}</b><small>${meta(b.id).name} · 本金 ${fmt(b.stake)}</small></div>
       <div class="bp-px"><b class="${d >= 0 ? 'up' : 'down'}">${px({ price: now })}</b><small class="${ahead ? 'ok' : d === 0 ? '' : 'no'}">${d === 0 ? '持平' : ahead ? '暂时领先' : '暂时落后'}</small></div>`;
-  }, 200);
+  }, 500);
 
   window.showBetResult = (f) => {
     const a = meta(f.id), win = f.win, long = f.dir === 'up', flat = f.end === f.start, pct = (f.end / f.start - 1) * 100, pnl = win ? f.payout - f.stake : -f.stake;
@@ -194,6 +298,7 @@
     const R = S.recap; if (!R) return '<div class="mk-empty">暂无复盘数据</div>';
     const head = `<div class="rc-head"><div><h3>📋 对局复盘清单</h3><div class="muted">时长 ${hms(R.dur)} · ${R.players.length} 位玩家 · 共 ${R.rounds} 个回合 · 通胀到第 ${R.stage + 1} 阶段 · ${esc(R.why || '')}</div></div><button class="btn sm" id="rcCopy">📄 复制文字版</button></div>`;
     const rank = `<div class="rc-sec"><h4>🏆 最终名次</h4><div class="rc-rank">${R.players.map((x) => `<div class="rc-r ${x.won ? 'won' : x.out ? 'out' : ''}"><b>${x.rank}</b>${avatar(x)}<span class="nm">${esc(x.name)}</span><span>${x.won ? `👑 ${hms(x.wonAt)} 达成目标` : x.out ? `💥 ${hms(x.outAt)} 出局` : '坚持到最后'}</span><span>${x.won ? '达成时' : x.out ? '出局' : '结束时'} <b>${x.out ? '0' : fmt(x.worth)}</b></span><span class="muted">最高 ${fmt(x.peak[0])}（${hms(x.peak[1])}）</span></div>`).join('')}</div></div>`;
+    const chart = window.worthChart ? `<div class="rc-sec"><h4>📊 总资产走势</h4><div class="wc-wrap">${worthChart(R.players.map((x) => ({ name: x.name, color: x.color, wh: x.wh || [] })))}</div></div>` : '';
     const aw = R.awards.length ? `<div class="rc-sec"><h4>🏅 本局奖项</h4><div class="rc-aw">${R.awards.map((a) => `<div class="${a.good ? '' : 'bad'}"><b>${a.title}</b><span>${pn(a.pid)}</span><small>${/^(块地|次)/.test(a.unit) ? a.v + ' ' + a.unit : a.unit + ' ' + fmt(Math.round(a.v))}</small></div>`).join('')}</div></div>` : '';
     const cards = `<div class="rc-sec"><h4>🧾 每位玩家的清单</h4><div class="rc-cards">${R.players.map((x) => { const s = x.st || {}; return `<div class="rc-card" style="--pc:${x.color}"><div class="rc-ch">${avatar(x)}<b>${esc(x.name)}</b><span>第 ${x.rank} 名</span></div>
       <ul>
@@ -206,7 +311,7 @@
       </ul><div class="rc-tips">${tips(x).map((t) => `<div>${t}</div>`).join('')}</div></div>`; }).join('')}</div></div>`;
     const rents = R.rents.length ? `<div class="rc-sec"><h4>🔥 本局最贵的租金</h4><ol class="rc-list">${R.rents.map((r) => `<li>${hms(r.t)}　${pn(r.from)} → ${pn(r.to)}　<b>${fmt(r.amt)}</b>（${esc(r.city)}）</li>`).join('')}</ol></div>` : '';
     const tl = `<div class="rc-sec"><h4>🕒 关键时刻</h4><div class="rc-tl">${R.moments.map((m) => `<div><small>${hms(m.t)}</small><span>${esc(m.text)}</span></div>`).join('')}</div></div>`;
-    return head + `<div class="rc-body">${rank}${aw}${cards}${rents}${tl}</div><div class="act-row"><button class="btn wide" data-close>关闭</button></div>`;
+    return head + `<div class="rc-body">${rank}${chart}${aw}${cards}${rents}${tl}</div><div class="act-row"><button class="btn wide" data-close>关闭</button></div>`;
   }
   function recapText() {
     const R = S.recap; if (!R) return '';

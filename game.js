@@ -1,5 +1,6 @@
 // 大富翁规则引擎（服务器权威：所有点数、余额都由这里决定）
 const D = require('./public/data.js');
+const N01 = () => Math.sqrt(-2 * Math.log(Math.random() || 1e-9)) * Math.cos(2 * Math.PI * Math.random()); // 标准正态随机数
 const AUCTION_START = 10000, AUCTION_EXT = 5000; // 拍卖：开拍 10 秒，每次有人加价后倒计时重置为 5 秒
 const { BOARD, GROUPS, CHANCE, CHEST, RULES, fmt } = D;
 const N = BOARD.length;
@@ -45,6 +46,7 @@ class Game {
     this.sets = {};
     this.deadline = 0;
     this.market = D.ASSETS.map((a) => ({ id: a.id, price: a.base, hist: [a.base] }));
+    this.backfillMarket();
     this.stage = 0; this.autoStage = 0; this.startedAt = 0; this.tasks = {};
   }
 
@@ -57,6 +59,20 @@ class Game {
   name(p) { return p ? p.name : '银行'; }
 
   // 资金变动 + 刷卡机动画
+  // 预先生成约 6 分钟的历史行情，开局时 K 线图就是完整的
+  backfillMarket() {
+    for (const m of this.market) {
+      const a = D.ASSETS.find((x) => x.id === m.id); let price = a.base * (0.92 + Math.random() * 0.16); m.hist = []; m.k = []; m.kn = 0;
+      for (let i = 0; i < 180; i++) {
+        const prev = price; price = Math.max(a.base * 0.3, price * Math.exp(0.03 * Math.log(a.base / price) + a.vol * N01()));
+        const px = +price.toPrecision(5), vol = Math.round((60 + Math.random() * 120) * (1 + Math.abs(Math.log(price / prev)) * 25));
+        if (i >= 120) m.hist.push(px);
+        m.kn++; if (m.kn % 5 === 1) { const o = +prev.toPrecision(5); m.k.push([o, Math.max(o, px), Math.min(o, px), px, 0]); if (m.k.length > 36) m.k.shift(); }
+        const c = m.k[m.k.length - 1]; c[1] = Math.max(c[1], px); c[2] = Math.min(c[2], px); c[3] = px; c[4] += vol;
+      }
+      m.price = price;
+    }
+  }
   // ---------- 复盘统计 ----------
   stat(p, k, v = 1) { if (!p) return; const s = p.st || (p.st = {}); s[k] = (s[k] || 0) + v; }
   moment(text) { const m = this.moments || (this.moments = []); m.push({ t: Date.now() - (this.startedAt || Date.now()), text }); if (m.length > 120) m.splice(1, 1); }
@@ -167,6 +183,41 @@ class Game {
     if (!this.hostToken) this.hostToken = token;
     this.say(`${p.name} 加入了房间`);
     return p;
+  }
+
+  // ---------- 开局后申请加入（房主审批） ----------
+  requestJoin(name, token) {
+    must(this.phase === 'play', '游戏不在进行中');
+    name = String(name || '').trim().slice(0, 10) || '玩家';
+    must(!this.players.some((p) => p.name === name), '这个名字已经有人用了，换一个再申请');
+    must(this.players.length < 8, '房间已满 8 人');
+    this.joinReqs = (this.joinReqs || []).filter((r) => r.token !== token);
+    const r = { rid: 'r' + Math.random().toString(36).slice(2, 8), name, token, at: Date.now() };
+    this.joinReqs.push(r);
+    return r;
+  }
+  approveJoin(p, rid, ok) {
+    must(p.token === this.hostToken, '只有房主可以审批');
+    const r = (this.joinReqs || []).find((x) => x.rid === rid); must(r, '申请已失效');
+    this.joinReqs = this.joinReqs.filter((x) => x !== r);
+    if (!ok) { this.say(`房主拒绝了 ${r.name} 的加入申请`); return { denied: r }; }
+    must(this.players.length < 8, '房间已满 8 人');
+    must(!this.players.some((x) => x.name === r.name), '这个名字已经有人用了');
+    const used = new Set(this.players.map((x) => x.color)), ci = Math.max(0, D.COLORS.findIndex((c) => !used.has(c)));
+    const usedIcon = new Set(this.players.map((x) => x.icon)), icon = D.TOKENS.find((t) => !usedIcon.has(t)) || D.TOKENS[ci];
+    const money = this.nice(RULES.startMoney * this.infl); // 按当前通胀发放起始资金
+    const np = { id: 'p' + Math.random().toString(36).slice(2, 8), token: r.token, name: r.name, color: D.COLORS[ci], icon, pos: 0, money, inJail: false, jailTurns: 0, goojf: [], bankrupt: false, connected: true, creditor: null, st: { turns: 0, late: 1 }, peak: [money, Date.now() - this.startedAt], joinedAt: Date.now() - this.startedAt };
+    this.players.push(np); this.maxPlayers = Math.max(this.maxPlayers, this.players.length);
+    this.say(`🙋 ${np.name} 经房主批准中途加入，获得起始资金 ${fmt(money)}，排在最后一位行动`);
+    this.moment(`🙋 ${np.name} 中途加入（起始资金 ${fmt(money)}）`);
+    this.fx.push({ type: 'joined', pid: np.id });
+    return { player: np };
+  }
+  expireJoins() {
+    const now = Date.now(), old = (this.joinReqs || []).filter((r) => now - r.at > 120000);
+    if (!old.length) return [];
+    this.joinReqs = this.joinReqs.filter((r) => !old.includes(r));
+    return old;
   }
 
   setLook(p, color, icon) {
@@ -399,6 +450,7 @@ class Game {
     const n = pd.next;
     if (!n) return;
     if (n.t === 'own') {
+      if (this.props[n.pos].owner) { this.transfer(null, p, pd.amount, '购买失败退款'); this.say(`${BOARD[n.pos].name} 已被别人买走，款项已退回`); return; }
       this.props[n.pos].owner = p.id;
       this.fx.push({ type: 'buy', pid: p.id, pos: n.pos }); this.props[n.pos].fore = false; this.prog(p, 'buy');
       this.say(`${p.name} 买下了 ${BOARD[n.pos].name}`);
@@ -437,9 +489,11 @@ class Game {
     const a = this.auction;
     must(a, '没有拍卖');
     must(!p.bankrupt, '您已破产');
+    must(p.id !== a.seller, '不能竞拍自己被强制拍卖的地产');
     inc = Number(inc);
     must(RULES.bids.includes(inc), '加价无效');
     const amt = a.bid + inc;
+    must(p.money >= 0, '您有欠款，不能竞拍');
     must(p.money >= amt, '余额不足');
     a.bid = amt; a.bidder = p.id;
     a.endsAt = Date.now() + AUCTION_EXT; a.total = AUCTION_EXT; // 有人加价：倒计时重置为 5 秒
@@ -450,14 +504,16 @@ class Game {
     const a = this.auction;
     if (!a || Date.now() < a.endsAt) return false;
     const sq = BOARD[a.pos];
+    this.auction = null;
+    let w = a.bidder && this.byId(a.bidder);
+    if (w && (w.bankrupt || (a.seller && !this.props[a.pos].owner))) { this.say(`${w.name} 已出局或地产已收回，拍卖作废`); w = null; a.bidder = null; }
+    if (w && w.money < a.bid) { this.autoRaise(w, a.bid); if (w.money < a.bid) { this.say(`${w.name} 出价 ${fmt(a.bid)} 但现金不足，拍卖作废`); w = null; a.bidder = null; } }
     if (a.bidder) {
-      const w = this.byId(a.bidder);
       this.transfer(w, a.seller ? this.byId(a.seller) : null, a.bid, `拍得 ${sq.name}`);
       this.props[a.pos].owner = w.id;
       this.fx.push({ type: 'buy', pid: w.id, pos: a.pos }); this.props[a.pos].fore = false; this.prog(w, 'buy');
       this.say(`${w.name} 以 ${fmt(a.bid)} 拍得 ${sq.name}`); this.moment(`🔨 ${w.name} 以 ${fmt(a.bid)} 拍得 ${sq.name}${a.seller ? `（强制拍卖，原主人 ${this.byId(a.seller).name}）` : ''}`);
     } else this.say(`${sq.name} 无人出价，流拍`);
-    this.auction = null;
     if (this.pending && this.pending.kind === 'auction') this.pending = null;
     this.checkSets(); this.checkGoals(); this.maybeAdvance(); this.touch();
     return true;
@@ -496,6 +552,7 @@ class Game {
     must(st.houses < 5, '已经是酒店了');
     must(st.houses <= Math.min(...g.map((x) => x.houses)), '必须平均建房：先在同色其他地产上建');
     const cost = this.buildCost(pos);
+    this.noDebt(p);
     must(p.money >= cost, '余额不足');
     if (st.houses === 4) { must(this.hotelsLeft > 0, '银行酒店已售罄'); this.hotelsLeft--; this.housesLeft += 4; }
     else { must(this.housesLeft > 0, '银行房屋已售罄'); this.housesLeft--; }
@@ -537,6 +594,7 @@ class Game {
     const [sq, st] = this.ownProp(p, pos);
     must(st.mortgaged, '没有抵押');
     const cost = Math.ceil((sq.price * this.pinfl / 2) * 1.1 / 10) * 10;
+    this.noDebt(p);
     must(p.money >= cost, `赎回需要 ${fmt(cost)}`);
     st.mortgaged = false;
     this.transfer(p, null, cost, `赎回 ${sq.name}`);
@@ -552,6 +610,7 @@ class Game {
     for (const pos of list) {
       const st = this.props[pos];
       must(st && st.owner === pid, '交易中包含不属于对方的地产');
+      must(!(this.auction && this.auction.pos === pos), `${BOARD[pos].name} 正在拍卖，不能交易`);
       const sq = BOARD[pos];
       if (sq.type === 'prop') must(GROUP_POS[sq.group].every((i) => this.props[i].houses === 0), `${sq.name} 所在色组有房屋，不能交易`);
     }
@@ -561,13 +620,14 @@ class Game {
     must(this.phase === 'play' && !p.bankrupt, '现在不能交易');
     const to = this.byId(o.to);
     must(to && to !== p && !to.bankrupt, '交易对象无效');
-    const give = (o.give || []).map(Number), get = (o.get || []).map(Number);
+    const give = [...new Set((o.give || []).map(Number))].slice(0, 40), get = [...new Set((o.get || []).map(Number))].slice(0, 40);
     const giveMoney = Math.max(0, Math.floor(Number(o.giveMoney) || 0)), getMoney = Math.max(0, Math.floor(Number(o.getMoney) || 0));
     must(give.length || get.length || giveMoney || getMoney, '交易内容为空');
     this.tradable(p.id, give); this.tradable(to.id, get);
     must(p.money >= giveMoney, '您的余额不够');
+    if (giveMoney) this.noDebt(p);
     this.trades = this.trades.filter((t) => t.from !== p.id);
-    const t = { id: this.tradeSeq++, from: p.id, to: to.id, give, get, giveMoney, getMoney };
+    const t = { id: this.tradeSeq++, from: p.id, to: to.id, give, get, giveMoney, getMoney, at: Date.now(), counter: !!o.counter };
     this.trades.push(t);
     this.say(`${p.name} 向 ${to.name} 发起交易`);
   }
@@ -582,6 +642,8 @@ class Game {
     this.tradable(from.id, t.give); this.tradable(to.id, t.get);
     must(from.money >= t.giveMoney, `${from.name} 余额已不足`);
     must(to.money >= t.getMoney, '您的余额不足');
+    if (t.getMoney) this.noDebt(to);
+    if (t.giveMoney) must(!this.owes(from), `${from.name} 有待付款项，暂时不能成交`);
     t.give.forEach((i) => (this.props[i].owner = to.id));
     t.get.forEach((i) => (this.props[i].owner = from.id));
     if (t.giveMoney) this.transfer(from, to, t.giveMoney, '交易');
@@ -589,6 +651,28 @@ class Game {
     this.say(`${to.name} 接受了 ${from.name} 的交易 ✅`);
     this.fx.push({ type: 'deal', from: from.id, to: to.id });
     this.afterRaise(from); this.afterRaise(to);
+  }
+
+  // 还价：对方报价不合适，直接用新价格反向报价（原报价作废）
+  counter(p, id, price) {
+    const t = this.trades.find((x) => x.id === Number(id));
+    must(t && t.to === p.id, '报价已失效');
+    must(t.give.length + t.get.length === 1 && !(t.giveMoney && t.getMoney), '这笔交易不能还价');
+    price = Math.floor(Number(price)); must(price > 0, '请输入还价金额');
+    const from = this.byId(t.from);
+    this.trades = this.trades.filter((x) => x !== t);
+    // 对方想买我的地 → 我还价卖给他；对方想卖地给我 → 我还价买他的
+    const o = t.get.length ? { to: from.id, give: t.get, getMoney: price, counter: true } : { to: from.id, get: t.give, giveMoney: price, counter: true };
+    this.say(`${p.name} 对 ${from.name} 的报价还价 ${fmt(price)}`);
+    this.propose(p, o);
+  }
+  // 报价 2 分钟内没人处理就自动作废
+  expireTrades() {
+    const now = Date.now(), old = this.trades.filter((t) => now - (t.at || now) > 120000);
+    if (!old.length) return false;
+    this.trades = this.trades.filter((t) => !old.includes(t));
+    old.forEach((t) => this.say(`⌛ ${this.byId(t.from).name} 给 ${this.byId(t.to).name} 的报价超过 2 分钟未处理，已自动作废`));
+    return true;
   }
 
   // ---------- 破产 ----------
@@ -602,7 +686,7 @@ class Game {
     if (owing) this.pending = null;
 
     let cash = Math.max(0, p.money + this.holdValue(p) - (p.loan || 0));
-    p.hold = {}; p.loan = 0; p.bet = null;
+    p.hold = {}; p.cost = {}; p.loan = 0; p.bet = null;
     for (const [i, st] of Object.entries(this.props)) {
       if (st.owner !== p.id) continue;
       const sq = BOARD[i];
@@ -643,7 +727,7 @@ class Game {
   buildRecap() {
     const R = this.ranking, players = this.players.map((p) => {
       const s = p.st || {}, r = R.findIndex((x) => x.id === p.id), stock = (s.stockSell || 0) - (s.stockBuy || 0) + this.holdValue(p) + (s.stockSq || 0);
-      return { id: p.id, name: p.name, color: p.color, icon: p.icon, rank: r + 1, worth: R[r].worth, won: p.won || 0, wonAt: p.wonAt, out: p.bankrupt && !p.won, outAt: p.outAt, outWhy: p.outWhy, peak: p.peak || [0, 0],
+      return { id: p.id, name: p.name, color: p.color, icon: p.icon, rank: r + 1, wh: (p.wh || []).concat([[Math.floor((Date.now() - this.startedAt) / 1000), Math.round(R[r].worth)]]), worth: R[r].worth, won: p.won || 0, wonAt: p.wonAt, out: p.bankrupt && !p.won, outAt: p.outAt, outWhy: p.outWhy, peak: p.peak || [0, 0],
         props: Object.values(this.props).filter((x) => x.owner === p.id).length, money: p.money, st: s, stock, bet: (s.betPayout || 0) - (s.betStake || 0) };
     });
     const best = (f, title, unit, good = true) => { const c = players.map((x) => [x, f(x)]).filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1])[0]; return c ? { title, pid: c[0].id, v: c[1], unit, good } : null; };
@@ -662,7 +746,7 @@ class Game {
     const hit = this.active().map((o) => [o, this.netWorth(o)]).filter((x) => x[1] >= RULES.winCash).sort((x, y) => y[1] - x[1]);
     for (const [o, w] of hit) {
       if (this.phase !== 'play') break;
-      this.rich.push(o.id); o.won = this.rich.length; o.wonWorth = w; o.wonAt = Date.now() - this.startedAt; o.hold = {}; o.loan = 0; o.bet = null; ch = true;
+      this.rich.push(o.id); o.won = this.rich.length; o.wonWorth = w; o.wonAt = Date.now() - this.startedAt; o.hold = {}; o.cost = {}; o.loan = 0; o.bet = null; ch = true;
       this.moment(`👑 ${o.name} 总资产达到 ${fmt(w)}，以第 ${o.won} 名胜出`);
       this.fx.push({ type: 'rich', pid: o.id, rank: o.won });
       this.say(`👑 ${o.name} 的总资产达到 ${fmt(RULES.winCash)}，以第 ${o.won} 名胜出！其名下地产交还银行，其余玩家继续对战`);
@@ -692,6 +776,9 @@ class Game {
       const w = p.won ? p.wonWorth : p.bankrupt ? 0 : this.netWorth(p);
       out[p.id] = [p.money, w];
       if (!p.bankrupt && (!p.peak || w > p.peak[0])) p.peak = [w, Date.now() - this.startedAt];
+      const sec = Math.floor((Date.now() - this.startedAt) / 1000), step = this.whStep || (this.whStep = 30);
+      if (!p.wh) p.wh = [[0, RULES.startMoney]];
+      if (!p.bankrupt && sec - p.wh[p.wh.length - 1][0] >= step) { p.wh.push([sec, Math.round(w)]); if (p.wh.length > 240) { p.wh = p.wh.filter((_, k) => k % 2 === 0); this.whStep = step * 2; } }
     }
     return out;
   }
@@ -733,6 +820,35 @@ class Game {
     this.checkSets(); this.checkGoals(); this.maybeAdvance();
     if (this.phase === 'play') this.touch();
   }
+  // 🤖 托管：替暂时离开的玩家自动操作（有钱才买地、留足备用金、平均建房）
+  setAuto(p, on) { p.auto = !!on; this.say(`🤖 ${p.name} ${p.auto ? '开启托管，系统将代为操作' : '取消托管'}`); }
+  autoSmart(p) {
+    if (this.phase !== 'play' || this.auction || this.cur !== p) return;
+    const pd = this.pending, reserve = Math.max(this.I(40000), Math.round(this.netWorth(p) * 0.05));
+    const tryA = (f) => { try { f(); return true; } catch (e) { if (e instanceof GameError) return false; throw e; } };
+    if (pd && pd.kind === 'buy') {
+      const price = this.priceOf(pd.pos);
+      if (p.money - price >= reserve) { this.say(`🤖 托管：${p.name} 买下 ${BOARD[pd.pos].name}`); tryA(() => this.buy(p)); }
+      else { this.pending = null; this.say(`🤖 托管：${p.name} 资金不宽裕，放弃购买 ${BOARD[pd.pos].name}`); }
+    } else if (pd && pd.kind === 'pay' && pd.payer === p.id) {
+      if (pd.cancelTo && p.money < pd.amount) this.pending = null;
+      else { this.autoRaise(p, pd.amount); if (p.money >= pd.amount) this.swipe(p); else this.bankrupt(p); }
+    } else if (pd && (pd.kind === 'card' || ['stock', 'portal', 'force'].includes(pd.kind))) this.autoPlay();
+    else if (!pd) {
+      if (p.money < 0) { this.autoRaise(p, 0); if (p.money < 0) this.bankrupt(p); }
+      else if (!this.rolled || this.canRollAgain) this.roll(p);
+      else {
+        // 平均建房：每次最多建一栋，留足备用金
+        const cand = Object.keys(this.props).map(Number).filter((i) => this.props[i].owner === p.id && BOARD[i].type === 'prop' && this.ownsGroup(p.id, BOARD[i].group) && this.props[i].houses < 5)
+          .sort((a, b) => this.props[a].houses - this.props[b].houses);
+        const pos = cand.find((i) => p.money - this.buildCost(i) >= reserve * 2);
+        if (pos === undefined || !tryA(() => this.build(p, pos))) this.nextTurn();
+        else this.say(`🤖 托管：${p.name} 在 ${BOARD[pos].name} 建房`);
+      }
+    }
+    this.checkSets(); this.checkGoals(); this.maybeAdvance();
+    if (this.phase === 'play') this.touch();
+  }
   // 每秒收益：有房屋的地产给主人产生收益
   tickIncome() {
     if (this.phase !== 'play') return null;
@@ -753,12 +869,17 @@ class Game {
     this.transfer(p, null, tax, `地产税（地产现值 ${Math.round(r * 1000) / 10}%）`);
     if (p.money < 0) p.creditor = null;
   }
+  // 欠着钱（有待付款项或余额为负）时，只能筹钱，不能把钱花到别处或转给别人
+  owes(p) { const pd = this.pending; return p.money < 0 || !!(pd && pd.kind === 'pay' && pd.payer === p.id); }
+  noDebt(p) { must(!this.owes(p), '您有待付款项，请先完成付款（可以卖房、抵押、卖股票或贷款筹钱）'); }
   // 远程购买：未抵达也可购买银行持有的地产，价格为现价的 3 倍
   remoteBuy(p, pos) {
+    this.noDebt(p);
     pos = Number(pos); const st = this.props[pos];
     must(st && !st.owner, '只能远程购买银行持有的地产');
     must(!this.auction || this.auction.pos !== pos, '这块地正在拍卖');
-    const pd = this.pending; must(!(pd && pd.kind === 'buy' && pd.pos === pos), '您正停在这块地上，请直接购买');
+    const pd = this.pending; must(!(pd && pd.kind === 'buy' && pd.pos === pos), '有玩家正停在这块地上，等他决定是否购买');
+    must(!(pd && pd.kind === 'pay' && pd.next && pd.next.t === 'own' && pd.next.pos === pos), '有玩家正在购买这块地');
     const price = this.priceOf(pos) * 3; must(p.money >= price, `远程购买需要 ${fmt(price)}`);
     this.transfer(p, null, price, `远程购买 ${BOARD[pos].name}（3 倍价）`);
     st.owner = p.id; st.fore = false; this.fx.push({ type: 'buy', pid: p.id, pos }); this.prog(p, 'buy');
@@ -771,13 +892,19 @@ class Game {
     amount = Math.floor(Number(amount)); must(amount > 0, '请输入金额');
     const fee = 0.003, nm = D.ASSETS.find((a) => a.id === id).name;
     if (side === 'buy') {
+      this.noDebt(p);
       must(p.money >= amount, '现金余额不足');
       p.hold[id] = (p.hold[id] || 0) + (amount * (1 - fee)) / m.price;
+      p.cost = p.cost || {}; p.cost[id] = (p.cost[id] || 0) + amount; // 持仓成本（含手续费）
+      if (m.k && m.k.length) m.k[m.k.length - 1][4] += Math.round(amount / m.price / 100);
       this.transfer(p, null, amount, `买入 ${nm}`);
     } else {
       const have = (p.hold[id] || 0) * m.price; must(have > 0, '您没有持有该品种');
-      const amt = Math.min(amount, have); p.hold[id] -= amt / m.price; if (p.hold[id] * m.price < 1) delete p.hold[id];
-      this.transfer(null, p, Math.round(amt * (1 - fee)), `卖出 ${nm}`); this.afterRaise(p);
+      const amt = Math.min(amount, have), sh = p.hold[id], sold = amt / m.price, got = Math.round(amt * (1 - fee));
+      p.cost = p.cost || {}; const cp = (p.cost[id] || 0) * Math.min(1, sold / sh); p.cost[id] = (p.cost[id] || 0) - cp; this.stat(p, 'stockReal', got - cp);
+      p.hold[id] -= sold; if (p.hold[id] * m.price < 1) { delete p.hold[id]; delete p.cost[id]; }
+      if (m.k && m.k.length) m.k[m.k.length - 1][4] += Math.round(amt / m.price / 100);
+      this.transfer(null, p, got, `卖出 ${nm}`); this.afterRaise(p);
     }
   }
   loanLimit(p) { return Math.max(0, Math.round((this.netWorth(p) + (p.loan || 0)) * 0.5) - (p.loan || 0)); }
@@ -793,7 +920,7 @@ class Game {
   }
   bet(p, id, dir, stake) {
     const m = this.asset(id); stake = Math.floor(Number(stake));
-    must(['up', 'down'].includes(dir), '请选择看涨或看跌'); must(stake > 0 && p.money >= stake, '现金余额不足');
+    must(['up', 'down'].includes(dir), '请选择看涨或看跌'); this.noDebt(p); must(stake > 0 && p.money >= stake, '现金余额不足');
     must(!(p.bet), '您已有一笔竞猜在进行中');
     p.bet = { id, dir, stake, start: m.price, endAt: Date.now() + 10000, path: [m.price] };
     this.transfer(p, null, stake, `竞猜 ${D.ASSETS.find((a) => a.id === id).name} ${dir === 'up' ? '看涨' : '看跌'}`);
@@ -806,7 +933,13 @@ class Game {
       const a = D.ASSETS.find((x) => x.id === m.id), base = a.base * this.infl;
       let r = (a.drift || 0) + 0.03 * Math.log(base / m.price) + a.vol * N01();
       if (Math.random() < 0.006) { const shock = (Math.random() < 0.5 ? -1 : 1) * (0.08 + Math.random() * 0.1) * (a.kind === 'stock' ? 1 : 0.25); r += shock; this.fx.push({ type: 'news', id: m.id, pct: Math.round(shock * 100) }); this.say(`📰 市场快讯：${a.name}${shock > 0 ? '暴涨' : '暴跌'} ${Math.abs(Math.round(shock * 100))}%`); }
+      const prev = m.price;
       m.price = Math.max(a.base * 0.05, m.price * Math.exp(r)); m.hist.push(+m.price.toPrecision(5)); if (m.hist.length > 60) m.hist.shift();
+      // K 线：每 5 次报价（10 秒）一根，记录 开 / 高 / 低 / 收 / 成交量
+      const px = +m.price.toPrecision(5), vol = Math.round((60 + Math.random() * 120) * (1 + Math.abs(r) * 25)), k = m.k || (m.k = []);
+      m.kn = (m.kn || 0) + 1;
+      if (!k.length || m.kn % 5 === 1) { const o = +prev.toPrecision(5); k.push([o, Math.max(o, px), Math.min(o, px), px, 0]); if (k.length > 36) k.shift(); }
+      const c = k[k.length - 1]; c[1] = Math.max(c[1], px); c[2] = Math.min(c[2], px); c[3] = px; c[4] += vol;
     }
     let ch = false;
     for (const p of this.players) {
@@ -918,6 +1051,7 @@ class Game {
     must(to && to !== p && !to.bankrupt, '收款人无效');
     amount = Math.floor(Number(amount));
     must(amount > 0, '请输入金额');
+    this.noDebt(p);
     must(p.money >= amount, '余额不足');
     this.transfer(p, to, amount, '私人转账');
     this.afterRaise(to);
@@ -979,6 +1113,7 @@ class Game {
     if (type === 'size') return this.setSize(p, a.n);
     must(this.phase === 'play', '游戏不在进行中');
     // 房主即使破产或已胜出，也保留管理权：结束游戏、跳过掉线玩家、进程加速器、移出玩家
+    if (type === 'approve') { const res = this.approveJoin(p, a.rid, !!a.ok); this.touch(); this.updatedAt = Date.now(); return res; }
     if (p.bankrupt && p.token === this.hostToken && ['endGame', 'skip', 'boost'].includes(type)) {
       ({ endGame: () => this.endGame(p), skip: () => this.skip(p), boost: () => this.accelerate(p) })[type]();
       this.checkSets(); this.checkGoals(); this.maybeAdvance(); if (this.phase === 'play') this.touch(); this.updatedAt = Date.now(); return;
@@ -990,10 +1125,10 @@ class Game {
       card: () => this.ackCard(p), payJail: () => this.payJail(p), useCard: () => this.useCard(p),
       build: () => this.build(p, a.pos), sell: () => this.sell(p, a.pos),
       mortgage: () => this.mortgage(p, a.pos), unmortgage: () => this.unmortgage(p, a.pos),
-      propose: () => this.propose(p, a), respond: () => this.respond(p, a.id, !!a.accept),
+      propose: () => this.propose(p, a), respond: () => this.respond(p, a.id, !!a.accept), counter: () => this.counter(p, a.id, a.price),
       bankrupt: () => this.bankrupt(p), endTurn: () => this.endTurn(p),
       endGame: () => this.endGame(p), skip: () => this.skip(p), send: () => this.send(p, a.to, a.amount), stock: () => this.stock(p, a.pct), portal: () => this.portal(p, a.pos), force: () => this.force(p, a.pos),
-      boost: () => this.accelerate(p), remoteBuy: () => this.remoteBuy(p, a.pos),
+      boost: () => this.accelerate(p), remoteBuy: () => this.remoteBuy(p, a.pos), auto: () => this.setAuto(p, a.on),
       trade: () => this.trade(p, a.id, a.side, a.amount), borrow: () => this.borrow(p, a.amount), repay: () => this.repay(p, a.amount), bet: () => this.bet(p, a.id, a.dir, a.amount), wallet: () => this.exchange(p, a.from, a.to, a.amount),
     };
     must(map[type], '未知操作');
@@ -1011,7 +1146,8 @@ class Game {
       code: this.code, phase: this.phase, maxPlayers: this.maxPlayers, deadline: this.deadline, rich: this.rich, turn: this.turn, rolled: this.rolled, canRollAgain: this.canRollAgain,
       dice: this.dice, pending: this.pending, auction: this.auction, trades: this.trades,
       housesLeft: this.housesLeft, hotelsLeft: this.hotelsLeft, props: this.props,
-      log: this.log.slice(-60), winner: this.winner, ranking: this.ranking, recap: this.phase === 'end' ? this.recap : null,
+      rentNow: Object.fromEntries(Object.entries(this.props).filter(([, st]) => st.owner && !st.mortgaged).map(([i]) => [i, this.rentFor(+i)])),
+      log: this.log.slice(-60), winner: this.winner, ranking: this.ranking, recap: this.phase === 'end' ? this.recap : null, joinReqs: (this.joinReqs || []).map((r) => ({ rid: r.rid, name: r.name, at: r.at })),
       players: this.players.map(({ token, ...rest }) => ({ ...rest, host: token === this.hostToken, worth: this.netWorth(rest), hv: this.holdValue(rest) })),
       now: Date.now(),
     };
