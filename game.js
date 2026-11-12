@@ -78,8 +78,15 @@ class Game {
 
   get taxRate() { return Math.min(0.16, 0.04 + 0.015 * (this.stage || 0)); }
   get infl() { return Math.pow(1.5, this.stage || 0); }
-  priceOf(pos) { return Math.round((this.props[pos].fore ? BOARD[pos].price / 2 : BOARD[pos].price) * this.infl); }
-  houseCost(sq) { return Math.round(GROUPS[sq.group].house * this.infl); }
+  // 物价指数（地价、房价）：每次通胀 ×1.7（租金、工资只 ×1.5），并且每分钟再自然上涨 1%
+  // 价格取 3 位有效数字，避免出现 60.01M 这样的零碎数
+  nice(x) { if (x < 100) return Math.round(x); const m = Math.pow(10, Math.floor(Math.log10(x)) - 2); return Math.round(x / m) * m; }
+  get pinfl() { const min = this.startedAt && this.phase === 'play' ? (Date.now() - this.startedAt) / 60000 : 0; return Math.pow(1.7, this.stage || 0) * Math.pow(1.01, min); }
+  priceOf(pos) { return this.nice((this.props[pos].fore ? BOARD[pos].price / 2 : BOARD[pos].price) * this.pinfl); }
+  houseCost(sq) { return this.nice(GROUPS[sq.group].house * this.pinfl); }
+  // 建房阻力：同一块地越往上盖越贵（第 1–4 栋 ×1 / ×1.3 / ×1.7 / ×2.2，酒店 ×3），且全场房屋盖得越多越贵（建材紧缺，最高 ×2）
+  scarcity() { const used = (RULES.houses - this.housesLeft) + 4 * (RULES.hotels - this.hotelsLeft); return 1 + Math.min(1, used / RULES.houses); }
+  buildCost(pos) { const sq = BOARD[pos], st = this.props[pos]; return this.nice(this.houseCost(sq) * [1, 1.3, 1.7, 2.2, 3][Math.min(st.houses, 4)] * this.scarcity()); }
   I(x) { return Math.round(x * this.infl); }
   scaleText(t) { return t.replace(/(\d+(?:\.\d+)?)(K|M|B)/g, (m, a, u) => fmt(parseFloat(a) * (u === 'B' ? 1e6 : u === 'M' ? 1000 : 1) * this.infl)); }
   rentFor(pos, opts = {}) { return Math.round(this.baseRent(pos, opts) * this.infl); }
@@ -102,7 +109,7 @@ class Game {
     let v = p.money;
     for (const [i, st] of Object.entries(this.props)) {
       if (st.owner !== p.id) continue;
-      const sq = BOARD[i], pr = Math.round(sq.price * this.infl);
+      const sq = BOARD[i], pr = this.nice(sq.price * this.pinfl);
       v += st.mortgaged ? pr / 2 : pr;
       if (sq.type === 'prop') v += st.houses * this.houseCost(sq);
     }
@@ -453,7 +460,7 @@ class Game {
     must(g.every((x) => !x.mortgaged), '同色组有抵押地产，先赎回');
     must(st.houses < 5, '已经是酒店了');
     must(st.houses <= Math.min(...g.map((x) => x.houses)), '必须平均建房：先在同色其他地产上建');
-    const cost = this.houseCost(sq);
+    const cost = this.buildCost(pos);
     must(p.money >= cost, '余额不足');
     if (st.houses === 4) { must(this.hotelsLeft > 0, '银行酒店已售罄'); this.hotelsLeft--; this.housesLeft += 4; }
     else { must(this.housesLeft > 0, '银行房屋已售罄'); this.housesLeft--; }
@@ -486,7 +493,7 @@ class Game {
     must(!st.mortgaged, '已经抵押了');
     if (sq.type === 'prop') must(GROUP_POS[sq.group].every((i) => this.props[i].houses === 0), '同色组还有房屋，先卖掉');
     st.mortgaged = true;
-    const mv = Math.round(sq.price * this.infl / 2);
+    const mv = this.nice(sq.price * this.pinfl / 2);
     this.transfer(null, p, mv, `抵押 ${sq.name}`);
     this.afterRaise(p);
   }
@@ -494,7 +501,7 @@ class Game {
   unmortgage(p, pos) {
     const [sq, st] = this.ownProp(p, pos);
     must(st.mortgaged, '没有抵押');
-    const cost = Math.ceil((sq.price * this.infl / 2) * 1.1 / 10) * 10;
+    const cost = Math.ceil((sq.price * this.pinfl / 2) * 1.1 / 10) * 10;
     must(p.money >= cost, `赎回需要 ${fmt(cost)}`);
     st.mortgaged = false;
     this.transfer(p, null, cost, `赎回 ${sq.name}`);
@@ -673,7 +680,7 @@ class Game {
   // 地产税：每次经过起点 / 环球中心，按名下地产与房屋现值的 4% 缴纳
   propTax(p) {
     let v = 0;
-    for (const [i, st] of Object.entries(this.props)) if (st.owner === p.id && !st.mortgaged) { const sq = BOARD[i]; v += sq.price * this.infl + (sq.type === 'prop' ? st.houses * this.houseCost(sq) : 0); }
+    for (const [i, st] of Object.entries(this.props)) if (st.owner === p.id && !st.mortgaged) { const sq = BOARD[i]; v += sq.price * this.infl + (sq.type === 'prop' ? st.houses * GROUPS[sq.group].house * this.infl : 0); }
     const r = this.taxRate, tax = Math.round(v * r); if (tax <= 0) return;
     this.transfer(p, null, tax, `地产税（地产现值 ${Math.round(r * 1000) / 10}%）`);
     if (p.money < 0) p.creditor = null;
@@ -782,7 +789,7 @@ class Game {
   bumpStage(why) {
     this.stage++;
     this.fx.push({ type: 'stage', stage: this.stage, infl: this.infl });
-    this.say(`📈 通货膨胀（${why}）：进入第 ${this.stage + 1} 阶段，租金、工资、每秒收益变为 ×${Math.round(this.infl * 100) / 100}，地产税率升至 ${Math.round(this.taxRate * 1000) / 10}%`);
+    this.say(`📈 通货膨胀（${why}）：进入第 ${this.stage + 1} 阶段，租金、工资、每秒收益 ×${Math.round(this.infl * 100) / 100}，地价、房价 ×${Math.round(this.pinfl * 100) / 100}，地产税率升至 ${Math.round(this.taxRate * 1000) / 10}%`);
   }
   tickStage() {
     if (this.phase !== 'play' || !this.startedAt) return false;
@@ -916,7 +923,8 @@ class Game {
   publicState() {
     this.players.forEach((q) => this.settle(q));
     return {
-      stage: this.stage, infl: this.infl, taxRate: this.taxRate, market: this.market, startedAt: this.startedAt, tasks: this.tasks,
+      stage: this.stage, infl: this.infl, pinfl: this.pinfl, scarcity: this.scarcity(),
+      buildCost: Object.fromEntries(Object.keys(this.props).filter((i) => BOARD[i].type === 'prop').map((i) => [i, this.buildCost(+i)])), taxRate: this.taxRate, market: this.market, startedAt: this.startedAt, tasks: this.tasks,
       code: this.code, phase: this.phase, maxPlayers: this.maxPlayers, deadline: this.deadline, rich: this.rich, turn: this.turn, rolled: this.rolled, canRollAgain: this.canRollAgain,
       dice: this.dice, pending: this.pending, auction: this.auction, trades: this.trades,
       housesLeft: this.housesLeft, hotelsLeft: this.hotelsLeft, props: this.props,

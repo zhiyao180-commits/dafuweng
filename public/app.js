@@ -71,7 +71,10 @@ const sqIcon = (i) => { const sq = BOARD[i]; return sq.type === 'prop' ? landmar
 const groupLocked = (i) => { const sq = BOARD[i]; return sq.type === 'prop' && Object.keys(S.props).some((k) => BOARD[k].group === sq.group && S.props[k].houses > 0); };
 const INF = () => (S && S.infl) || 1;
 const fmtI = (x) => fmt(Math.round(x * INF()));
-const priceOf = (i) => Math.round((S.props[i].fore ? BOARD[i].price / 2 : BOARD[i].price) * INF());
+const PINF = () => (S && S.pinfl) || 1;
+const NICE = (x) => { if (x < 100) return Math.round(x); const m = Math.pow(10, Math.floor(Math.log10(x)) - 2); return Math.round(x / m) * m; };
+const fmtP = (x) => fmt(NICE(x * PINF()));
+const priceOf = (i) => NICE((S.props[i].fore ? BOARD[i].price / 2 : BOARD[i].price) * PINF());
 const WNAME = { card: '💳 银行卡', phone: '📱 手机钱包', cash: '💵 现金' };
 const inDanger = (p) => !p.bankrupt && S.phase === 'play' && (p.money < 0 || (S.pending && S.pending.kind === 'pay' && S.pending.payer === p.id && !S.pending.cancelTo && p.money < S.pending.amount));
 
@@ -693,11 +696,11 @@ function deedHTML(i) {
     const lv = st.houses;
     rows = [['租金', sq.rent[0], lv === 0 && !full], ['集齐同色（无房）', sq.rent[0] * 2, lv === 0 && full], ['1 栋房屋', sq.rent[1], lv === 1], ['2 栋房屋', sq.rent[2], lv === 2], ['3 栋房屋', sq.rent[3], lv === 3], ['4 栋房屋', sq.rent[4], lv === 4], ['酒店', sq.rent[5], lv === 5]]
       .map(([a, b, on]) => `<tr class="${on && owner ? 'on' : ''}"><td>${a}</td><td>${fmtI(b)}</td></tr>`).join('');
-    return `<div class="deed">${head(GROUPS[sq.group].color)}<table>${rows}</table><div class="foot">房屋每栋 ${fmtI(GROUPS[sq.group].house)} · 酒店 ${fmtI(GROUPS[sq.group].house)} + 4 栋房屋<br>💰 每栋房屋每秒收益 +${fmtI(incomePerSec(i, 1))}（酒店每秒 +${fmtI(incomePerSec(i, 5))}）<br>抵押值 ${fmtI(sq.price / 2)} · 售价 ${fmtI(sq.price)}</div></div>`;
+    return `<div class="deed">${head(GROUPS[sq.group].color)}<table>${rows}</table><div class="foot">房屋基础造价 ${fmtP(GROUPS[sq.group].house)}（越往上盖越贵，下一栋 <b>${fmt(S.buildCost[i] || 0)}</b>）<br>💰 每栋房屋每秒收益 +${fmtI(incomePerSec(i, 1))}（酒店每秒 +${fmtI(incomePerSec(i, 5))}）<br>抵押值 ${fmtP(sq.price / 2)} · 现价 ${fmtP(sq.price)}</div></div>`;
   }
   if (sq.type === 'rail') rows = RULES.railRent.map((v, n) => `<tr><td>拥有 ${n + 1} 个机场/港口</td><td>${fmtI(v)}</td></tr>`).join('');
   else rows = RULES.utilMult.map((v, n) => `<tr><td>拥有 ${n + 1} 家</td><td>点数 × ${fmtI(v)}</td></tr>`).join('');
-  return `<div class="deed">${head(sq.type === 'rail' ? '#3A4250' : '#8E8E93')}<table>${rows}</table><div class="foot">抵押值 ${fmtI(sq.price / 2)} · 售价 ${fmtI(sq.price)}</div></div>`;
+  return `<div class="deed">${head(sq.type === 'rail' ? '#3A4250' : '#8E8E93')}<table>${rows}</table><div class="foot">抵押值 ${fmtP(sq.price / 2)} · 现价 ${fmtP(sq.price)}</div></div>`;
 }
 
 function openLocal(v) { localView = v; $('#localBox').dataset.v = ''; renderLocal(); }
@@ -714,10 +717,10 @@ function renderLocal() {
     h += `<p class="muted" style="text-align:center;margin:12px 0 0">${owner ? `主人：${esc(owner.name)}${st.mortgaged ? '（已抵押）' : ''}` : '属于银行（走到这格才能买）'}</p>`;
     if (owner && m && owner.id === myId && S.phase === 'play' && !m.bankrupt) {
       const btns = [];
-      if (sq.type === 'prop' && st.houses < 5 && !st.mortgaged) btns.push(`<button class="btn primary" data-act="build" data-pos="${i}">${st.houses === 4 ? '建酒店' : '建房'} ${fmt(GROUPS[sq.group].house)}</button>`);
-      if (sq.type === 'prop' && st.houses > 0) btns.push(`<button class="btn" data-act="sell" data-pos="${i}">卖房 +${fmt(GROUPS[sq.group].house / 2)}</button>`);
-      if (!st.mortgaged && st.houses === 0) btns.push(`<button class="btn" data-act="mortgage" data-pos="${i}">抵押 +${fmt(sq.price / 2)}</button>`);
-      if (st.mortgaged) btns.push(`<button class="btn green" data-act="unmortgage" data-pos="${i}">赎回 ${fmt(Math.ceil(sq.price / 2 * 1.1 / 10) * 10)}</button>`);
+      if (sq.type === 'prop' && st.houses < 5 && !st.mortgaged) btns.push(`<button class="btn primary" data-act="build" data-pos="${i}">${st.houses === 4 ? '建酒店' : '建第 ' + (st.houses + 1) + ' 栋'} ${fmt(S.buildCost[i] || 0)}</button>`);
+      if (sq.type === 'prop' && st.houses > 0) btns.push(`<button class="btn" data-act="sell" data-pos="${i}">卖房 +${fmtP(GROUPS[sq.group].house / 2)}</button>`);
+      if (!st.mortgaged && st.houses === 0) btns.push(`<button class="btn" data-act="mortgage" data-pos="${i}">抵押 +${fmtP(sq.price / 2)}</button>`);
+      if (st.mortgaged) btns.push(`<button class="btn green" data-act="unmortgage" data-pos="${i}">赎回 ${fmt(Math.ceil(sq.price * PINF() / 2 * 1.1 / 10) * 10)}</button>`);
       h += `<div class="act-row">${btns.join('')}</div><div class="act-row"><button class="btn" data-sellto="${i}">卖给其他玩家…</button></div>`;
     } else if (owner && m && !m.bankrupt && S.phase === 'play') h += `<div class="act-row"><button class="btn primary" data-buyfrom="${i}">向 ${esc(owner.name)} 出价购买</button></div>`;
     h += `<div class="act-row"><button class="btn wide" data-close>关闭<kbd>Esc</kbd></button></div>`;
@@ -1003,7 +1006,7 @@ setInterval(() => {
   box.hidden = false;
   const el = Math.max(0, Math.floor((Date.now() + skew - S.startedAt) / 1000)), pad = (x) => String(x).padStart(2, '0');
   $('#elapsed').textContent = (el >= 3600 ? Math.floor(el / 3600) + ':' + pad(Math.floor(el / 60) % 60) : Math.floor(el / 60)) + ':' + pad(el % 60);
-  $('#stageTag').textContent = `第 ${S.stage + 1} 阶段 · 物价 ×${Math.round(S.infl * 100) / 100} · 地产税 ${Math.round((S.taxRate || 0.04) * 1000) / 10}%`;
+  $('#stageTag').textContent = `第 ${S.stage + 1} 阶段 · 地价 ×${Math.round(PINF() * 100) / 100} · 租金 ×${Math.round(S.infl * 100) / 100} · 地产税 ${Math.round((S.taxRate || 0.04) * 1000) / 10}%`;
   const secs = Math.max(0, Math.ceil(Math.min(left, total) / 1000));
   $('#clockText').innerHTML = `${dotOf(cur.id)}现在是 <b>${cur.id === myId ? '您' : esc(cur.name)}</b> 的回合 <span class="secs ${!paused && secs <= 5 ? 'low' : ''}">${S.auction ? '拍卖中' : paused ? '…' : '⏱ ' + secs + ' 秒'}</span>`;
   $('#clockBar').style.width = (paused ? 100 : Math.max(0, Math.min(100, (left / total) * 100))) + '%';

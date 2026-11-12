@@ -25,7 +25,7 @@ for (let gi = 0; gi < 300; gi++) {
         const h = mine.find(([, s]) => s.houses > 0), m = mine.find(([, s]) => !s.mortgaged);
         let ok = false;
         for (const [k] of mine) for (const t of ['sell', 'mortgage']) { if (ok) break; try { g.act(o.token, t, { pos: +k }); ok = true; } catch (e) { if (!(e instanceof GameError)) throw e; } }
-        if (!ok) g.act(o.token, 'bankrupt');
+        if (!ok && g.phase === 'play') g.act(o.token, 'bankrupt');
       }
     }
     if (g.phase !== 'play') break;
