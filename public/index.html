@@ -75,11 +75,12 @@
             <div id="diceSum" class="dice-sum"></div>
           </div>
           <div id="pos" class="pos">
-            <div class="receipt" id="receipt"></div>
+            <div class="receipt-wrap"><div class="receipt" id="receipt"></div></div>
             <div class="pos-bg"></div><div class="pos-groove"></div>
+            <div class="pos-head"><div class="nfc-ico"><i></i><i></i><i></i></div></div>
             <div class="pos-slot"><div class="pos-slot-line"></div></div>
             <div class="pos-cardwrap"><div id="posCard" class="bank-card in-slot"></div></div>
-            <div class="pos-screen"><div id="posLabel" class="pos-label">WORLD BANK</div><div id="posAmount" class="pos-amount">READY</div></div>
+            <div class="pos-screen"><div class="ps-bar"><span>‹</span>消费<span>WB</span></div><div id="posLabel" class="pos-label">WORLD BANK</div><div id="posAmount" class="pos-amount">READY</div><div class="ps-hint">请按以下方式读卡<br><b>① 触碰　② 刷卡　③ 插卡</b></div><div class="ps-btn">世界银行 · 收银终端</div></div>
             <div class="pos-keys">
               <i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i><i>9</i><i class="k-red">−</i><i>0</i><i class="k-green">+</i>
             </div>
@@ -110,7 +111,7 @@
     </div>
     <div id="players" class="panel players"></div>
     <div id="clock" class="clock"><span id="clockText"></span><div class="clock-bar"><div id="clockBar"></div></div></div>
-    <div class="payrow"><span>付款方式</span><div class="seg pay" id="payPick"><button data-pay="card">💳 卡</button><button data-pay="phone">📱 手机</button><button data-pay="cash">💵 现金</button></div><span>收款方式</span><div class="seg pay" id="recvPick"><button data-recv="card">💳</button><button data-recv="phone">📱</button><button data-recv="cash">💵</button></div></div>
+    <div class="payrow"><span title="付款方式">📤</span><div class="seg pay" id="payPick"><button data-pay="card" title="付款：银行卡">💳</button><button data-pay="phone" title="付款：手机">📱</button><button data-pay="cash" title="付款：现金">💵</button></div><span title="收款方式">📥</span><div class="seg pay" id="recvPick"><button data-recv="card" title="收款：银行卡">💳</button><button data-recv="phone" title="收款：手机">📱</button><button data-recv="cash" title="收款：现金">💵</button></div></div>
     <div id="actions" class="panel actions"></div>
     <div id="assets" class="panel assets"></div>
     <div class="panel log-panel"><div class="panel-title">对局记录</div><div id="log" class="log"></div></div>

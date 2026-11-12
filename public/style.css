@@ -594,3 +594,100 @@ body.portal-mode .cell { cursor: crosshair; animation: flash 1.2s ease infinite;
 .atm-notes { position: relative; height: 0; left: 0; right: 0; top: calc(var(--u) * -1); z-index: 2; }
 .atm-notes .note { top: 0; }
 .atm-keys { margin: calc(var(--u) * 4.5) auto 0; width: 60%; height: calc(var(--u) * 6); border-radius: calc(var(--u) * .5); background: repeating-linear-gradient(90deg, #8f98a5 0 22%, transparent 22% 26%), repeating-linear-gradient(0deg, #8f98a5 0 26%, transparent 26% 33%); opacity: .55; }
+
+/* ====== v7 ====== */
+/* 棋子：禁止独立的 scale/rotate 属性（它们会把位置一起放大，导致棋子飞出地图） */
+.token, .token.fly, .token.hop { scale: none !important; rotate: none !important; }
+.token { transition: transform .22s ease-out, opacity .3s; }
+.token.fly { box-shadow: 0 calc(var(--u) * 1) calc(var(--u) * 1.2) rgba(0,0,0,.4), inset 0 0 0 2px rgba(255,255,255,.9); }
+/* 大厅可滚动，按钮始终点得到 */
+#lobby { overflow-y: auto; align-items: start; padding: 24px 0 56px; }
+.lobby-card { margin: auto; padding: 26px 30px 22px; }
+.logo { margin-bottom: 16px; } .logo-mark { font-size: 34px; } .logo h1 { font-size: 28px; }
+.lobby-players { gap: 6px; margin-bottom: 10px; } .lp { padding: 6px 9px; font-size: 13px; }
+.pick { gap: 5px; } .pick button { width: 27px; height: 27px; font-size: 14px; } .pickers { gap: 8px; margin-bottom: 12px; }
+#startBtn { position: sticky; bottom: 0; box-shadow: 0 -10px 16px var(--card); }
+/* 中央区域固定宽度：骰子和刷卡机不再随文字长短左右移动 */
+#center { grid-template-columns: calc(var(--u) * 19) calc(var(--u) * 38); column-gap: calc(var(--u) * 1.5); }
+.status { width: calc(var(--u) * 19); max-width: none; min-height: calc(var(--u) * 5.5); font-size: max(11px, calc(var(--u) * 1.45)); flex-wrap: wrap; }
+.table { width: calc(var(--u) * 38); justify-content: space-between; gap: 0; }
+.dice-box { width: calc(var(--u) * 17); flex: none; }
+.dice-sum { width: 100%; text-align: center; white-space: nowrap; }
+.payrow span { font-size: 15px; cursor: default; } .seg.pay button { font-size: 15px; } #recvPick { flex: 1; }
+/* 骰子：从左上方抛出，落地弹两下再停住 */
+/* 注意：骰子不能加 filter，否则 3D 面会被压平 */
+#die0 { --dx: -7; --dy: -6; } #die1 { --dx: -11; --dy: -4; }
+.die.bounce { animation: throw 1.1s cubic-bezier(.3,.6,.4,1); }
+@keyframes throw {
+  0% { translate: calc(var(--u) * var(--dx)) calc(var(--u) * var(--dy)); }
+  38% { translate: calc(var(--u) * var(--dx) * .25) 0; }
+  56% { translate: calc(var(--u) * var(--dx) * .1) calc(var(--u) * -2.4); }
+  72% { translate: 0 0; } 84% { translate: 0 calc(var(--u) * -.8); } 100% { translate: 0 0; }
+}
+/* ---- 手持式智能 POS 终端：红色机身、黑色打印头、触摸屏 ---- */
+.pos { width: calc(var(--u) * 15.5); height: calc(var(--u) * 27.5); rotate: x 24deg; transform: rotateZ(-2deg); padding: 0; }
+.pos-bg { border-radius: calc(var(--u) * 1.6); background: linear-gradient(100deg, #FF5A5F 0%, #E3262E 18%, #C81D25 82%, #8E1118 100%);
+  box-shadow: 0 calc(var(--u) * .6) 0 #9c141b, 0 calc(var(--u) * 1.2) 0 #7d0f15, 0 calc(var(--u) * 1.8) 0 #5a0a0f, 0 calc(var(--u) * 2.3) 0 #1a1a1c, 0 calc(var(--u) * 4.8) calc(var(--u) * 3.2) rgba(0,0,0,.45), inset 0 2px 0 rgba(255,255,255,.35), inset 0 0 0 1px rgba(0,0,0,.2); }
+.pos-bg::before { content: ''; position: absolute; left: 6%; right: 6%; top: 25%; bottom: 4%; border-radius: calc(var(--u) * 1); background: #0b0b0d; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), inset 0 2px 6px #000; }
+.pos-bg::after { left: 30%; right: 30%; bottom: calc(var(--u) * -.1); height: calc(var(--u) * .6); background: #050506; }
+.pos-head { position: absolute; z-index: 3; left: 3%; right: 3%; top: calc(var(--u) * -1.2); height: calc(var(--u) * 7.6); border-radius: calc(var(--u) * 2.4) calc(var(--u) * 2.4) calc(var(--u) * .5) calc(var(--u) * .5); background: linear-gradient(175deg, #4a4b50 0%, #1d1d20 35%, #0c0c0e 100%); box-shadow: inset 0 2px 0 rgba(255,255,255,.25), inset 0 calc(var(--u) * -1) calc(var(--u) * 1) rgba(0,0,0,.6), 0 calc(var(--u) * .5) calc(var(--u) * .6) rgba(0,0,0,.5); display: grid; place-items: center; }
+.pos-head::after { content: ''; position: absolute; left: 8%; right: 8%; bottom: calc(var(--u) * .5); height: calc(var(--u) * .45); border-radius: 9px; background: #000; box-shadow: 0 1px 0 rgba(255,255,255,.12); }
+.nfc-ico { width: calc(var(--u) * 5.4); height: calc(var(--u) * 2.8); border: 1.5px solid rgba(255,255,255,.85); border-radius: 50%; display: flex; align-items: center; justify-content: center; gap: calc(var(--u) * .28); margin-top: calc(var(--u) * -1); }
+.nfc-ico i { display: block; width: calc(var(--u) * .5); border: 1.5px solid #fff; border-left: 0; border-top-color: transparent; border-bottom-color: transparent; border-radius: 0 50% 50% 0; }
+.nfc-ico i:nth-child(1) { height: calc(var(--u) * .7); } .nfc-ico i:nth-child(2) { height: calc(var(--u) * 1.2); } .nfc-ico i:nth-child(3) { height: calc(var(--u) * 1.7); }
+.pos-slot, .pos-keys { display: none; }
+.pos-groove { top: 30%; bottom: 10%; right: calc(var(--u) * -.5); width: calc(var(--u) * 1.1); background: linear-gradient(90deg, #050506, #2a2a2e); }
+.pos-screen { position: absolute; z-index: 4; left: 9%; right: 9%; top: 27.5%; bottom: 6.5%; height: auto; padding: 0; border: 0; border-radius: calc(var(--u) * .5); background: linear-gradient(180deg, #F7F9FC, #E9EEF5); color: #1F2328; box-shadow: inset 0 0 0 1px rgba(0,0,0,.25); display: flex; flex-direction: column; justify-content: flex-start; overflow: hidden; font-family: inherit; }
+.pos-screen::after { content: ''; position: absolute; inset: 0; background: linear-gradient(115deg, rgba(255,255,255,.5) 0%, rgba(255,255,255,0) 28%); pointer-events: none; }
+.ps-bar { background: linear-gradient(#3F8CF0, #2A6FDB); color: #fff; font-size: calc(var(--u) * 1.05); font-weight: 600; display: flex; justify-content: space-between; padding: calc(var(--u) * .45) calc(var(--u) * .8); }
+.pos-label { color: #4a5563; font-size: max(8px, calc(var(--u) * .95)); text-align: center; margin-top: calc(var(--u) * .9); opacity: 1; padding: 0 4px; }
+.pos-amount { color: #1F2328; text-align: center; font-size: calc(var(--u) * 2.3); margin-top: calc(var(--u) * .3); letter-spacing: 0; }
+.pos-amount.neg { color: #D92D2D; } .pos-amount.pos-plus { color: #1F9D4D; }
+.ps-hint { margin-top: auto; text-align: center; font-size: calc(var(--u) * .85); color: #2A6FDB; line-height: 1.6; }
+.ps-btn { margin: calc(var(--u) * .7); background: #2B50E8; color: #fff; text-align: center; font-size: calc(var(--u) * .85); padding: calc(var(--u) * .45) 0; border-radius: calc(var(--u) * .3); }
+.pos-led { top: calc(var(--u) * 6.9); right: calc(var(--u) * 1.4); } .pos-ring { top: 8%; border-color: #6FB6FF; }
+/* 小票：从打印头与机身之间的出纸口向上吐出 */
+.receipt-wrap { position: absolute; z-index: 5; left: 20%; right: 20%; top: calc(var(--u) * -4.4); height: calc(var(--u) * 10.2); overflow: hidden; pointer-events: none; }
+.receipt { position: absolute; left: 0; right: 0; top: 0; height: 100%; transform: translateY(102%); transition: transform .8s steps(10); }
+.receipt.print { transform: translateY(0); }
+/* 插卡（付款）：卡从机身底部插入；刷卡（收款）：卡从右侧卡槽划过 */
+.bank-card.in-slot { right: calc(var(--u) * -8.6); top: calc(var(--u) * 9); }
+.bank-card.in-slot.ins { right: auto; left: 50%; margin-left: calc(var(--u) * -7); top: auto; bottom: calc(var(--u) * -10); transform: translateY(calc(var(--u) * 10)) rotate(90deg); }
+.bank-card.in-slot.ins.show { transform: translateY(calc(var(--u) * 4)) rotate(90deg); }
+.bank-card.in-slot.ins.show.inserted { transform: translateY(calc(var(--u) * -4.5)) rotate(90deg); }
+/* 手机碰一碰：贴近顶部感应区 */
+.pphone { right: calc(var(--u) * 3); top: calc(var(--u) * -3); }
+.pphone.show { transform: translate(calc(var(--u) * -1), calc(var(--u) * .5)) rotate(-6deg); }
+.pphone { background: linear-gradient(145deg, #3a3a3e, #0d0d0f); border: 1px solid #55565c; } .pphone-s { border-radius: calc(var(--u) * 1); }
+/* ---- ATM：金属机身、屏幕、读卡口、出钞口 ---- */
+.atm { left: calc(var(--u) * 1); width: calc(var(--u) * 18); height: calc(var(--u) * 29); border-radius: calc(var(--u) * .8) calc(var(--u) * .8) 0 0; padding: calc(var(--u) * 1);
+  background: linear-gradient(90deg, #7d8591 0%, #c9cfd8 8%, #eef1f5 22%, #d5dae2 50%, #b3bac5 86%, #6f7783 100%);
+  box-shadow: inset 0 2px 0 #fff, inset 0 0 0 1px #5d6470, calc(var(--u) * 1.2) 0 0 #4d535d, calc(var(--u) * 1.2) calc(var(--u) * -.4) 0 #5d6470, 0 0 calc(var(--u) * 5) rgba(0,0,0,.45); }
+.atm-top { background: linear-gradient(#143B7A, #0B2552); font-size: calc(var(--u) * .95); border-radius: calc(var(--u) * .3); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2), 0 0 calc(var(--u) * 1) rgba(60,140,255,.5); }
+.atm-s { margin-top: calc(var(--u) * .8); height: calc(var(--u) * 8.5); border-radius: calc(var(--u) * .3); border: calc(var(--u) * .5) solid #23262c; background: linear-gradient(160deg, #0E3A6B, #082445); color: #E6F1FF; font: 600 calc(var(--u) * 1.05)/1.6 -apple-system, "PingFang SC", sans-serif; box-shadow: inset 0 0 16px rgba(0,0,0,.6), 0 1px 0 #fff; }
+.atm-slot { position: relative; margin-top: calc(var(--u) * 1.6); width: 84%; height: calc(var(--u) * 2); border-radius: calc(var(--u) * .3); background: linear-gradient(#17191d, #000); box-shadow: inset 0 3px 6px #000, 0 1px 0 #fff, 0 0 0 calc(var(--u) * .35) #8a919c; z-index: 3; }
+.atm-slot::after { content: ''; position: absolute; left: 6%; right: 6%; bottom: 12%; height: 2px; background: #35E07A; box-shadow: 0 0 8px #35E07A; }
+.atm-notes { top: calc(var(--u) * -1.2); }
+.atm-keys { margin-top: calc(var(--u) * 7.5); width: 46%; height: calc(var(--u) * 5.5); opacity: 1; border-radius: calc(var(--u) * .3); background: repeating-linear-gradient(90deg, #5d646f 0 20%, transparent 20% 26.6%), repeating-linear-gradient(0deg, #2a2d33 0 22%, #9aa1ab 22% 26%); box-shadow: 0 0 0 calc(var(--u) * .3) #6d747f; }
+/* 钞票：整叠平直地从出钞口送出 */
+.note { width: calc(var(--u) * 11.5); height: calc(var(--u) * 5.2); margin: 0 0 0 calc(var(--u) * -5.75); border-radius: 2px; background: linear-gradient(90deg, #cfe3d1, #e9f1e2 30%, #dfead9 70%, #c3d9c6); border: 1px solid #6f8f76; box-shadow: inset 0 0 0 calc(var(--u) * .3) #e9f1e2, inset 0 0 0 calc(var(--u) * .38) #7fa087, 0 1px 2px rgba(0,0,0,.35); display: flex; align-items: center; justify-content: space-between; padding: 0 calc(var(--u) * .9); color: #3c6a49; font-size: calc(var(--u) * 1.05); font-weight: 800; }
+.note i { width: calc(var(--u) * 2.6); height: calc(var(--u) * 3.3); border-radius: 50%; border: 1px solid #6f8f76; background: radial-gradient(#b9d3bd, #e3eedd); }
+.dock-cash i { background: linear-gradient(90deg, #cfe3d1, #e9f1e2 30%, #c3d9c6); color: #3c6a49; box-shadow: inset 0 0 0 calc(var(--u) * .3) #e9f1e2, inset 0 0 0 calc(var(--u) * .4) #7fa087, 0 2px 5px rgba(0,0,0,.3); border-radius: 3px; }
+/* ---- 拍卖：毛玻璃面板 + 地图上高亮正在拍卖的地块 ---- */
+.modal.glass { background: transparent; padding: 0 4vw; }
+.modal.glass .modal-box { background: color-mix(in srgb, var(--card) 58%, transparent); -webkit-backdrop-filter: blur(22px) saturate(170%); backdrop-filter: blur(22px) saturate(170%); border: 1px solid rgba(255,255,255,.45); box-shadow: 0 24px 70px rgba(0,0,0,.28); padding: 18px; max-width: 600px; }
+body.auction-mode #board .cell:not(.auc) { filter: brightness(.62) saturate(.7); }
+body.auction-mode #center, body.auction-mode #lane { filter: brightness(.7); }
+.cell.auc { z-index: 30; overflow: visible; contain: none; animation: aucpulse 1s ease-in-out infinite; outline: calc(var(--u) * .5) solid #F5B700; }
+@keyframes aucpulse { 0%,100% { box-shadow: 0 0 0 0 rgba(245,183,0,.9), 0 0 calc(var(--u) * 3) rgba(245,183,0,.8); transform: scale(1.12); } 50% { box-shadow: 0 0 0 calc(var(--u) * 2.2) rgba(245,183,0,0), 0 0 calc(var(--u) * 6) rgba(245,183,0,.9); transform: scale(1.22); } }
+.cell.auc::before { content: '🔨 拍卖中'; position: absolute; left: 50%; top: calc(var(--u) * -3); transform: translateX(-50%); background: #F5B700; color: #1F2328; font-size: max(10px, calc(var(--u) * 1.2)); font-weight: 800; padding: 2px 8px; border-radius: 99px; white-space: nowrap; z-index: 5; }
+.au-wrap { gap: 14px; align-items: stretch; } .au-info { width: 210px; display: flex; flex-direction: column; } .au-main { min-width: 300px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.au-card { border-radius: 14px; overflow: hidden; background: color-mix(in srgb, var(--paper) 80%, transparent); box-shadow: inset 0 0 0 1px var(--line); }
+.au-card-h { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--tint); color: #fff; }
+.au-card-h svg, .au-card-h .emo { width: 34px; height: 34px; font-size: 26px; flex: none; } .au-card-h b { font-size: 17px; display: block; } .au-card-h small { font-size: 11px; font-style: italic; opacity: .9; }
+.au-row { display: flex; justify-content: space-between; padding: 4px 12px; font-size: 12.5px; } .au-row b { font-variant-numeric: tabular-nums; }
+.au-tips { flex: 1; font-size: 12px; background: color-mix(in srgb, var(--paper) 70%, transparent); }
+.au-meta { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink2); margin: 4px 0 6px; }
+.au-meta span { display: flex; align-items: center; gap: 5px; } .au-meta .avatar { width: 18px; height: 18px; font-size: 10px; } .au-meta b { color: var(--ink); }
+.modal.glass h3 { font-size: 18px; } .auction-price { font-size: 38px; margin: 2px 0; }
+.modal.glass .act-row { gap: 5px; } .modal.glass .act-row .btn { padding: 8px 4px; font-size: 13px; }

@@ -371,7 +371,7 @@ class Game {
     const pd = this.pending;
     must(pd && pd.kind === 'buy' && p === this.cur, '现在不能拍卖');
     this.pending = { kind: 'auction' };
-    this.auction = { pos: pd.pos, bid: 0, bidder: null, endsAt: Date.now() + 15000 };
+    this.auction = { pos: pd.pos, bid: 0, bidder: null, endsAt: Date.now() + 15000, by: p.id };
     this.say(`${BOARD[pd.pos].name} 开始拍卖！`);
   }
 
@@ -672,7 +672,7 @@ class Game {
     pos = Number(pos); must(this.forceTargets(p).includes(pos), '这块地不能强制拍卖');
     const owner = this.byId(this.props[pos].owner);
     this.pending = { kind: 'auction' };
-    this.auction = { pos, bid: 0, bidder: null, endsAt: Date.now() + 15000, seller: owner.id };
+    this.auction = { pos, bid: 0, bidder: null, endsAt: Date.now() + 15000, seller: owner.id, by: p.id };
     this.say(`🔨 ${p.name} 对 ${owner.name} 的 ${BOARD[pos].name} 发起强制拍卖！成交价归 ${owner.name}，没人出价则不变`);
   }
   // ---------- 通货膨胀 & 进程加速器 ----------

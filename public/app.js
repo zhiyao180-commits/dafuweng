@@ -254,8 +254,7 @@ function placeTokens() {
       if (pt.corner) { const cols = Math.min(n, 3), g = 2.1 * uPx * Math.max(sc, 0.9), row = Math.floor(k / cols), inRow = Math.min(cols, n - row * cols); x += ((k % cols) - (inRow - 1) / 2) * g; y += (row - (Math.ceil(n / cols) - 1) / 2) * g; }
       else { const g = Math.min(2.5 * uPx * sc, (pt.len - 1.2 * uPx) / n), a = (k - (n - 1) / 2) * g; x += pt.ax[0] * a; y += pt.ax[1] * a; }
     }
-    el.style.setProperty('--s', sc);
-    el.style.transform = `translate(${x}px, ${y}px)`;
+    el.style.transform = `translate(${x}px, ${y}px) scale(${sc})`; // 缩放必须写在同一个 transform 里，否则位置会被一起放大
   }
 }
 // 轨道：沿着行走路线流动的虚线，指示前进方向（外圈 → 内圈 → 回到起点）
@@ -313,9 +312,9 @@ const cardBg = (p) => `linear-gradient(135deg, ${p.color}, color-mix(in srgb, ${
 function posScreen(label, amount, cls = '') { $('#posLabel').textContent = label; const a = $('#posAmount'); a.className = 'pos-amount'; void a.offsetWidth; a.textContent = amount; a.className = 'pos-amount ' + cls; }
 function pressKey(sym) { const k = [...document.querySelectorAll('.pos-keys i')].find((i) => i.textContent === sym); if (k) { k.classList.add('press'); Snd.key(); setTimeout(() => k.classList.remove('press'), 160); } }
 function posShake() { const p = $('#pos'); p.classList.remove('shake'); void p.offsetWidth; p.classList.add('shake'); }
-async function cardIn(p, T) {
+async function cardIn(p, T, ins) {
   const c = $('#posCard'); c.innerHTML = cardHTML(p); c.style.background = cardBg(p);
-  c.className = 'bank-card in-slot'; void c.offsetWidth; c.classList.add('show');
+  c.className = 'bank-card in-slot' + (ins ? ' ins' : ''); void c.offsetWidth; c.classList.add('show');
   await wait(260 * T); Snd.swoosh(); c.classList.add('inserted'); await wait(420 * T); posShake();
 }
 async function cardOut(T) { const c = $('#posCard'); c.classList.remove('inserted'); await wait(330 * T); c.classList.remove('show'); await wait(200 * T); }
@@ -331,14 +330,14 @@ async function payVisual(p, dir, T, done) {
     atm.querySelector('.atm-s').innerHTML = `${p.icon} ${esc(p.name)}<br>${dir === 'out' ? '现金存入中…' : '现金支取中…'}`;
     atm.classList.add('show'); Snd.swoosh(); await wait(520 * T);
     for (let i = 0; i < 6; i++) {
-      const n = document.createElement('div'); n.className = 'note'; n.textContent = '$'; box.appendChild(n);
-      const r = (i - 2.5) * 7, far = `translate(${r * 2.2}px, calc(var(--u) * 8.5)) rotate(${r}deg)`, slot = 'translate(0, 0) scaleY(.12)';
+      const n = document.createElement('div'); n.className = 'note'; n.innerHTML = '<b>100</b><i></i><b>100</b>'; box.appendChild(n);
+      const far = `translate(${(i - 2.5) * 1.5}px, calc(var(--u) * ${5.5 + i * 0.55}))`, slot = 'translate(0, calc(var(--u) * -2.2))';
       n.animate(dir === 'out' ? [{ transform: far, opacity: 1 }, { transform: slot, opacity: 0.3 }] : [{ transform: slot, opacity: 0.3 }, { transform: far, opacity: 1 }], { duration: 480 * T, delay: i * 95 * T, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'both' });
       setTimeout(() => Snd.noise(0.05, 0, 0.2, 2600), i * 95 * T);
     }
     await wait(700 * T); atm.querySelector('.atm-s').innerHTML = '交易成功 ✓'; done(); await wait(950 * T);
     atm.classList.remove('show'); await wait(320 * T); box.innerHTML = '';
-  } else { await cardIn(p, T); done(); await wait(620 * T); await cardOut(T); }
+  } else { await cardIn(p, T, dir === 'out'); done(); await wait(620 * T); await cardOut(T); }
 }
 function showMini(ids) { $('#posMini').innerHTML = ids.map((id, i) => { const p = pById(id); return p ? `<div class="avatar" style="background:${p.color};animation-delay:${i * 60}ms">${p.icon}</div>` : ''; }).join(''); }
 function posDone() { const led = $('#posLed'); led.className = 'pos-led ok'; const rc = $('#receipt'); rc.innerHTML = `WORLD BANK<br><b>${esc($('#posAmount').textContent)}</b><br>交易成功 ✓<br>· · · · · ·`; rc.classList.add('print'); Snd.noise(0.35, 0, 0.12, 4200); setTimeout(() => rc.classList.remove('print'), 1900); clearTimeout(posDone.t); posDone.t = setTimeout(() => { posScreen('WORLD BANK', 'READY'); led.className = 'pos-led'; $('#posMini').innerHTML = ''; }, 2200); }
@@ -488,7 +487,7 @@ async function playFx(f) {
     Snd.win(); confetti();
     await banner(`👑 ${esc(p.name)} ${f.rank === 1 ? '成为首富！' : '第 ' + f.rank + ' 个达到 ' + fmt(RULES.winCash)}`, { color: '#E2A100', big: true, ms: 2600 });
   } else if (f.type === 'tp') {
-    Snd.swoosh(); const el = tokenEls[f.pid]; if (el) el.animate([{ scale: 'var(--s)', opacity: 1 }, { scale: '0', opacity: 0 }], 300);
+    Snd.swoosh(); const el = tokenEls[f.pid]; if (el) el.animate([{ opacity: 1 }, { opacity: 0 }], 300);
     await banner(`🌀 ${esc(p.name)} 传送到 ${BOARD[f.to].name}`, { color: '#8E5BD6', ms: 700 });
     animPos[f.pid] = f.to; placeTokens(); ripple(f.to, '#8E5BD6'); await wait(350);
   } else if (f.type === 'stockroll') {
@@ -800,6 +799,22 @@ function auctionTips(pos) {
   tips.push(`💡 您有 ${fmt(money)}，建议最高出到 <b>${fmt(cap)}</b>（至少留三成现金付租金）。`);
   return tips.map((t) => `<div>${t}</div>`).join('');
 }
+function auctionInfo(pos) {
+  const sq = BOARD[pos], st = S.props[pos], c = sqColor(pos);
+  const rows = [['标价', fmt(sq.price)]];
+  if (sq.type === 'prop') rows.push(['基础租金', fmt(sq.rent[0])], ['集齐同色', fmt(sq.rent[0] * 2)], ['酒店租金', fmt(sq.rent[5])], ['建房单价', fmt(GROUPS[sq.group].house)], ['每栋每秒收益', '+' + fmt(incomePerSec(pos, 1))]);
+  else if (sq.type === 'rail') rows.push(['持有 1 处租金', fmt(RULES.railRent[0])], ['持有 3 处租金', fmt(RULES.railRent[2])]);
+  if (st.fore) rows.push(['法拍房', '半价']);
+  return `<div class="au-card" style="--tint:${c}"><div class="au-card-h">${sqIcon(pos)}<div><b>${sq.name}</b><small>${sq.en || ''}${sq.type === 'prop' ? ' · ' + GROUPS[sq.group].name + '组' : ''}</small></div></div>${rows.map(([a, b]) => `<div class="au-row"><span>${a}</span><b>${b}</b></div>`).join('')}</div>`;
+}
+let aucCell = -1;
+function markAuction() {
+  const ap = S.auction && S.phase === 'play' ? S.auction.pos : -1; if (ap === aucCell) return;
+  if (aucCell >= 0) $('#cell' + aucCell).classList.remove('auc');
+  aucCell = ap; document.body.classList.toggle('auction-mode', ap >= 0);
+  const md = $('#modal'); md.classList.toggle('glass', ap >= 0);
+  if (ap >= 0) { const c = $('#cell' + ap), b = $('#boardWrap'); c.classList.add('auc'); md.style.justifyItems = c.offsetLeft + c.offsetWidth / 2 > b.offsetWidth / 2 ? 'start' : 'end'; } else md.style.justifyItems = '';
+}
 function updateAuction() {
   const a = S.auction, m = me(), top = a.bidder && pById(a.bidder);
   $('#auPrice').textContent = fmt(a.bid); $('#auWho').textContent = top ? `${top.name} 出价最高` : '还没有人出价';
@@ -817,11 +832,11 @@ function renderStateModal() {
   } else if (pd && pd.kind === 'auction' && S.auction) {
     key = 'auction';
     const a = S.auction, sq = BOARD[a.pos];
-    h = `<h3>🔨 拍卖 · ${sq.name}</h3><p class="muted">所有玩家都可以出价，8 秒内没人加价即成交（标价 ${fmt(sq.price)}）</p>
+    h = `<h3>🔨 拍卖 · ${sq.name}</h3><div class="au-meta">${a.by && pById(a.by) ? `<span>发起人 ${avatar(pById(a.by))}<b>${esc(pById(a.by).name)}</b></span>` : ''}<span>${a.seller ? `强制拍卖 · 原主人 <b>${esc(pById(a.seller).name)}</b>（成交款归原主人）` : '银行地产 · 成交款归银行'}</span></div><p class="muted">全体玩家均可出价，8 秒内无人加价即成交。地图上发光的格子就是这块地。</p>
       <div class="auction-price" id="auPrice"></div><div class="auction-who" id="auWho"></div>
       <div class="countdown"><div id="cdBar"></div></div>
       ${m && !m.bankrupt ? `<div class="act-row" id="auBtns">${RULES.bids.map((n, i) => `<button class="btn ${i === 2 ? 'primary' : ''}" data-act="bid" data-inc="${n}">+${fmt(n)}<kbd>${i + 1}</kbd></button>`).join('')}</div><p class="muted" style="text-align:center">您的余额 ${fmt(m.money)}</p>` : ''}`;
-    h = `<div class="au-wrap"><div class="au-info">${deedHTML(a.pos)}<div class="au-tips">${auctionTips(a.pos)}</div></div><div class="au-main">${h}</div></div>`;
+    h = `<div class="au-wrap"><div class="au-info">${auctionInfo(a.pos)}<div class="au-tips">${auctionTips(a.pos)}</div></div><div class="au-main">${h}</div></div>`;
   } else if (!fxBusy && pd && pd.kind === 'buy' && curP().id === myId) {
     key = 'buy' + pd.pos;
     h = `${deedHTML(pd.pos)}<p class="muted" style="text-align:center;margin-top:12px">您有 ${fmt(m.money)}</p>
@@ -959,7 +974,7 @@ socket.on('emote', ({ from, to, e }) => {
       const ang = (i / 8) * Math.PI * 2, r = i === 8 ? 0 : 90 + Math.random() * 50;
       c.animate([{ transform: 'translate(-50%,-50%) scale(1.2)', opacity: 1 }, { transform: `translate(calc(-50% + ${Math.cos(ang) * r}px), calc(-50% + ${Math.sin(ang) * r}px)) scale(${i === 8 ? 5 : 0.9})`, opacity: 0 }], { duration: i === 8 ? 900 : 700, easing: 'ease-out' }).onfinish = () => c.remove();
     }
-    b.animate([{ scale: 'var(--s)' }, { scale: 'calc(var(--s) * 1.6)' }, { scale: 'var(--s)' }], 400);
+    b.animate([{ filter: 'none' }, { filter: 'brightness(1.7) drop-shadow(0 0 10px #fff)' }, { filter: 'none' }], 450);
   };
   const pf = pById(from), pt = pById(to); if (pf && pt) toast(`${pf.name} → ${pt.name} ${e}`);
 });
@@ -978,7 +993,7 @@ function renderAll() {
   if (!S) return;
   if (S.phase === 'lobby') { $('#lobby').hidden = false; $('#game').hidden = true; renderLobby(); return; }
   if ($('#game').hidden) { $('#lobby').hidden = true; $('#game').hidden = false; $('#roomTag').textContent = S.code; resize(); }
-  updateBoard(); placeTokens(); renderPlayers(); renderActions(); renderAssets(); renderLog(); renderStatus(); renderDock(); renderDanger(); renderCard(); renderStateModal(); renderPay();
+  updateBoard(); placeTokens(); renderPlayers(); renderActions(); renderAssets(); renderLog(); renderStatus(); renderDock(); renderDanger(); renderCard(); markAuction(); renderStateModal(); renderPay();
   if (localView && (localView.type === 'deed' || localView.type === 'market')) renderLocal();
   if (localView && S.phase !== 'play' && localView.type !== 'help') closeLocal();
   if (localView && localView.type === 'bank' && !fxBusy) { const a = document.activeElement; if (!a || a.id !== 'bankAmt') renderLocal(); }
