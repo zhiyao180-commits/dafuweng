@@ -875,3 +875,44 @@ body.phone .flybill { width: 60px; height: 28px; font-size: 8px; } body.phone .f
 .pos.okglow .pos-bg { animation: okglow 1s ease-out; }
 @keyframes okglow { 0% { box-shadow: 0 0 0 0 rgba(52,199,89,.9), 0 calc(var(--u) * 2.3) 0 #1a1a1c; } 100% { box-shadow: 0 0 0 calc(var(--u) * 3) rgba(52,199,89,0), 0 calc(var(--u) * 2.3) 0 #1a1a1c; } }
 .pos.okglow .pos-screen { animation: okscr .6s ease-out; } @keyframes okscr { 30% { filter: brightness(1.25) saturate(1.4); } }
+
+/* ====== v13：支付逻辑动画 + 地图特色 ====== */
+.pphone-s { flex-direction: column; gap: calc(var(--u) * .4); padding: calc(var(--u) * .6); text-align: center; color: #fff; font-size: calc(var(--u) * 1); display: flex !important; align-items: center; justify-content: center; }
+.pphone-s small { font-size: calc(var(--u) * .78); opacity: .85; white-space: nowrap; } .pphone-s b { font-size: calc(var(--u) * 1.6); }
+.pphone-s em { font-style: normal; font-size: calc(var(--u) * .8); opacity: .9; } .pphone-s i { font-style: normal; font-size: calc(var(--u) * 3); line-height: 1; }
+.pphone.recv { opacity: 1; transform: translate(calc(var(--u) * 4), calc(var(--u) * 6)) rotate(8deg); transition: transform .4s cubic-bezier(.2,1.3,.4,1), opacity .2s; }
+.pnote { width: 100%; border-radius: calc(var(--u) * .7); background: rgba(255,255,255,.95); color: #1F2328; padding: calc(var(--u) * .5); transform: translateY(calc(var(--u) * -3)); opacity: 0; transition: transform .35s cubic-bezier(.2,1.3,.4,1), opacity .2s; box-shadow: 0 4px 12px rgba(0,0,0,.3); }
+.pnote b { display: block; font-size: calc(var(--u) * .78); color: #555; } .pnote span { font-size: calc(var(--u) * 1.5); font-weight: 900; color: #1F9D4D; }
+.pphone.noted .pnote { transform: none; opacity: 1; } .pphone.noted .pphone-s { background: linear-gradient(160deg, #2F3A55, #11151F); }
+.bank-card.in-slot.credit { left: auto; bottom: auto; right: calc(var(--u) * -10); top: calc(var(--u) * 7); opacity: 0; transform: translateX(calc(var(--u) * 4)) rotate(-4deg) scale(.85); transition: transform .45s cubic-bezier(.2,1.3,.4,1), opacity .25s, box-shadow .3s; }
+.bank-card.in-slot.credit.show { opacity: 1; transform: rotate(-10deg) scale(.92); }
+.bank-card.in-slot.credit.done { box-shadow: 0 0 0 calc(var(--u) * .35) #34C759, 0 0 calc(var(--u) * 3) rgba(52,199,89,.8), 0 6px 18px rgba(0,0,0,.3); }
+.bank-card .cr { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.6); opacity: 0; padding: calc(var(--u) * .35) calc(var(--u) * .9); border-radius: 99px; background: #34C759; color: #fff; font-weight: 900; font-size: calc(var(--u) * 1.1); white-space: nowrap; transition: transform .35s cubic-bezier(.2,1.6,.4,1), opacity .2s; z-index: 2; }
+.bank-card.done .cr { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+/* 四个外圈角落：各有主题色 */
+.cell.corner { background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--cc) 22%, var(--cell)), var(--cell) 75%); }
+.cell.corner .cicon { filter: drop-shadow(0 2px 3px rgba(0,0,0,.18)); }
+.cell.go { --cc: #2FB344; } .cell.jail { --cc: #F58231; } .cell.parking { --cc: #2F5BEA; } .cell.gotojail { --cc: #E6194B; }
+.cell.corner2 { background: color-mix(in srgb, var(--cc, #8E5BD6) 12%, var(--cell)); }
+/* 地产格：地标更大、更有层次 */
+.lm { filter: drop-shadow(0 1px 0 rgba(0,0,0,.18)); }
+.cell.prop .cname { letter-spacing: .5px; }
+.cell.prop:hover .lm { transform: translateY(-2px) scale(1.08); transition: transform .2s; }
+/* 中央区域：淡淡的经纬线和点阵，像一张世界地图 */
+#lane { background-image: radial-gradient(rgba(60,80,140,.08) 1.2px, transparent 1.4px), linear-gradient(135deg, rgba(219,234,254,.85), rgba(252,231,243,.8) 50%, rgba(220,252,231,.85)); background-size: 18px 18px, auto; }
+#center { background-image: repeating-radial-gradient(circle at 50% 50%, transparent 0 46px, rgba(60,80,140,.07) 47px 48px), linear-gradient(135deg, rgba(219,234,254,.85), rgba(252,231,243,.8) 50%, rgba(220,252,231,.85)); }
+:root[data-theme="dark"] #lane { background-image: radial-gradient(rgba(255,255,255,.08) 1.2px, transparent 1.4px), linear-gradient(135deg, rgba(30,41,82,.85), rgba(76,29,90,.7) 50%, rgba(20,70,60,.8)); }
+:root[data-theme="dark"] #center { background-image: repeating-radial-gradient(circle at 50% 50%, transparent 0 46px, rgba(255,255,255,.05) 47px 48px), linear-gradient(135deg, rgba(30,41,82,.85), rgba(76,29,90,.7) 50%, rgba(20,70,60,.8)); }
+/* 细节动效 */
+.modal-box { animation: pop .38s cubic-bezier(.2,1.25,.35,1); }
+.btn { transition: transform .15s cubic-bezier(.2,1.6,.4,1), filter .2s, opacity .2s, box-shadow .2s; }
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
+.pl { transition: background .25s, box-shadow .25s, transform .25s; } .pl.cur { transform: scale(1.02); }
+.token { transition: transform .26s cubic-bezier(.3,1.35,.5,1), opacity .3s; }
+
+.pos.crediting .pos-cardwrap { z-index: 8; }
+.bank-card.in-slot.credit { right: auto; left: 50%; top: 34%; margin-left: calc(var(--u) * -7); }
+.bank-card.in-slot.credit.show { transform: translateY(calc(var(--u) * -1)) rotate(-8deg) scale(.95); }
+/* 刷卡槽改到机身左侧（右侧离地图边缘太近，卡会被遮住） */
+.pos-groove { right: auto !important; left: calc(var(--u) * -.5); border-radius: calc(var(--u) * 1) 0 0 calc(var(--u) * 1) !important; background: linear-gradient(270deg, #050506, #2a2a2e) !important; }
+.bank-card.in-slot:not(.credit) { right: auto; left: calc(var(--u) * -8.6); }

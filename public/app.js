@@ -350,9 +350,21 @@ async function cardOut(T) { const c = $('#posCard'); c.classList.remove('inserte
 async function payVisual(p, dir, T, done) {
   const m = (dir === 'in' ? p.recv || p.pay : p.pay) || 'card', pos = $('#pos');
   if (m === 'phone') {
-    const ph = $('#posPhone'); ph.className = 'pphone'; ph.style.setProperty('--pc', p.color); ph.firstElementChild.textContent = p.icon; void ph.offsetWidth; ph.classList.add('show'); Snd.swoosh();
-    await wait(430 * T); pos.classList.add('nfc'); Snd.tone(1800, 0.09, 'sine', 0.08); Snd.tone(2400, 0.16, 'sine', 0.08, 0.1); ph.classList.add('ok'); ph.firstElementChild.textContent = '✓'; done();
-    await wait(800 * T); ph.className = 'pphone'; pos.classList.remove('nfc'); await wait(260 * T);
+    const ph = $('#posPhone'), scr = ph.firstElementChild; ph.className = 'pphone'; ph.style.setProperty('--pc', p.color);
+    if (dir === 'out') {
+      // 付款：手机贴近刷卡机顶部的感应区，屏幕显示待付金额 → 感应成功
+      scr.innerHTML = `<small>WB Pay · ${esc(p.name)}</small><b>-${fmt(curAmt)}</b><em>请靠近感应区</em>`;
+      void ph.offsetWidth; ph.classList.add('show'); Snd.swoosh();
+      await wait(450 * T); pos.classList.add('nfc'); Snd.tone(1800, 0.09, 'sine', 0.08); Snd.tone(2400, 0.16, 'sine', 0.08, 0.1);
+      ph.classList.add('ok'); scr.innerHTML = `<small>WB Pay</small><i>✓</i><em>支付成功</em>`; posGlow(); done();
+      await wait(800 * T); ph.className = 'pphone'; pos.classList.remove('nfc'); await wait(260 * T);
+    } else {
+      // 收款：手机不碰刷卡机，直接弹出到账通知
+      scr.innerHTML = `<small>${esc(p.name)} 的手机钱包</small><div class="pnote"><b>WB Pay 收款到账</b><span>+${fmt(curAmt)}</span></div>`;
+      void ph.offsetWidth; ph.classList.add('recv'); Snd.swoosh(); await wait(380 * T);
+      ph.classList.add('noted'); Snd.tone(1568, 0.12, 'sine', 0.09); Snd.tone(2093, 0.2, 'sine', 0.09, 0.12); done();
+      await wait(1000 * T); ph.className = 'pphone'; await wait(260 * T);
+    }
   } else if (m === 'cash') {
     const atm = $('#atm'), scr = atm.querySelector('.atm-s');
     scr.innerHTML = `<b>${p.icon} ${esc(p.name)}</b><br>${dir === 'out' ? '现金存入中…' : '正在出钞…'}`;
@@ -363,7 +375,12 @@ async function payVisual(p, dir, T, done) {
     for (let i = 0; i < Math.min(n, 24); i++) setTimeout(() => Snd.noise(0.04, 0, 0.16, 2400 + Math.random() * 800), i * 34);
     await wait((dir === 'in' ? 650 : 900) * T); scr.innerHTML = '交易成功 ✓'; atm.classList.remove('spray'); done(); Snd.plus(); await wait(900 * T);
     atm.classList.remove('show'); await wait(380 * T);
-  } else { await cardIn(p, T, dir === 'out'); posGlow(); done(); await wait(620 * T); await cardOut(T); }
+  } else if (dir === 'in') {
+    // 收款到银行卡：卡片浮现在刷卡机旁，显示入账金额，不需要刷卡
+    const c = $('#posCard'); c.innerHTML = cardHTML(p) + `<div class="cr">+${fmt(curAmt)} 已入账</div>`; c.style.background = cardBg(p);
+    pos.classList.add('crediting'); c.className = 'bank-card in-slot credit'; void c.offsetWidth; c.classList.add('show'); Snd.swoosh(); await wait(420 * T);
+    c.classList.add('done'); posGlow(); done(); await wait(900 * T); c.className = 'bank-card in-slot credit'; await wait(300 * T); pos.classList.remove('crediting');
+  } else { await cardIn(p, T, false); posGlow(); done(); await wait(620 * T); await cardOut(T); }
 }
 function showMini(ids) { $('#posMini').innerHTML = ids.map((id, i) => { const p = pById(id); return p ? `<div class="avatar" style="background:${p.color};animation-delay:${i * 60}ms">${p.icon}</div>` : ''; }).join(''); }
 function posDone() { const led = $('#posLed'); led.className = 'pos-led ok'; const rc = $('#receipt'); rc.innerHTML = `WORLD BANK<br><b>${esc($('#posAmount').textContent)}</b><br>交易成功 ✓<br>· · · · · ·`; rc.classList.add('print'); Snd.noise(0.35, 0, 0.12, 4200); setTimeout(() => rc.classList.remove('print'), 1900); clearTimeout(posDone.t); posDone.t = setTimeout(() => { posScreen('WORLD BANK', 'READY'); led.className = 'pos-led'; $('#posMini').innerHTML = ''; }, 2200); }
@@ -523,12 +540,13 @@ async function playFx(f) {
     f.win ? Snd.win() : Snd.bad();
     await banner(`🎲 ${f.d} 点：${f.win ? '大涨，赚 ' + fmt(f.stake) : '下跌，亏 ' + fmt(Math.floor(f.stake / 2))}`, { color: f.win ? '#2DA44E' : '#E5383B', big: true, ms: 1300 });
   } else if (f.type === 'stage') {
-    Snd.alarm(); await banner(`📈 通货膨胀 · 第 ${f.stage + 1} 阶段　物价 ×${Math.round(f.infl * 100) / 100} · 地产税 ${Math.round((S.taxRate || 0.04) * 1000) / 10}%`, { color: '#E2A100', big: true, ms: 2000 });
+    Snd.alarm(); await banner(`📈 通货膨胀 · 第 ${f.stage + 1} 阶段　地价 ×${Math.round((f.pinfl || f.infl) * 100) / 100} · 租金 ×${Math.round(f.infl * 100) / 100} · 地产税 ${Math.round((f.taxRate || 0.04) * 1000) / 10}%`, { color: '#E2A100', big: true, ms: 2000 });
   } else if (f.type === 'boost') {
     Snd.win(); await banner('🚀 进程加速器已启动，请查看右上角的个人任务', { color: '#0A6FE0', big: true, ms: 2000 });
   } else if (f.type === 'task') {
     Snd.win(); if (f.pid === myId) confetti(); await banner(`✅ ${esc(p.name)} 完成任务，奖励 ${fmt(f.reward)}`, { color: '#2DA44E', big: f.pid === myId, ms: 1400 });
   } else if (f.type === 'xchg') {
+    curAmt = f.amount;
     posScreen(`${p.name} 银行兑换`, fmt(f.amount)); Snd.beep(); await payVisual({ ...p, pay: f.from }, 'out', 0.6, () => {}); await payVisual({ ...p, recv: f.to }, 'in', 0.6, () => {}); posDone();
   } else if (f.type === 'news') {
     const a = GameData.ASSETS.find((x) => x.id === f.id);

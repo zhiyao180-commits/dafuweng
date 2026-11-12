@@ -788,7 +788,7 @@ class Game {
   // ---------- 通货膨胀 & 进程加速器 ----------
   bumpStage(why) {
     this.stage++;
-    this.fx.push({ type: 'stage', stage: this.stage, infl: this.infl });
+    this.fx.push({ type: 'stage', stage: this.stage, infl: this.infl, pinfl: this.pinfl, taxRate: this.taxRate });
     this.say(`📈 通货膨胀（${why}）：进入第 ${this.stage + 1} 阶段，租金、工资、每秒收益 ×${Math.round(this.infl * 100) / 100}，地价、房价 ×${Math.round(this.pinfl * 100) / 100}，地产税率升至 ${Math.round(this.taxRate * 1000) / 10}%`);
   }
   tickStage() {

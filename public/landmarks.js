@@ -41,5 +41,6 @@
   L['大阪'] = '<path d="M12 2l1 2h-2zM7 7c2-.5 3.500-1.500 5-3 1.500 1.500 3 2.500 5 3zM9 7.500h6V10H9zM5 13c2.500-.6 4.500-1.600 7-3 2.500 1.400 4.500 2.400 7 3zM7.500 13.500h9V17h-9zM4 17.500h16V21H4z"/>';
   L['阿布扎比'] = '<path d="M7 21v-5a5 5 0 0 1 10 0v5zM2.500 21V8l1-3 1 3v13zM19.500 21V8l1-3 1 3v13z"/><path d="M11.600 8h.8v3h-.8z"/>';
   const G = ['<path d="M3 21V11h4v10zM8 21V5h5v16zM14 21V9h3v12zM18 21v-8h3v8z"/>', '<path d="M2 21v-7h4v7zM7 21V8l3-3 3 3v13zM14 21V12h4v9zM19 21v-5h3v5z"/>', '<path d="M3 21v-9l3-2v11zM7 21V6h4v15zM12 21V3l4 3v15zM17 21v-8h4v8z"/>'];
-  window.landmark = (name) => `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${L[name] || G[(name.charCodeAt(0) + name.length) % 3]}</svg>`;
+  // 双色明暗：左半边受光（提亮），加一条地面线
+  window.landmark = (name) => { const g = L[name] || G[(name.charCodeAt(0) + name.length) % 3]; return `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><defs><clipPath id="lmL"><rect width="11.5" height="24"/></clipPath></defs><rect x="1" y="21.6" width="22" height="1.1" rx=".55" opacity=".28"/><g>${g}</g><g clip-path="url(#lmL)" fill="#fff" opacity=".3">${g}</g></svg>`; };
 })();
