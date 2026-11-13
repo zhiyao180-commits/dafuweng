@@ -24,6 +24,7 @@ class Game {
     BOARD.forEach((sq, i) => { if (BUYABLE(sq)) this.props[i] = { owner: null, houses: 0, mortgaged: false }; });
     this.phase = 'lobby';
     this.maxPlayers = RULES.maxPlayers;
+    this.cfg = { startMoney: RULES.startMoney, winCash: RULES.winCash }; // 房主可在大厅调整
     this.turn = 0;
     this.rolled = false;
     this.canRollAgain = false;
@@ -186,7 +187,7 @@ class Game {
     const p = {
       id: 'p' + Math.random().toString(36).slice(2, 8), token, name,
       color: D.COLORS[ci], icon: D.TOKENS[ci],
-      pos: 0, money: RULES.startMoney, inJail: false, jailTurns: 0, goojf: [],
+      pos: 0, money: this.SM, inJail: false, jailTurns: 0, goojf: [],
       bankrupt: false, connected: true, creditor: null,
     };
     this.players.push(p);
@@ -215,7 +216,7 @@ class Game {
     must(!this.players.some((x) => x.name === r.name), '该昵称已被使用');
     const used = new Set(this.players.map((x) => x.color)), ci = Math.max(0, D.COLORS.findIndex((c) => !used.has(c)));
     const usedIcon = new Set(this.players.map((x) => x.icon)), icon = D.TOKENS.find((t) => !usedIcon.has(t)) || D.TOKENS[ci];
-    const money = this.nice(RULES.startMoney * this.infl); // 按当前通胀发放起始资金
+    const money = this.nice(this.SM * this.infl); // 按当前通胀发放起始资金
     const np = { id: 'p' + Math.random().toString(36).slice(2, 8), token: r.token, name: r.name, color: D.COLORS[ci], icon, pos: 0, money, inJail: false, jailTurns: 0, goojf: [], bankrupt: false, connected: true, creditor: null, st: { turns: 0, late: 1 }, peak: [money, Date.now() - this.startedAt], joinedAt: Date.now() - this.startedAt };
     this.players.push(np); this.maxPlayers = Math.max(this.maxPlayers, this.players.length);
     this.say(`🙋 ${np.name} 经房主批准加入对局，获得起始资金 ${fmt(money)}，行动顺序排在末位`);
@@ -245,18 +246,34 @@ class Game {
     this.maxPlayers = n;
   }
 
+  // ---------- 房主设置：初始资金 / 胜出目标 ----------
+  get SM() { return (this.cfg && this.cfg.startMoney) || RULES.startMoney; }
+  get WIN() { return (this.cfg && this.cfg.winCash) || RULES.winCash; }
+  setConfig(p, a) {
+    must(p.token === this.hostToken, '仅房主可修改对局设置');
+    must(this.phase === 'lobby', '对局已开始，无法修改设置');
+    const sm = a.startMoney == null ? this.SM : Math.floor(Number(a.startMoney));
+    const win = a.winCash == null ? this.WIN : Math.floor(Number(a.winCash));
+    must(D.START_OPTS.includes(sm), '初始资金选项无效');
+    must(D.WIN_OPTS.includes(win), '胜出目标选项无效');
+    must(win >= sm * 20, `胜出目标须不低于初始资金的 20 倍（${fmt(sm * 20)}）`);
+    this.cfg = { startMoney: sm, winCash: win };
+    this.players.forEach((x) => { x.money = sm; });
+  }
+
   start(p) {
     must(p.token === this.hostToken, '仅房主可开始对局');
     must(this.phase === 'lobby', '对局已开始');
     must(this.players.length >= 2, '至少需要 2 位玩家');
     this.players = shuffle(this.players);
+    this.players.forEach((x) => { x.money = this.SM; });
     this.phase = 'play';
     this.startedAt = Date.now();
     this.turn = 0;
-    this.say(`对局开始。每位玩家获得初始资金 ${fmt(RULES.startMoney)}，总资产（现金 + 地产 + 房屋）率先达到 ${fmt(RULES.winCash)} 者成为首富并胜出，其余玩家继续角逐名次。行动顺序：${this.players.map((x) => x.name).join(' → ')}`);
+    this.say(`对局开始。每位玩家获得初始资金 ${fmt(this.SM)}，总资产（现金 + 地产 + 房屋）率先达到 ${fmt(this.WIN)} 者成为首富并胜出，其余玩家继续角逐名次。行动顺序：${this.players.map((x) => x.name).join(' → ')}`);
     this.say(`${this.cur.name} 的回合`);
     this.fx.push({ type: 'turn', pid: this.cur.id });
-    this.moments = []; this.bigRents = []; this.rounds = 0; this.players.forEach((x) => { x.st = { turns: 0 }; x.peak = [RULES.startMoney, 0]; });
+    this.moments = []; this.bigRents = []; this.rounds = 0; this.players.forEach((x) => { x.st = { turns: 0 }; x.peak = [this.SM, 0]; });
     this.moment(`🎬 对局开始，${this.players.length} 位玩家，行动顺序：${this.players.map((x) => x.name).join(' → ')}`);
     this.touch();
   }
@@ -756,19 +773,19 @@ class Game {
       best((x) => x.stock, '📈 股票收益最高', '股票净收益'), best((x) => x.bet, '🎯 竞猜收益最高', '竞猜净收益'), best((x) => x.st.luck || 0, '🍀 卡牌收益最高', '机会 / 命运 / 转盘净收益'),
       best((x) => x.st.rentOut || 0, '💸 租金支出最高', '租金支出', false), best((x) => x.st.interest || 0, '🏦 利息支出最高', '利息支出', false), best((x) => x.st.jail || 0, '🚔 入狱次数最多', '次入狱', false),
     ].filter(Boolean);
-    return { dur: Date.now() - this.startedAt, stage: this.stage, rounds: this.rounds || 0, why: this.endWhy, goal: RULES.winCash, players: players.sort((a, b) => a.rank - b.rank), awards, rents: this.bigRents || [], moments: this.moments || [] };
+    return { dur: Date.now() - this.startedAt, stage: this.stage, rounds: this.rounds || 0, why: this.endWhy, goal: this.WIN, players: players.sort((a, b) => a.rank - b.rank), awards, rents: this.bigRents || [], moments: this.moments || [] };
   }
   // 首富：现金达到目标的人按先后顺序排名；所有人都达到则结束
   checkGoals() {
     if (this.phase !== 'play') return false;
     let ch = false;
-    const hit = this.active().map((o) => [o, this.netWorth(o)]).filter((x) => x[1] >= RULES.winCash).sort((x, y) => y[1] - x[1]);
+    const hit = this.active().map((o) => [o, this.netWorth(o)]).filter((x) => x[1] >= this.WIN).sort((x, y) => y[1] - x[1]);
     for (const [o, w] of hit) {
       if (this.phase !== 'play') break;
       this.rich.push(o.id); o.won = this.rich.length; o.wonWorth = w; o.wonAt = Date.now() - this.startedAt; o.hold = {}; o.cost = {}; o.loan = 0; o.bet = null; ch = true;
       this.moment(`👑 ${o.name} 总资产达到 ${fmt(w)}，以第 ${o.won} 名胜出`);
       this.fx.push({ type: 'rich', pid: o.id, rank: o.won });
-      this.say(`👑 ${o.name} 的总资产达到 ${fmt(RULES.winCash)}，以第 ${o.won} 名胜出。其名下地产归还银行，其余玩家继续对局`);
+      this.say(`👑 ${o.name} 的总资产达到 ${fmt(this.WIN)}，以第 ${o.won} 名胜出。其名下地产归还银行，其余玩家继续对局`);
       // 胜出者离场：地产交还银行（原价），房屋退回
       for (const st of Object.values(this.props)) if (st.owner === o.id) { if (st.houses === 5) this.hotelsLeft++; else this.housesLeft += st.houses; st.houses = 0; st.owner = null; st.mortgaged = false; st.fore = false; }
       for (const d of o.goojf) { const list = d === 'chance' ? CHANCE : CHEST; this.decks[d].push(list.findIndex((c) => c.fx.t === 'goojf')); }
@@ -797,7 +814,7 @@ class Game {
       if (!p.bankrupt && (!p.peak || w > p.peak[0])) p.peak = [w, Date.now() - this.startedAt];
       const sec = Math.floor((Date.now() - this.startedAt) / 1000), step = this.whStep || (this.whStep = 30);
       if (p.incMin && sec - (p.incAt || 0) >= 60) { const v = p.incMin; p.incMin = 0; p.incAt = sec; this.ledge(p, v, '⏱ 房屋每秒收益（近 1 分钟合计）', null); }
-      if (!p.wh) p.wh = [[0, RULES.startMoney]];
+      if (!p.wh) p.wh = [[0, this.SM]];
       if (!p.bankrupt && sec - p.wh[p.wh.length - 1][0] >= step) { p.wh.push([sec, Math.round(w)]); if (p.wh.length > 240) { p.wh = p.wh.filter((_, k) => k % 2 === 0); this.whStep = step * 2; } }
     }
     return out;
@@ -1150,6 +1167,7 @@ class Game {
     if (type === 'kick') return this.kick(p, a.id);
     if (type === 'start') return this.start(p);
     if (type === 'size') return this.setSize(p, a.n);
+    if (type === 'config') return this.setConfig(p, a);
     must(this.phase === 'play', '对局未在进行中');
     // 房主即使破产或已胜出，也保留管理权：结束游戏、跳过掉线玩家、进程加速器、移出玩家
     if (type === 'approve') { const res = this.approveJoin(p, a.rid, !!a.ok); this.touch(); this.updatedAt = Date.now(); return res; }
@@ -1182,7 +1200,7 @@ class Game {
     return {
       stage: this.stage, infl: this.infl, pinfl: this.pinfl, scarcity: this.scarcity(),
       buildCost: Object.fromEntries(Object.keys(this.props).filter((i) => BOARD[i].type === 'prop').map((i) => [i, this.buildCost(+i)])), taxRate: this.taxRate, market: this.market, startedAt: this.startedAt, tasks: this.tasks,
-      code: this.code, phase: this.phase, maxPlayers: this.maxPlayers, deadline: this.deadline, rich: this.rich, turn: this.turn, rolled: this.rolled, canRollAgain: this.canRollAgain,
+      code: this.code, phase: this.phase, maxPlayers: this.maxPlayers, cfg: { startMoney: this.SM, winCash: this.WIN }, deadline: this.deadline, rich: this.rich, turn: this.turn, rolled: this.rolled, canRollAgain: this.canRollAgain,
       dice: this.dice, pending: this.pending, auction: this.auction, trades: this.trades,
       housesLeft: this.housesLeft, hotelsLeft: this.hotelsLeft, props: this.props,
       rentNow: Object.fromEntries(Object.entries(this.props).filter(([, st]) => st.owner && !st.mortgaged).map(([i]) => [i, this.rentFor(+i)])),

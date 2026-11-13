@@ -63,7 +63,7 @@
     const lines = list.filter((p) => p.wh && p.wh.length);
     if (!lines.length) return '<div class="mk-empty">数据不足，请稍后查看</div>';
     const pts = lines.flatMap((p) => p.wh), tmax = Math.max(120, ...pts.map((x) => x[0])), L = (v) => Math.log10(Math.max(1e4, v));
-    const goal = RULES.winCash, lo = Math.min(L(1e5), ...pts.map((x) => L(x[1]))), hi = Math.max(L(goal), ...pts.map((x) => L(x[1]))) + 0.05;
+    const goal = GOAL(), lo = Math.min(L(1e5), ...pts.map((x) => L(x[1]))), hi = Math.max(L(goal), ...pts.map((x) => L(x[1]))) + 0.05;
     const pl = 46, pr = 70, pt = 10, pb = 22, X = (t) => (pl + (t / tmax) * (W - pl - pr)).toFixed(1), Y = (v) => (pt + (1 - (L(v) - lo) / (hi - lo)) * (H - pt - pb)).toFixed(1);
     let g = '';
     for (let e = Math.ceil(lo); e <= Math.floor(hi); e++) { const v = Math.pow(10, e), y = Y(v); g += `<line x1="${pl}" x2="${W - pr}" y1="${y}" y2="${y}" class="wc-g"/><text x="${pl - 6}" y="${+y + 4}" text-anchor="end" class="wc-t">${fmt(v)}</text>`; }
@@ -74,13 +74,13 @@
   };
   const liveLines = () => {
     const now = Math.floor((Date.now() + skew - S.startedAt) / 1000);
-    return S.players.map((p) => ({ name: p.name, color: p.color, wh: (p.wh || [[0, RULES.startMoney]]).concat(p.bankrupt && !p.won ? [] : [[now, p.won ? p.wonWorth : p.worth]]) }));
+    return S.players.map((p) => ({ name: p.name, color: p.color, wh: (p.wh || [[0, START()]]).concat(p.bankrupt && !p.won ? [] : [[now, p.won ? p.wonWorth : p.worth]]) }));
   };
   const prevExtra = window.renderExtra;
   window.renderExtra = (v, box, m) => {
     if (v.type === 'worth') {
       box.classList.add('market'); box.dataset.v = 'worth';
-      const rows = S.players.slice().sort((a, b) => (b.won ? 1e18 - b.won : b.worth) - (a.won ? 1e18 - a.won : a.worth)).map((p) => { const w = p.won ? p.wonWorth : p.bankrupt ? 0 : p.worth, ch = w / RULES.startMoney; return `<div class="wc-row"><i style="background:${p.color}"></i><b>${esc(p.name)}</b><span>${p.won ? '👑 已胜出 ' : p.bankrupt ? '💥 已出局 ' : ''}${fmt(Math.round(w))}</span><small>${p.bankrupt && !p.won ? '' : `为初始资金的 ${ch >= 10 ? Math.round(ch) : ch.toFixed(1)} 倍 · 目标进度 ${Math.min(100, (w / RULES.winCash) * 100).toFixed(1)}%`}</small></div>`; }).join('');
+      const rows = S.players.slice().sort((a, b) => (b.won ? 1e18 - b.won : b.worth) - (a.won ? 1e18 - a.won : a.worth)).map((p) => { const w = p.won ? p.wonWorth : p.bankrupt ? 0 : p.worth, ch = w / START(); return `<div class="wc-row"><i style="background:${p.color}"></i><b>${esc(p.name)}</b><span>${p.won ? '👑 已胜出 ' : p.bankrupt ? '💥 已出局 ' : ''}${fmt(Math.round(w))}</span><small>${p.bankrupt && !p.won ? '' : `为初始资金的 ${ch >= 10 ? Math.round(ch) : ch.toFixed(1)} 倍 · 目标进度 ${Math.min(100, (w / GOAL()) * 100).toFixed(1)}%`}</small></div>`; }).join('');
       box.innerHTML = `<h3>📊 资产走势</h3><div class="muted">纵轴为对数刻度（每格 ×10），每 30 秒记录一次总资产；金色虚线为胜出目标</div><div class="wc-wrap">${worthChart(liveLines())}</div><div class="wc-list">${rows}</div><div class="act-row"><button class="btn wide" data-close>关闭</button></div>`;
       return true;
     }

@@ -1803,3 +1803,19 @@ body.phone .bt-body, body.phone .ln-body { grid-template-columns: 1fr; }
 .rs-invite .btn { flex: none; }
 :root[data-theme="dark"] #lobby .ped-disc { filter: brightness(.78) saturate(1.1); }
 :root[data-theme="dark"] .rs-tag.me { background: rgba(59,141,240,.2); }
+/* 房主对局设置 */
+.lb-cfg { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 14px; background: rgba(127,127,127,.07); }
+.lb-cfg-row { display: flex; align-items: center; gap: 10px; }
+.lb-cfg-row > span { flex: none; width: 58px; font-size: 12.5px; font-weight: 600; color: var(--ink2); }
+.lb-cfg-row .seg { flex: 1; background: rgba(118,118,128,.14); border-radius: 9px; padding: 2px; }
+#lobby #cfgStart { grid-template-columns: repeat(5, 1fr); }
+#lobby #cfgWin { grid-template-columns: repeat(6, 1fr); }
+.lb-cfg-row .seg button { font-size: 12.5px; padding: 5px 0; border-radius: 7px; font-variant-numeric: tabular-nums; }
+/* 展台手办式棋子：大厅展台放大并抬高，避免与底座重叠 */
+#lobby .ped-pawn, #lobby .ped-pawn .pawn.big { width: clamp(118px, 22vh, 156px); }
+#lobby .ped-pawn { margin-bottom: 2px; }
+#lobby .ped-disc { width: clamp(150px, 27vh, 200px); height: clamp(32px, 5.6vh, 44px); }
+#lobby .ped { height: clamp(150px, 27vh, 200px); }
+#lobby .stage3d { height: clamp(160px, 29vh, 220px); }
+.lb-showcase .pawn.hero { width: 96px; } .lb-showcase .hp-c .pawn.hero { width: 144px; }
+@media (max-width: 760px) { .lb-showcase .pawn.hero { width: 68px; } .lb-showcase .hp-c .pawn.hero { width: 104px; } #lobby .ped-pawn, #lobby .ped-pawn .pawn.big { width: 120px; } #lobby .stage3d { height: 176px; } #lobby .ped { height: 160px; } }

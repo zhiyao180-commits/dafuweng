@@ -1,5 +1,7 @@
 // 大富翁 · 世界银行 —— 浏览器端
-const { BOARD, GROUPS, LAYOUT, CHANCE, CHEST, RULES, COLORS, TOKENS, fmt, incomePerSec, EMOTES } = GameData;
+const { BOARD, GROUPS, LAYOUT, CHANCE, CHEST, RULES, COLORS, TOKENS, fmt, incomePerSec, EMOTES, START_OPTS, WIN_OPTS } = GameData;
+// 本局设置（房主可在大厅调整）
+const GOAL = () => (S && S.cfg ? S.cfg.winCash : RULES.winCash), START = () => (S && S.cfg ? S.cfg.startMoney : RULES.startMoney);
 const N = BOARD.length, BW = LAYOUT.w, BH = LAYOUT.h;
 const OUT = 2 * BW + 2 * BH + 4, W2 = LAYOUT.w2, H2 = LAYOUT.h2; // 外圈格数；内圈尺寸
 const flying = {};
@@ -122,20 +124,23 @@ const avatar = (p) => `<div class="avatar" style="background-color:${p.color}">$
 // 立体棋子：玩家颜色的亮面圆头 + 收腰 + 底座，头部嵌着自己选的图案
 let pawnSeq = 0;
 function pawnSVG(c, icon, cls = '') {
+  // 展台手办式棋子：玩家颜色的双层烤漆展台 + 金色描边 + 光晕，棋子图标立于展台之上
   const u = 'pw' + (pawnSeq++).toString(36), L = (k) => `color-mix(in srgb, ${c} ${k}%, white)`, D = (k) => `color-mix(in srgb, ${c} ${k}%, black)`;
   const st = (fb, css) => `stop-color="${fb}" style="stop-color:${css}"`;
   return `<svg viewBox="0 0 60 74" class="pawn ${cls}" aria-hidden="true"><defs>
-    <radialGradient id="h${u}" cx="36%" cy="28%" r="75%"><stop offset="0" ${st(c, L(30))}/><stop offset=".5" ${st(c, c)}/><stop offset="1" ${st(c, D(55))}/></radialGradient>
-    <linearGradient id="b${u}" x1="0" x2="1"><stop offset="0" ${st(c, D(55))}/><stop offset=".38" ${st(c, L(62))}/><stop offset=".7" ${st(c, c)}/><stop offset="1" ${st(c, D(48))}/></linearGradient>
-    <linearGradient id="t${u}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" ${st(c, L(45))}/><stop offset="1" ${st(c, c)}/></linearGradient></defs>
-    <ellipse cx="30" cy="69" rx="24" ry="4.5" fill="rgba(0,0,0,.26)"/>
-    <path d="M6 61v5a24 7 0 0 0 48 0v-5z" fill="url(#b${u})"/><ellipse cx="30" cy="61" rx="24" ry="7" fill="url(#t${u})"/>
-    <path d="M19 61c1.6-6 5.2-9 6-14h10c.8 5 4.4 8 6 14z" fill="url(#b${u})"/>
-    <ellipse cx="30" cy="47" rx="9" ry="2.6" fill="${c}" style="fill:${L(40)}"/>
-    <circle cx="30" cy="25" r="21" fill="url(#h${u})"/>
-    <circle cx="30" cy="25" r="15.5" fill="rgba(255,255,255,.93)"/><circle cx="30" cy="25" r="15.5" fill="none" stroke="rgba(0,0,0,.12)" stroke-width="1"/>
-    <text x="30" y="32.2" text-anchor="middle" font-size="19">${icon}</text>
-    <ellipse cx="21" cy="11.5" rx="7" ry="3.6" fill="#fff" opacity=".55" transform="rotate(-28 21 11.5)"/></svg>`;
+    <radialGradient id="h${u}"><stop offset="0" ${st(c, c)} stop-opacity=".5"/><stop offset=".55" ${st(c, c)} stop-opacity=".2"/><stop offset="1" ${st(c, c)} stop-opacity="0"/></radialGradient>
+    <linearGradient id="s${u}" x1="0" x2="1"><stop offset="0" ${st(c, D(55))}/><stop offset=".28" ${st(c, c)}/><stop offset=".5" ${st(c, L(55))}/><stop offset=".72" ${st(c, c)}/><stop offset="1" ${st(c, D(55))}/></linearGradient>
+    <linearGradient id="t${u}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" ${st(c, L(42))}/><stop offset="1" ${st(c, L(85))}/></linearGradient>
+    <linearGradient id="g${u}" x1="0" x2="1"><stop offset="0" stop-color="#A97A12"/><stop offset=".5" stop-color="#FFF1BF"/><stop offset="1" stop-color="#A97A12"/></linearGradient></defs>
+    <ellipse cx="30" cy="69.6" rx="24" ry="4" fill="rgba(0,0,0,.22)"/>
+    <circle cx="30" cy="32" r="27" fill="url(#h${u})"/>
+    <path d="M7 58v6a23 6.5 0 0 0 46 0v-6z" fill="url(#s${u})"/>
+    <path d="M7 64a23 6.5 0 0 0 46 0" fill="none" stroke="url(#g${u})" stroke-width="1"/>
+    <ellipse cx="30" cy="58" rx="23" ry="6.5" fill="url(#t${u})"/>
+    <ellipse cx="30" cy="58" rx="23" ry="6.5" fill="none" stroke="url(#g${u})" stroke-width="1.3"/>
+    <ellipse cx="30" cy="55.6" rx="15" ry="2.2" fill="#fff" opacity=".35"/>
+    <ellipse cx="30" cy="57.4" rx="12" ry="2.6" fill="rgba(0,0,0,.26)"/>
+    <text x="30" y="52.5" text-anchor="middle" font-size="37">${icon}</text></svg>`;
 }
 const sqColor = (i) => { const sq = BOARD[i]; return sq.type === 'prop' ? GROUPS[sq.group].color : sq.type === 'rail' ? '#5B6470' : '#8E8E93'; };
 const railIcon = (sq) => (sq.kind === 'port' ? '⚓️' : '✈️');
@@ -193,7 +198,7 @@ setEntryTab(new URLSearchParams(location.search).get('room') ? 'join' : localSto
 $('#nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') (($('#entryTabs').dataset.on === 'create') ? $('#createBtn') : $('#joinBtn')).click(); });
 $('#passInput').addEventListener('keydown', (e) => e.key === 'Enter' && $('#createBtn').click());
 $('#codeInput').addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
-$('#heroPawns').innerHTML = [['#2F5BEA', '🎩', 'l'], ['#E6194B', '🚗', 'c'], ['#FFD400', '🐶', 'r']].map(([c, t, k]) => `<div class="hp hp-${k}">${pawnSVG(c, t, 'hero')}<i></i></div>`).join('');
+$('#heroPawns').innerHTML = [['#2F5BEA', '🎩', 'l'], ['#E6194B', '🚗', 'c'], ['#B89B00', '🐶', 'r']].map(([c, t, k]) => `<div class="hp hp-${k}">${pawnSVG(c, t, 'hero')}<i></i></div>`).join('');
 const COLOR_NAME = { '#E6194B': '绯红', '#F58231': '橙色', '#FFD400': '明黄', '#2FB344': '翠绿', '#00C2D1': '湖蓝', '#2F5BEA': '宝蓝', '#9B27D8': '紫罗兰', '#1F2328': '曜石黑', '#8B4513': '赭石', '#FF69B4': '粉红', '#8FE000': '青柠', '#008080': '孔雀绿', '#0A1F7A': '藏青', '#9AA0A6': '银灰', '#FF00E6': '洋红', '#B89B00': '古金' };
 $('#sizePick').onclick = (e) => { const b = e.target.closest('button'); if (b) { chosenSize = +b.dataset.n; localStorage.setItem('dfw_size', chosenSize); drawSizePick(); } };
 $('#sizeEdit').onclick = (e) => { const b = e.target.closest('button'); if (b && !b.disabled) act('size', { n: +b.dataset.n }); };
@@ -255,7 +260,7 @@ function renderLobby() {
   // 座位
   const seats = S.players.map((p, k) => { const fresh = !seenSeat.has(p.id); seenSeat.add(p.id); const tags = (p.host ? '<span class="rs-tag host">房主</span>' : '') + (p.id === myId ? '<span class="rs-tag me">我</span>' : ''); return `<div class="rs ${p.id === myId ? 'me' : ''} ${fresh ? 'fresh' : ''}" style="--pc:${p.color}"><span class="rs-n">${k + 1}</span>${pawnSVG(p.color, p.icon, 'mini')}<div class="rs-t"><b>${esc(p.name)}</b>${tags}</div><span class="rs-st ${p.connected === false ? 'off' : ''}">${p.connected === false ? '离线' : '已就位'}</span>${host && !p.host ? `<button class="rs-kick" data-kick="${p.id}" title="将 ${esc(p.name)} 移出房间" aria-label="移出">✕</button>` : ''}</div>`; }).join('')
     + Array.from({ length: Math.max(0, max - n) }, (_, k) => `<div class="rs empty"><span class="rs-n">${n + k + 1}</span><span class="rs-hole"></span><div class="rs-t"><b>等待玩家加入</b></div><span class="rs-st">空位</span></div>`).join('')
-    + (n < max ? `<div class="rs-invite"><div class="rs-invite-t"><small>好友打开以下链接即可加入，尚余 ${max - n} 个空位</small><code>${esc(location.host + '/?room=' + S.code)}</code></div><button class="btn sm" data-copyinv="1">复制</button></div>` : '');
+    + (n < max ? `<div class="rs-invite"><div class="rs-invite-t"><small>在 Safari / Chrome 中打开以下链接即可加入 · 尚余 ${max - n} 个空位</small><code>${esc(location.host + '/?room=' + S.code)}</code></div><button class="btn sm" data-copyinv="1">复制</button></div>` : '');
   const lp = $('#lobbyPlayers'); if (lp._h !== seats) { lp._h = seats; lp.innerHTML = seats; lp.querySelectorAll('.rs.fresh').forEach((x) => setTimeout(() => x.classList.remove('fresh'), 900)); }
   $('#colorPick').innerHTML = COLORS.map((c) => { const taken = S.players.some((p) => p.color === c && p.id !== myId); return `<button data-color="${c}" class="${m && m.color === c ? 'on' : ''} ${taken ? 'taken' : ''}" style="--c:${c}" title="${(COLOR_NAME[c] || '') + (taken ? '（已被选择）' : '')}" aria-label="${COLOR_NAME[c] || c}"></button>`; }).join('');
   const ic = TOKENS.map((c) => { const taken = S.players.some((p) => p.icon === c && p.id !== myId); return `<button data-icon="${c}" class="${m && m.icon === c ? 'on' : ''} ${taken ? 'taken' : ''}">${pawnSVG(m ? m.color : '#888', c, 'pick')}</button>`; }).join('');
@@ -264,12 +269,27 @@ function renderLobby() {
   $('#capBar').style.width = Math.min(100, n / max * 100) + '%';
   $('#sizeWrap').hidden = !host;
   if (host) $('#sizeEdit').innerHTML = [2, 3, 4, 5, 6, 7, 8].map((k) => `<button data-n="${k}" class="${k === max ? 'on' : ''}" ${k < n ? 'disabled' : ''}>${k}</button>`).join('');
+  // 对局设置
+  const sm = START(), win = GOAL(), ck = sm + ':' + win;
+  if (renderLobby._ck && renderLobby._ck !== ck && !host) { toast(`房主已调整设置：初始资金 ${fmt(sm)} · 胜出目标 ${fmt(win)}`); Snd.plus(); }
+  renderLobby._ck = ck;
+  $('#stStart').textContent = fmt(sm); $('#stWin').textContent = fmt(win);
+  $('#cfgBox').hidden = !host; $('#cfgStats').hidden = host;
+  if (host) {
+    const hs = START_OPTS.map((v) => `<button data-sm="${v}" class="${v === sm ? 'on' : ''}">${fmt(v)}</button>`).join('');
+    const hw = WIN_OPTS.map((v) => `<button data-win="${v}" class="${v === win ? 'on' : ''}" ${v < sm * 20 ? 'disabled title="须不低于初始资金的 20 倍"' : ''}>${fmt(v)}</button>`).join('');
+    if ($('#cfgStart')._h !== hs) { $('#cfgStart')._h = hs; $('#cfgStart').innerHTML = hs; }
+    if ($('#cfgWin')._h !== hw) { $('#cfgWin')._h = hw; $('#cfgWin').innerHTML = hw; }
+  }
+  $('#ruleText').innerHTML = `每位玩家初始资金 <b>${fmt(sm)}</b>。<b>总资产</b>（现金 + 地产 + 房屋 + 股票 − 贷款）率先达到 <b>${fmt(win)}</b> 者成为首富并胜出，其余玩家继续对局，依次决出名次。破产者出局，其名下地产转为按半价出售的"法拍房"。每 10 分钟发生一次通货膨胀。对局开始后，其他玩家仍可输入房间号申请加入，经房主批准后即可加入。`;
   $('#startBtn').hidden = !host; $('#waitHost').hidden = host;
   $('#startBtn').disabled = n < 2;
   $('#startBtn').textContent = n < 2 ? '至少需要 2 名玩家' : n < max ? `人数未满，立即开始（${n} 人）` : `开始游戏（${n} 人）`;
 }
-$('#copyCode').onclick = () => { const url = location.origin + '/?room=' + (S && S.code); (navigator.clipboard ? navigator.clipboard.writeText(`邀请您加入「大富翁 · 世界银行」对局。房间号 ${S && S.code}，访问 ${url} 即可加入。`) : Promise.reject()).then(() => toast('邀请链接已复制'), () => toast('房间号：' + (S && S.code))); };
+$('#copyCode').onclick = () => { const url = location.origin + '/?room=' + (S && S.code); (navigator.clipboard ? navigator.clipboard.writeText(`邀请您加入「大富翁 · 世界银行」对局。\n房间号：${S && S.code}\n请复制以下链接，在 Safari 或 Chrome 浏览器中打开：\n${url}`) : Promise.reject()).then(() => toast('邀请链接已复制'), () => toast('房间号：' + (S && S.code))); };
 $('#lobbyPlayers').addEventListener('click', (e) => { if (e.target.closest('[data-copyinv]')) $('#copyCode').click(); });
+$('#cfgStart').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; const v = +b.dataset.sm, w = Math.max(GOAL(), WIN_OPTS.find((x) => x >= v * 20) || WIN_OPTS[WIN_OPTS.length - 1]); act('config', { startMoney: v, winCash: w }); };
+$('#cfgWin').onclick = (e) => { const b = e.target.closest('button'); if (b && !b.disabled) act('config', { startMoney: START(), winCash: +b.dataset.win }); };
 $('#copyRoom').onclick = () => { const c = S && S.code; if (!c) return; (navigator.clipboard ? navigator.clipboard.writeText(c) : Promise.reject()).then(() => toast('房间号已复制'), () => prompt('房间号', c)); };
 $('#colorPick').onclick = (e) => { const b = e.target.closest('button'); if (b && !b.classList.contains('taken')) act('look', { color: b.dataset.color }); };
 $('#iconPick').onclick = (e) => { const b = e.target.closest('button'); if (b && !b.classList.contains('taken')) act('look', { icon: b.dataset.icon }); };
@@ -1120,7 +1140,7 @@ function renderStateModal() {
   if (S.phase === 'end') {
     key = 'end';
     const w = pById(S.winner);
-    h = `<div class="trophy">🏆</div><h3 style="text-align:center">${esc(w.name)} ${S.ranking[0].won ? '成为首富' : '获得第一名'}</h3><p class="muted" style="text-align:center">👑 成为富翁：总资产达到 ${fmt(RULES.winCash)}，按达成先后排名；其余玩家按总资产排名</p><div class="rank">${S.ranking.map((r, i) => { const p = pById(r.id); return `<div style="animation-delay:${i * 0.12}s"><span>${i + 1}</span>${avatar(p)}<span>${esc(p.name)}</span><span class="${r.won ? 'rk-win' : r.broke ? 'rk-lose' : ''}">${r.won ? '👑 达成目标时 ' + fmt(r.worth) : r.broke ? '💥 破产' : '结束时 ' + fmt(r.worth)}</span></div>`; }).join('')}</div>
+    h = `<div class="trophy">🏆</div><h3 style="text-align:center">${esc(w.name)} ${S.ranking[0].won ? '成为首富' : '获得第一名'}</h3><p class="muted" style="text-align:center">👑 成为富翁：总资产达到 ${fmt(GOAL())}，按达成先后排名；其余玩家按总资产排名</p><div class="rank">${S.ranking.map((r, i) => { const p = pById(r.id); return `<div style="animation-delay:${i * 0.12}s"><span>${i + 1}</span>${avatar(p)}<span>${esc(p.name)}</span><span class="${r.won ? 'rk-win' : r.broke ? 'rk-lose' : ''}">${r.won ? '👑 达成目标时 ' + fmt(r.worth) : r.broke ? '💥 破产' : '结束时 ' + fmt(r.worth)}</span></div>`; }).join('')}</div>
       <div class="act-row"><button class="btn primary" data-recap="1">📋 查看本局复盘</button><button class="btn" id="backLobby">返回大厅</button></div>`;
   } else if (pd && pd.kind === 'auction' && S.auction) {
     key = 'auction';

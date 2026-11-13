@@ -14,7 +14,7 @@
   <div class="scene" data-ms="2300"><div class="in-city" id="inCity"></div><h2>环游 38 座国际都市</h2><p>双圈地图 · 机场与港口 · 专属地标</p></div>
   <div class="scene" data-ms="2300"><div class="in-pay"><span>💳</span><span>📱</span><span>🏧</span></div><h2>三种支付方式</h2><p>刷卡 · 手机闪付 · ATM 现金</p></div>
   <div class="scene" data-ms="2100"><div class="in-ppl" id="inPpl"></div><h2>2 – 8 人实时联机</h2><p>拍卖 · 交易 · 表情互动 · 进程加速器</p></div>
-  <div class="scene" data-ms="2600"><div class="in-crown">👑</div><h2>总资产率先达到 <b>100B</b> 者成为首富</h2><p>首富胜出后 · 其余玩家继续对局 · 依次决出名次</p></div>
+  <div class="scene" data-ms="2600"><div class="in-crown">👑</div><h2>总资产率先达到 <b>目标金额</b> 者成为首富</h2><p>默认目标 100B · 房主可在房间内调整 · 其余玩家继续角逐名次</p></div>
   <button id="introSkip" class="btn sm">跳过片头</button>
 </div>
 <div class="lobby-bg" id="lobbyBg"></div>
@@ -67,8 +67,12 @@
         </div>
         <div id="lobbyPlayers" class="roster"></div>
         <div class="lb-rules">
-          <div class="lb-stats"><div><small>初始资金</small><b>300M</b></div><div><small>胜出目标</small><b>100B</b></div><div><small>通货膨胀</small><b>10 分钟</b></div></div>
-          <details class="goal"><summary>规则要点</summary><p><b>总资产</b>（现金 + 地产 + 房屋 + 股票 − 贷款）率先达到 <b>100B</b> 者成为首富并胜出，其余玩家继续对局，依次决出名次。破产者出局，其名下地产转为按半价出售的"法拍房"。每 10 分钟发生一次通货膨胀。对局开始后，其他玩家仍可输入房间号申请加入，经房主批准后即可加入。</p></details>
+          <div class="lb-cfg" id="cfgBox" hidden>
+            <div class="lb-cfg-row"><span>初始资金</span><div class="seg small" id="cfgStart"></div></div>
+            <div class="lb-cfg-row"><span>胜出目标</span><div class="seg small" id="cfgWin"></div></div>
+          </div>
+          <div class="lb-stats" id="cfgStats"><div><small>初始资金</small><b id="stStart">300M</b></div><div><small>胜出目标</small><b id="stWin">100B</b></div><div><small>通货膨胀</small><b>10 分钟</b></div></div>
+          <details class="goal"><summary>规则要点</summary><p id="ruleText"></p></details>
         </div>
         <div class="lb-foot"><button class="btn primary big" id="startBtn">开始游戏</button><p class="hint" id="waitHost" hidden>等待房主开始对局…</p></div>
       </div>

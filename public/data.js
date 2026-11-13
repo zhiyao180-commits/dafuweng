@@ -259,7 +259,11 @@
   const COLORS = ['#E6194B', '#F58231', '#FFD400', '#2FB344', '#00C2D1', '#2F5BEA', '#9B27D8', '#1F2328', '#8B4513', '#FF69B4', '#8FE000', '#008080', '#0A1F7A', '#9AA0A6', '#FF00E6', '#B89B00'];
   const TOKENS = ['🚗', '🎩', '🐶', '🚢', '✈️', '🦖', '🐱', '🚀', '🦊', '🐼', '🐯', '🦄', '🐸', '🐵', '🐧', '🦁', '👑', '💎', '🎸', '⚽️', '🍔', '🌈', '👻', '🤖'];
 
-  const api = { GROUPS, BOARD, LAYOUT, CHANCE, CHEST, RULES, COLORS, TOKENS, fmt, incomePerSec, EMOTES, WHEEL, TASKS, ASSETS };
+  // 房主可选的初始资金与胜出目标（单位 K）
+  const START_OPTS = [100000, 200000, 300000, 500000, 1000000];
+  const WIN_OPTS = [10000000, 30000000, 50000000, 100000000, 200000000, 500000000];
+
+  const api = { GROUPS, BOARD, LAYOUT, CHANCE, CHEST, RULES, COLORS, TOKENS, fmt, incomePerSec, EMOTES, WHEEL, TASKS, ASSETS, START_OPTS, WIN_OPTS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.GameData = api;
 })(typeof window !== 'undefined' ? window : globalThis);
