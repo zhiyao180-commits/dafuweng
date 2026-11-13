@@ -21,38 +21,58 @@
 <!-- 大厅 -->
 <section id="lobby" class="screen">
   <div class="lobby-card">
-    <div class="logo">
-      <div class="logo-mark">🏦</div>
-      <h1>大富翁</h1>
-      <p class="sub">世界银行 · 刷卡版 · 2–8 人</p>
-    </div>
-
-    <div id="entry">
-      <label class="field"><span>玩家昵称</span><input id="nameInput" maxlength="10" placeholder="例如 Jeremy"></label>
-      <div class="field"><span>游戏人数</span><div class="seg" id="sizePick"></div></div>
-      <label class="field"><span>房间创建密码（仅创建者需填写）</span><input id="passInput" type="password" placeholder="创建房间的密码"></label>
-      <button class="btn primary big" id="createBtn">创建房间</button>
-      <div class="or"><span>或</span></div>
-      <div class="row">
-        <input id="codeInput" maxlength="4" placeholder="房间号" class="code-input">
-        <button class="btn big" id="joinBtn">加入房间</button>
+    <div id="entry" class="lb-entry">
+      <aside class="lb-hero">
+        <div class="lb-brand"><div class="lb-mark">🏦</div><div><h1>大富翁</h1><p>世界银行 · 刷卡版</p></div></div>
+        <div class="lb-showcase" id="heroPawns"></div>
+        <ul class="lb-feats">
+          <li><b>2–8 人</b><span>实时联机</span></li>
+          <li><b>72 格</b><span>双环棋盘</span></li>
+          <li><b>100B</b><span>首富目标</span></li>
+        </ul>
+      </aside>
+      <div class="lb-form">
+        <div class="lb-form-head"><h2>开始对局</h2><p>输入昵称，加入好友的房间或创建新房间。</p></div>
+        <label class="field"><span>玩家昵称</span><input id="nameInput" maxlength="10" placeholder="例如 Jeremy" autocomplete="nickname"></label>
+        <div class="lb-tabs" id="entryTabs" role="tablist"><button data-tab="join" role="tab">加入房间</button><button data-tab="create" role="tab">创建房间</button><i class="lb-tab-pill"></i></div>
+        <div class="lb-pane" data-pane="join">
+          <label class="field"><span>房间号</span><input id="codeInput" maxlength="4" placeholder="4 位房间号" class="code-input" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
+          <button class="btn primary big" id="joinBtn">加入房间</button>
+          <p class="lb-note">对局开始后加入，需经房主批准。</p>
+        </div>
+        <div class="lb-pane" data-pane="create" hidden>
+          <div class="field"><span>对局人数</span><div class="seg" id="sizePick"></div></div>
+          <label class="field"><span>创建密码</span><input id="passInput" type="password" placeholder="仅房主需要填写" autocomplete="current-password"></label>
+          <button class="btn primary big" id="createBtn">创建房间</button>
+        </div>
+        <p class="err" id="lobbyErr" role="alert"></p>
       </div>
     </div>
 
-    <div id="room" hidden>
-      <div class="room-top"><div class="room-code">房间号 <b id="roomCode"></b></div><button class="btn sm" id="copyCode">🔗 复制邀请链接</button></div>
-      <div class="stage3d"><div class="spot"></div><div class="ped"><div class="ped-pawn" id="myPawn"></div><div class="ped-disc"></div></div><div class="stage-name" id="myName"></div></div>
-      <div class="size-line"><span id="sizeText"></span><div class="seg small" id="sizeEdit"></div></div>
-      <div id="lobbyPlayers" class="seats"></div>
-      <div class="pickers">
-        <div><span class="lbl">选择颜色</span><div id="colorPick" class="pick color-pick"></div></div>
-        <div><span class="lbl">选择棋子</span><div id="iconPick" class="pick pawn-pick"></div></div>
+    <div id="room" class="lb-room" hidden>
+      <div class="lb-me">
+        <div class="lb-kicker">我的棋子</div>
+        <div class="stage3d"><div class="spot"></div><div class="ped"><div class="ped-pawn" id="myPawn"></div><div class="ped-disc"></div></div><div class="stage-name" id="myName"></div></div>
+        <div class="lb-pick"><div class="lb-pick-h"><span>颜色</span><small id="colorName"></small></div><div id="colorPick" class="pick color-pick"></div></div>
+        <div class="lb-pick"><div class="lb-pick-h"><span>棋子</span><small>已被选用的棋子不可选择</small></div><div id="iconPick" class="pick pawn-pick"></div></div>
       </div>
-      <details class="goal"><summary>🎯 对局目标与规则要点</summary><p>每位玩家初始资金 300M。<b>总资产</b>（现金 + 地产 + 房屋 + 股票 − 贷款）率先达到 <b>100B</b> 者成为首富并胜出，其余玩家继续对战，依次决出名次。破产者出局，其名下地产转为按半价出售的"法拍房"。每 10 分钟发生一次通货膨胀。对局开始后，其他玩家仍可输入房间号申请加入，经房主批准后即可加入。</p></details>
-      <button class="btn primary big" id="startBtn">开始游戏</button>
-      <p class="hint" id="waitHost" hidden>等待房主开始对局…</p>
+      <div class="lb-info">
+        <div class="lb-code">
+          <div class="lb-code-l"><div class="lb-kicker">房间号</div><b id="roomCode"></b></div>
+          <div class="lb-code-btns"><button class="btn sm" id="copyRoom">复制房间号</button><button class="btn sm primary" id="copyCode">复制邀请链接</button></div>
+        </div>
+        <div class="lb-cap">
+          <div class="lb-cap-row"><span id="sizeText"></span><div class="lb-size" id="sizeWrap"><small>人数上限</small><div class="seg small" id="sizeEdit"></div></div></div>
+          <div class="lb-bar"><i id="capBar"></i></div>
+        </div>
+        <div id="lobbyPlayers" class="roster"></div>
+        <div class="lb-rules">
+          <div class="lb-stats"><div><small>初始资金</small><b>300M</b></div><div><small>胜出目标</small><b>100B</b></div><div><small>通货膨胀</small><b>10 分钟</b></div></div>
+          <details class="goal"><summary>规则要点</summary><p><b>总资产</b>（现金 + 地产 + 房屋 + 股票 − 贷款）率先达到 <b>100B</b> 者成为首富并胜出，其余玩家继续对局，依次决出名次。破产者出局，其名下地产转为按半价出售的"法拍房"。每 10 分钟发生一次通货膨胀。对局开始后，其他玩家仍可输入房间号申请加入，经房主批准后即可加入。</p></details>
+        </div>
+        <div class="lb-foot"><button class="btn primary big" id="startBtn">开始游戏</button><p class="hint" id="waitHost" hidden>等待房主开始对局…</p></div>
+      </div>
     </div>
-    <p class="err" id="lobbyErr"></p>
   </div>
   <footer class="credit">Designed by Jeremy</footer>
 </section>

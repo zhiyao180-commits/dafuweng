@@ -181,6 +181,20 @@ $('#passInput').value = localStorage.getItem('dfw_pass') || '';
 let chosenSize = +(localStorage.getItem('dfw_size') || 4);
 function drawSizePick() { $('#sizePick').innerHTML = [2, 3, 4, 5, 6, 7, 8].map((n) => `<button data-n="${n}" class="${n === chosenSize ? 'on' : ''}">${n}</button>`).join(''); }
 drawSizePick();
+// 入口选项卡：加入房间 / 创建房间
+function setEntryTab(t) {
+  const box = $('#entryTabs'); box.dataset.on = t; localStorage.setItem('dfw_tab', t);
+  box.querySelectorAll('button').forEach((b) => { b.classList.toggle('on', b.dataset.tab === t); b.setAttribute('aria-selected', b.dataset.tab === t); });
+  document.querySelectorAll('.lb-pane').forEach((x) => (x.hidden = x.dataset.pane !== t));
+  $('#lobbyErr').textContent = '';
+}
+$('#entryTabs').onclick = (e) => { const b = e.target.closest('button'); if (b) setEntryTab(b.dataset.tab); };
+setEntryTab(new URLSearchParams(location.search).get('room') ? 'join' : localStorage.getItem('dfw_tab') || (localStorage.getItem('dfw_pass') ? 'create' : 'join'));
+$('#nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') (($('#entryTabs').dataset.on === 'create') ? $('#createBtn') : $('#joinBtn')).click(); });
+$('#passInput').addEventListener('keydown', (e) => e.key === 'Enter' && $('#createBtn').click());
+$('#codeInput').addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+$('#heroPawns').innerHTML = [['#2F5BEA', '🎩', 'l'], ['#E6194B', '🚗', 'c'], ['#FFD400', '🐶', 'r']].map(([c, t, k]) => `<div class="hp hp-${k}">${pawnSVG(c, t, 'hero')}<i></i></div>`).join('');
+const COLOR_NAME = { '#E6194B': '绯红', '#F58231': '橙色', '#FFD400': '明黄', '#2FB344': '翠绿', '#00C2D1': '湖蓝', '#2F5BEA': '宝蓝', '#9B27D8': '紫罗兰', '#1F2328': '曜石黑', '#8B4513': '赭石', '#FF69B4': '粉红', '#8FE000': '青柠', '#008080': '孔雀绿', '#0A1F7A': '藏青', '#9AA0A6': '银灰', '#FF00E6': '洋红', '#B89B00': '古金' };
 $('#sizePick').onclick = (e) => { const b = e.target.closest('button'); if (b) { chosenSize = +b.dataset.n; localStorage.setItem('dfw_size', chosenSize); drawSizePick(); } };
 $('#sizeEdit').onclick = (e) => { const b = e.target.closest('button'); if (b && !b.disabled) act('size', { n: +b.dataset.n }); };
 function enter(res) {
@@ -237,22 +251,26 @@ function renderLobby() {
   $('#roomCode').textContent = S.code;
   const m = me(), host = m && m.host, n = S.players.length, max = S.maxPlayers;
   // 舞台：自己的棋子放在转台上
-  if (m) { const k = m.color + m.icon, st = $('#myPawn'); if (st._k !== k) { const first = !st._k; st._k = k; st.innerHTML = pawnSVG(m.color, m.icon, 'big'); if (!first) { st.animate([{ transform: 'rotateY(0) scale(1)' }, { transform: 'rotateY(180deg) scale(1.15)', offset: 0.5 }, { transform: 'rotateY(360deg) scale(1)' }], { duration: 650, easing: 'cubic-bezier(.3,.7,.3,1)' }); Snd.plus(); } } $('#myName').innerHTML = `${esc(m.name)}${host ? ' <span class="crown">👑 房主</span>' : ''}`; $('.stage3d').style.setProperty('--pc', m.color); }
+  if (m) { const k = m.color + m.icon, st = $('#myPawn'); if (st._k !== k) { const first = !st._k; st._k = k; st.innerHTML = pawnSVG(m.color, m.icon, 'big'); if (!first) { st.animate([{ transform: 'rotateY(0) scale(1)' }, { transform: 'rotateY(180deg) scale(1.15)', offset: 0.5 }, { transform: 'rotateY(360deg) scale(1)' }], { duration: 650, easing: 'cubic-bezier(.3,.7,.3,1)' }); Snd.plus(); } } $('#myName').innerHTML = `${esc(m.name)}${host ? ' <span class="crown">👑 房主</span>' : ''}`; $('.stage3d').style.setProperty('--pc', m.color); $('.lb-me').style.setProperty('--pc', m.color); $('#colorName').textContent = '当前：' + (COLOR_NAME[m.color] || ''); }
   // 座位
-  const seats = S.players.map((p) => { const fresh = !seenSeat.has(p.id); seenSeat.add(p.id); return `<div class="seat ${p.id === myId ? 'me' : ''} ${fresh ? 'fresh' : ''}" style="--pc:${p.color}"><div class="seat-glow"></div>${pawnSVG(p.color, p.icon, 'mini')}<div class="seat-n">${esc(p.name)}</div><div class="seat-t">${p.host ? '👑 房主' : p.id === myId ? '我' : '已就位'}</div>${host && !p.host ? `<button class="lp-kick" data-kick="${p.id}" title="移出">✕</button>` : ''}</div>`; }).join('')
-    + Array.from({ length: Math.max(0, max - n) }, (_, k) => `<div class="seat empty"><div class="seat-hole"><span>${n + k + 1}</span></div><div class="seat-n">等待玩家加入…</div></div>`).join('');
-  const lp = $('#lobbyPlayers'); if (lp._h !== seats) { lp._h = seats; lp.innerHTML = seats; lp.querySelectorAll('.seat.fresh').forEach((x) => setTimeout(() => x.classList.remove('fresh'), 900)); }
-  $('#colorPick').innerHTML = COLORS.map((c) => { const taken = S.players.some((p) => p.color === c && p.id !== myId); return `<button data-color="${c}" class="${m && m.color === c ? 'on' : ''} ${taken ? 'taken' : ''}" style="--c:${c}" title="${taken ? '已被选择' : ''}"></button>`; }).join('');
+  const seats = S.players.map((p, k) => { const fresh = !seenSeat.has(p.id); seenSeat.add(p.id); const tags = (p.host ? '<span class="rs-tag host">房主</span>' : '') + (p.id === myId ? '<span class="rs-tag me">我</span>' : ''); return `<div class="rs ${p.id === myId ? 'me' : ''} ${fresh ? 'fresh' : ''}" style="--pc:${p.color}"><span class="rs-n">${k + 1}</span>${pawnSVG(p.color, p.icon, 'mini')}<div class="rs-t"><b>${esc(p.name)}</b>${tags}</div><span class="rs-st ${p.connected === false ? 'off' : ''}">${p.connected === false ? '离线' : '已就位'}</span>${host && !p.host ? `<button class="rs-kick" data-kick="${p.id}" title="将 ${esc(p.name)} 移出房间" aria-label="移出">✕</button>` : ''}</div>`; }).join('')
+    + Array.from({ length: Math.max(0, max - n) }, (_, k) => `<div class="rs empty"><span class="rs-n">${n + k + 1}</span><span class="rs-hole"></span><div class="rs-t"><b>等待玩家加入</b></div><span class="rs-st">空位</span></div>`).join('')
+    + (n < max ? `<div class="rs-invite"><div class="rs-invite-t"><small>好友打开以下链接即可加入，尚余 ${max - n} 个空位</small><code>${esc(location.host + '/?room=' + S.code)}</code></div><button class="btn sm" data-copyinv="1">复制</button></div>` : '');
+  const lp = $('#lobbyPlayers'); if (lp._h !== seats) { lp._h = seats; lp.innerHTML = seats; lp.querySelectorAll('.rs.fresh').forEach((x) => setTimeout(() => x.classList.remove('fresh'), 900)); }
+  $('#colorPick').innerHTML = COLORS.map((c) => { const taken = S.players.some((p) => p.color === c && p.id !== myId); return `<button data-color="${c}" class="${m && m.color === c ? 'on' : ''} ${taken ? 'taken' : ''}" style="--c:${c}" title="${(COLOR_NAME[c] || '') + (taken ? '（已被选择）' : '')}" aria-label="${COLOR_NAME[c] || c}"></button>`; }).join('');
   const ic = TOKENS.map((c) => { const taken = S.players.some((p) => p.icon === c && p.id !== myId); return `<button data-icon="${c}" class="${m && m.icon === c ? 'on' : ''} ${taken ? 'taken' : ''}">${pawnSVG(m ? m.color : '#888', c, 'pick')}</button>`; }).join('');
   const ip = $('#iconPick'), ik = (m ? m.color + m.icon : '') + S.players.map((p) => p.icon).join(); if (ip._k !== ik) { ip._k = ik; ip.innerHTML = ic; }
-  $('#sizeText').innerHTML = `<b>${n}</b> / ${max} 人已就位`;
-  $('#sizeEdit').hidden = !host;
-  if (host) $('#sizeEdit').innerHTML = [2, 3, 4, 5, 6, 7, 8].map((k) => `<button data-n="${k}" class="${k === max ? 'on' : ''}" ${k < n ? 'disabled' : ''}>${k}人</button>`).join('');
+  $('#sizeText').innerHTML = `已就位 <b>${n}</b><em> / ${max}</em>`;
+  $('#capBar').style.width = Math.min(100, n / max * 100) + '%';
+  $('#sizeWrap').hidden = !host;
+  if (host) $('#sizeEdit').innerHTML = [2, 3, 4, 5, 6, 7, 8].map((k) => `<button data-n="${k}" class="${k === max ? 'on' : ''}" ${k < n ? 'disabled' : ''}>${k}</button>`).join('');
   $('#startBtn').hidden = !host; $('#waitHost').hidden = host;
   $('#startBtn').disabled = n < 2;
   $('#startBtn').textContent = n < 2 ? '至少需要 2 名玩家' : n < max ? `人数未满，立即开始（${n} 人）` : `开始游戏（${n} 人）`;
 }
 $('#copyCode').onclick = () => { const url = location.origin + '/?room=' + (S && S.code); (navigator.clipboard ? navigator.clipboard.writeText(`邀请您加入「大富翁 · 世界银行」对局。房间号 ${S && S.code}，访问 ${url} 即可加入。`) : Promise.reject()).then(() => toast('邀请链接已复制'), () => toast('房间号：' + (S && S.code))); };
+$('#lobbyPlayers').addEventListener('click', (e) => { if (e.target.closest('[data-copyinv]')) $('#copyCode').click(); });
+$('#copyRoom').onclick = () => { const c = S && S.code; if (!c) return; (navigator.clipboard ? navigator.clipboard.writeText(c) : Promise.reject()).then(() => toast('房间号已复制'), () => prompt('房间号', c)); };
 $('#colorPick').onclick = (e) => { const b = e.target.closest('button'); if (b && !b.classList.contains('taken')) act('look', { color: b.dataset.color }); };
 $('#iconPick').onclick = (e) => { const b = e.target.closest('button'); if (b && !b.classList.contains('taken')) act('look', { icon: b.dataset.icon }); };
 
