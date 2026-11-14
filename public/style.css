@@ -1819,3 +1819,29 @@ body.phone .bt-body, body.phone .ln-body { grid-template-columns: 1fr; }
 #lobby .stage3d { height: clamp(160px, 29vh, 220px); }
 .lb-showcase .pawn.hero { width: 96px; } .lb-showcase .hp-c .pawn.hero { width: 144px; }
 @media (max-width: 760px) { .lb-showcase .pawn.hero { width: 68px; } .lb-showcase .hp-c .pawn.hero { width: 104px; } #lobby .ped-pawn, #lobby .ped-pawn .pawn.big { width: 120px; } #lobby .stage3d { height: 176px; } #lobby .ped { height: 160px; } }
+
+/* ====== v23：窄屏时「对局记录 / 我的账本」改为单栏切换，避免文字挤成竖排 ====== */
+.log-panel { container-type: inline-size; container-name: lp; }
+.lg-head > span { white-space: nowrap; flex: none; }
+.lg-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+.lg-tabs::-webkit-scrollbar { display: none; }
+.lg-tabs button { white-space: nowrap; flex: none; }
+.lg-sw { display: none; flex: none; border: 0; cursor: pointer; padding: 2px 8px; border-radius: 7px; font: inherit; font-size: 11px; font-weight: 700; color: var(--blue); background: rgba(10,111,224,.1); white-space: nowrap; }
+.lg-sw:hover { background: rgba(10,111,224,.18); }
+@container lp (max-width: 640px) {
+  .lg-sw { display: inline-block; }
+  .lg-head { gap: 6px; }
+  .lg-head > span { font-size: 13px; }
+  .lg-tabs { margin-left: auto; }
+  .lg-half + .lg-half { border-left: 0; border-top: 0; }
+  .lg-ledger { display: none; }
+  .log-panel[data-pane="ledger"] .lg-ledger { display: flex; }
+  .log-panel[data-pane="ledger"] .lg-log { display: none; }
+  .lg-head { padding-right: 26px; }
+}
+.as-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.as-t { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .as-t em { font-style: normal; font-weight: 500; color: var(--ink3); }
+.as-w { flex: none; white-space: nowrap; }
+#assets { container-type: inline-size; }
+@container (max-width: 380px) { .as-t em { display: none; } }
+.as-head { padding-right: 22px; }

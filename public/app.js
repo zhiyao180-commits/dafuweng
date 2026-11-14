@@ -290,6 +290,8 @@ $('#copyCode').onclick = () => { const url = location.origin + '/?room=' + (S &&
 $('#lobbyPlayers').addEventListener('click', (e) => { if (e.target.closest('[data-copyinv]')) $('#copyCode').click(); });
 $('#cfgStart').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; const v = +b.dataset.sm, w = Math.max(GOAL(), WIN_OPTS.find((x) => x >= v * 20) || WIN_OPTS[WIN_OPTS.length - 1]); act('config', { startMoney: v, winCash: w }); };
 $('#cfgWin').onclick = (e) => { const b = e.target.closest('button'); if (b && !b.disabled) act('config', { startMoney: START(), winCash: +b.dataset.win }); };
+document.addEventListener('click', (e) => { const b = e.target.closest('.lg-sw'); if (!b) return; const lp = b.closest('.log-panel'); lp.dataset.pane = b.dataset.pane; localStorage.setItem('dfw_lpane', b.dataset.pane); });
+if (localStorage.getItem('dfw_lpane')) document.querySelector('.log-panel').dataset.pane = localStorage.getItem('dfw_lpane');
 $('#copyRoom').onclick = () => { const c = S && S.code; if (!c) return; (navigator.clipboard ? navigator.clipboard.writeText(c) : Promise.reject()).then(() => toast('房间号已复制'), () => prompt('房间号', c)); };
 $('#colorPick').onclick = (e) => { const b = e.target.closest('button'); if (b && !b.classList.contains('taken')) act('look', { color: b.dataset.color }); };
 $('#iconPick').onclick = (e) => { const b = e.target.closest('button'); if (b && !b.classList.contains('taken')) act('look', { icon: b.dataset.icon }); };
@@ -739,7 +741,7 @@ function renderActions() {
   if (S.phase === 'end') h = `<div class="act-title">对局结束</div>`;
   else if (m.won) h = `<div class="act-title">👑 您已以第 ${m.won} 名胜出</div><div class="act-sub">其余玩家仍在对局中，您可继续观战</div>` + hostPanel(m);
   else if (m.bankrupt) h = `<div class="act-title">您已破产</div><div class="act-sub">您可继续观战</div>` + hostPanel(m);
-  else if (fxBusy) h = `<div class="act-title">${myTurn ? '您的回合' : esc(cur.name) + ' 的回合'}</div><div class="act-sub">…</div>`;
+  else if (fxBusy) h = `<div class="act-title">${myTurn ? '您的回合' : esc(cur.name) + ' 的回合'}</div><div class="act-sub">正在处理…</div>`;
   else if (pd && pd.kind === 'pay' && pd.payer === myId) {
     const to = pd.to === 'each' ? '每位玩家' : pd.to ? pById(pd.to).name : '银行';
     h = `<div class="act-title">需支付 ${fmt(pd.amount)}</div><div class="act-sub">${esc(pd.reason)} → ${esc(to)}</div>`;
@@ -788,7 +790,7 @@ function renderAssets() {
   const m = me(); if (!m) return;
   const list = Object.keys(S.props).map(Number).filter((i) => S.props[i].owner === myId);
   const st = (i) => S.props[i];
-  $('#assets').innerHTML = `<div class="panel-title"><span>持有地产（${list.length}）· 点按可建房或抵押</span><span>总资产 ${fmt(m.worth)}</span></div>` +
+  $('#assets').innerHTML = `<div class="panel-title as-head"><span class="as-t">持有地产（${list.length}）<em> · 点按可建房或抵押</em></span><span class="as-w">总资产 ${fmt(m.worth)}</span></div>` +
     (list.length ? `<div class="chips">${list.map((i) => `<div class="chip-p ${st(i).mortgaged ? 'mort' : ''}" data-deed="${i}"><i style="background:${sqColor(i)}"></i>${BOARD[i].name}${st(i).houses ? `<small>${st(i).houses === 5 ? '🏨' : '🏠' + st(i).houses}</small>` : ''}</div>`).join('')}</div>` : '<div class="act-sub" style="margin:0">暂无地产。抵达无主地产时可购入</div>') +
     (m.goojf.length ? `<div class="act-sub" style="margin-top:8px">🎟️ 出狱许可证 × ${m.goojf.length}</div>` : '') +
     (m.w ? `<div class="wallets"><span>💳 ${fmt(m.w.card)}</span><span>📱 ${fmt(m.w.phone)}</span><span>💵 ${fmt(m.w.cash)}</span><button class="btn sm" data-local="bank">🏦 银行兑换</button></div>` : '');
